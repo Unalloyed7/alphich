@@ -1,0 +1,21 @@
+{
+  "model_id": "intfloat/multilingual-e5-base",
+  "revision": "d128750597153bb5987e10b1c3493a34e5a4502a",
+  "dimension": 768,
+  "max_tokens": 512,
+  "pooling": "attention_mask_mean",
+  "normalization": "l2",
+  "format": "onnx_int8",
+  "files": [
+    {
+      "path": "model_qint8_avx512_vnni.onnx",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-base/resolve/d128750597153bb5987e10b1c3493a34e5a4502a/onnx/model_qint8_avx512_vnni.onnx",
+      "sha256": "2523551878658b305550d8759443822dbfda9ed9c8012ef2c354ba2c5b9de503"
+    },
+    {
+      "path": "tokenizer.json",
+      "url": "https://huggingface.co/intfloat/multilingual-e5-base/resolve/d128750597153bb5987e10b1c3493a34e5a4502a/tokenizer.json",
+      "sha256": "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626"
+    }
+  ]
+}

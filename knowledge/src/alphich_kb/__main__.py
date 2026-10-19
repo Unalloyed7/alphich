@@ -44,6 +44,32 @@ def main(argv=None):
     eval_parser = commands.add_parser("evaluate", help="Evaluate the lexical baseline on annotated questions")
     eval_parser.add_argument("--corpus-dir", required=True)
     eval_parser.add_argument("--cases", default="knowledge/eval_cases.json")
+    encoder_parser = commands.add_parser("fetch-encoder", help="Download the pinned local E5 ONNX model")
+    encoder_parser.add_argument("--model-manifest", default="knowledge/embedding-model.json")
+    encoder_parser.add_argument("--model-dir", default="data/models/e5-base")
+    index_parser = commands.add_parser("index", help="Build an exact E5 index from the prepared corpus")
+    index_parser.add_argument("--corpus-dir", required=True)
+    index_parser.add_argument("--output-dir", required=True)
+    index_parser.add_argument("--batch-size", type=int, default=4)
+    retrieve_parser = commands.add_parser("retrieve", help="Hybrid bank evidence retrieval and bounded LLM context")
+    retrieve_parser.add_argument("--index-dir", required=True)
+    retrieve_parser.add_argument("--query", required=True)
+    retrieve_parser.add_argument("--as-of", required=True)
+    retrieve_parser.add_argument("--mode", choices=["lexical", "dense", "hybrid"], default="dense")
+    retrieve_parser.add_argument("--limit", type=int, default=5)
+    retrieve_parser.add_argument("--topic", action="append")
+    retrieve_parser.add_argument("--allow-document", action="append")
+    retrieve_parser.add_argument("--metric")
+    retrieve_parser.add_argument("--horizon")
+    retrieve_parser.add_argument("--max-context-chars", type=int, default=16000)
+    retrieve_parser.add_argument("--context-only", action="store_true")
+    compare_parser = commands.add_parser("compare-retrieval", help="Compare lexical, dense and hybrid on one index")
+    compare_parser.add_argument("--index-dir", required=True)
+    compare_parser.add_argument("--cases", default="knowledge/retrieval_cases.json")
+    for child in (index_parser, retrieve_parser, compare_parser):
+        child.add_argument("--model-dir", default="data/models/e5-base")
+        child.add_argument("--model-manifest", default="knowledge/embedding-model.json")
+        child.add_argument("--threads", type=int, default=2)
     args = parser.parse_args(argv)
     try:
         if args.command == "fetch":
@@ -64,10 +90,44 @@ def main(argv=None):
             from .search import select_claims
             verify_artifacts(args.corpus_dir)
             result = select_claims(read_jsonl(Path(args.corpus_dir) / "claims.jsonl"), args.as_of, args.metric, args.horizon)
-        else:
+        elif args.command == "evaluate":
             from .evaluate import evaluate
             result = evaluate(args.corpus_dir, args.cases)
-    except (KnowledgeError, OSError, ValueError, KeyError) as error:
+        elif args.command == "fetch-encoder":
+            from .common import safe_child
+            from .fetch import download
+            config = read_json(args.model_manifest)
+            for item in config["files"]:
+                download(item["url"], safe_child(args.model_dir, item["path"]), item["sha256"])
+            result = {"status": "checksums_verified", "model_id": config["model_id"], "revision": config["revision"]}
+        elif args.command == "index":
+            from .embeddings import E5Encoder
+            from .index import build_index
+            encoder = E5Encoder(args.model_dir, args.model_manifest, args.threads)
+            result = build_index(args.corpus_dir, args.output_dir, encoder, args.batch_size)
+        elif args.command == "retrieve":
+            from .embeddings import E5Encoder, EncoderUnavailable
+            from .retriever import BankRetriever, RetrievalScope
+            encoder = None
+            if args.mode != "lexical":
+                try:
+                    encoder = E5Encoder(args.model_dir, args.model_manifest, args.threads)
+                except EncoderUnavailable:
+                    pass  # The response records lexical_fallback; it is never labelled hybrid.
+            retriever = BankRetriever(args.index_dir, encoder)
+            allowed = args.allow_document if args.allow_document is not None else retriever.documents.keys()
+            scope = RetrievalScope(args.as_of, frozenset(allowed))
+            result = retriever.retrieve(args.query, scope, mode=args.mode, limit=args.limit, topics=args.topic,
+                                        metric=args.metric, horizon=args.horizon, max_context_chars=args.max_context_chars)
+            if args.context_only:
+                from .context import context_for_model
+                result = context_for_model(result)
+        else:
+            from .embeddings import E5Encoder
+            from .compare import compare_retrieval
+            encoder = E5Encoder(args.model_dir, args.model_manifest, args.threads)
+            result = compare_retrieval(args.index_dir, args.cases, encoder)
+    except (KnowledgeError, OSError, ValueError, KeyError, ImportError) as error:
         print(f"alphich-kb: {error}", file=sys.stderr)
         return 2
     print(json.dumps(result, ensure_ascii=False, indent=2))

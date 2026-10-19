@@ -34,9 +34,18 @@ Russian/English OCR language data are from tessdata_fast 4.1.0 (Apache-2.0):
 https://github.com/tesseract-ocr/tessdata_fast/tree/4.1.0
 The multilingual-e5-base tokenizer is downloaded from a pinned model revision:
 https://huggingface.co/intfloat/multilingual-e5-base
-The model card declares MIT. No E5 model weights or generative models are
-included or run by the current preparation package. Asset URLs and checksums
-are in knowledge/assets.json; downloaded assets are not committed to Git.
+The model card declares MIT. The optional retrieval package runs the official
+ONNX INT8 export locally; its revision and checksums are recorded separately in
+knowledge/embedding-model.json. Model weights are not committed to Git.
+No generative model is included or invoked by this package. OCR/tokenizer
+asset URLs and checksums are in knowledge/assets.json.
+
+Optional retrieval dependency versions are in knowledge/requirements-rag.lock:
+- ONNX Runtime: MIT (https://github.com/microsoft/onnxruntime)
+- NumPy: BSD-3-Clause; retain its bundled dependency notices
+- coloredlogs and humanfriendly: MIT
+- flatbuffers: Apache-2.0; protobuf: BSD-3-Clause
+- sympy and mpmath: BSD licenses; retain their bundled license notices
 
 Bank PDF files are external organizer-provided runtime inputs. Source URLs,
 publication metadata and checksums are in knowledge/corpus.json. Rights remain

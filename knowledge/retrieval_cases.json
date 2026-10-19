@@ -1,0 +1,32 @@
+{
+  "scope": "Open development set; page relevance labels and deterministic control cases, not held-out business evaluation",
+  "cases": [
+    {"id":"rate_exact","query":"ключевая ставка прогноз","as_of":"2026-10-20","expected_pages":[["policy_rate_20260911",1]]},
+    {"id":"rate_paraphrase","query":"Что банк ждёт от стоимости денег к концу года?","as_of":"2026-10-20","expected_pages":[["policy_rate_20260911",1]]},
+    {"id":"rate_july_source","query":"Какую ставку ожидали на конец 2026 года в июльском макрообзоре?","as_of":"2026-08-01","expected_pages":[["macro_1h2026",1]]},
+    {"id":"labor_exact","query":"рынок труда зарплаты","as_of":"2026-10-20","expected_pages":[["macro_7m2026",1]]},
+    {"id":"labor_paraphrase","query":"Почему компаниям по-прежнему сложно нанимать сотрудников?","as_of":"2026-10-20","expected_pages":[["macro_7m2026",1]]},
+    {"id":"demand_exact","query":"потребление розничная торговля","as_of":"2026-10-20","expected_pages":[["consumption_20260805",1]]},
+    {"id":"demand_paraphrase","query":"Будут ли покупатели меньше наращивать расходы к концу года?","as_of":"2026-10-20","expected_pages":[["consumption_20260805",1]]},
+    {"id":"cars","query":"Как меняется спрос на новые автомобили?","as_of":"2026-10-20","expected_pages":[["consumption_20260805",1],["macro_7m2026",1]]},
+    {"id":"fuel_exact","query":"бензин инфляция","as_of":"2026-10-20","expected_pages":[["inflation_20260902",1]]},
+    {"id":"fuel_paraphrase","query":"Может ли подорожание топлива снова разогнать цены?","as_of":"2026-10-20","expected_pages":[["inflation_20260902",1]]},
+    {"id":"weekly_prices","query":"Какой рост цен банк ожидал на неделе с 1 по 7 сентября?","as_of":"2026-10-20","expected_pages":[["inflation_20260902",1]]},
+    {"id":"fx_forecast","query":"Прогноз курса рубля к доллару на конец 2026 года","as_of":"2026-10-20","expected_pages":[["macro_1h2026",1]]},
+    {"id":"gdp_forecast","query":"Почему банк ухудшил ожидания роста ВВП на этот год?","as_of":"2026-10-20","expected_pages":[["macro_1h2026",1],["macro_1h2026",3]]},
+    {"id":"bond_segments","query":"Чем отличаются облигации с фиксированным и плавающим купоном?","as_of":"2026-10-20","expected_pages":[["fi_strategy_20260722",2]]},
+    {"id":"floaters","query":"Почему флоутеры считают защитой в период неопределённости?","as_of":"2026-10-20","expected_pages":[["fi_strategy_20260722",24],["fi_strategy_20260722",6]]},
+    {"id":"ofz","query":"Как бюджетная неопределённость влияет на доходности ОФЗ осенью?","as_of":"2026-10-20","expected_pages":[["bond_20260914",1]]},
+    {"id":"historical_steel","query":"Как рост цен на сталь влияет на результаты металлургов?","as_of":"2021-05-01","expected_pages":[["steel_20210415",1]]},
+    {"id":"undated_gold","query":"золото резервы центральных банков","as_of":"2026-10-20","allowed_documents":["gold_aug2026"],"expected_no_hits":true},
+    {"id":"no_permissions","query":"прогноз ставки","as_of":"2026-10-20","allowed_documents":[],"expected_no_hits":true},
+    {"id":"no_future_sources","query":"прогноз ставки","as_of":"2020-01-01","expected_no_hits":true},
+    {"id":"july_forecast","query":"Какую ставку банк ожидает к концу 2026 года?","as_of":"2026-08-01","metric":"policy_rate","horizon":"2026-12-31","expected_claims":["macro_july_rate_2026"],"expected_bank_status":"found"},
+    {"id":"revised_forecast","query":"Какую ставку банк ожидает к концу 2026 года?","as_of":"2026-10-20","metric":"policy_rate","horizon":"2026-12-31","expected_claims":["policy_september_rate_2026"],"expected_bank_status":"found"},
+    {"id":"other_horizon","query":"Какой прогноз на следующий год?","as_of":"2026-10-20","metric":"policy_rate","horizon":"2027-12-31","expected_claims":["policy_september_rate_2027"],"expected_bank_status":"found"},
+    {"id":"expired_week","query":"Какой прогноз недельной инфляции?","as_of":"2026-10-20","metric":"consumer_inflation_weekly","horizon":"2026-09-01/2026-09-07","expected_claims":["inflation_week_forecast"],"expected_bank_status":"historical_only"},
+    {"id":"no_verified_wheat_claim","query":"Какой прогноз урожая пшеницы?","as_of":"2026-10-20","metric":"wheat_production","horizon":"2026-12-31","expected_claims":[],"expected_bank_status":"not_found"},
+    {"id":"revision_beyond_top_k","query":"корпоративные флоутеры","as_of":"2026-10-20","limit":1,"metric":"policy_rate","horizon":"2026-12-31","expected_claims":["policy_september_rate_2026"],"expected_bank_status":"found"},
+    {"id":"restricted_revision","query":"прогноз ключевой ставки","as_of":"2026-10-20","allowed_documents":["macro_1h2026"],"metric":"policy_rate","horizon":"2026-12-31","expected_claims":["macro_july_rate_2026"],"expected_bank_status":"found"}
+  ]
+}

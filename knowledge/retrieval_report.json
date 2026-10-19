@@ -1,0 +1,2727 @@
+{
+  "scope": "open_development_set_not_holdout",
+  "cases_sha256": "073aab32029ec4ee215c92bcbf5108c8b2acd44c76ea75c9a112e2d624264d00",
+  "index_version": "307a59cc852ee86c3e0da2df363ad7c58483430e053221848f1038217295c320",
+  "corpus_version": "ca4780bfb8fa975b6bd016573db1781c71a43227f5690ced20ad23ebe02d98e1",
+  "embedding_space_id": "embedding_space_db5f177d683951ef15594e1d39605b2d17181bc1fb8a98f14d34c4ada031615f",
+  "encoder": {
+    "model_id": "intfloat/multilingual-e5-base",
+    "revision": "d128750597153bb5987e10b1c3493a34e5a4502a",
+    "files": {
+      "model_qint8_avx512_vnni.onnx": "2523551878658b305550d8759443822dbfda9ed9c8012ef2c354ba2c5b9de503",
+      "tokenizer.json": "62c24cdc13d4c9952d63718d6c9fa4c287974249e16b7ade6d5a85e7bbb75626"
+    },
+    "format": "onnx_int8",
+    "dimension": 768,
+    "max_tokens": 512,
+    "pooling": "attention_mask_mean",
+    "normalization": "l2",
+    "prefixes": [
+      "query: ",
+      "passage: "
+    ],
+    "runtime": "onnxruntime==1.23.2",
+    "tokenizer_runtime": "tokenizers==0.21.4",
+    "numpy": "2.2.6",
+    "provider": "CPUExecutionProvider",
+    "implementation": "e5-onnx-v1"
+  },
+  "environment": {
+    "python": "3.13.11",
+    "system": "Darwin",
+    "machine": "arm64"
+  },
+  "timing": "one pass per mode; warm encoder; query cache cleared before each case; model/index load excluded",
+  "evaluation_peak_rss_bytes": 839729152,
+  "index_build": {
+    "encoding_seconds": 26.611088457982987,
+    "items": 158,
+    "batch_size": 4,
+    "dimension": 768
+  },
+  "modes": {
+    "lexical": {
+      "passed_cases": 22,
+      "total_cases": 27,
+      "page_hit_rate_at_5": 0.7058823529411765,
+      "mean_recall_at_5": 0.6470588235294118,
+      "mrr_at_5": 0.5196078431372548,
+      "mean_ndcg_at_5": 0.530807000840343,
+      "controls_passed": 10,
+      "controls_total": 10,
+      "p50_ms": 7.471,
+      "p95_ms": 9.627999999999998,
+      "results": [
+        {
+          "id": "rate_exact",
+          "elapsed_ms": 11.613,
+          "retrieval_run_id": "retrieval_9aab363cbdea942eb7f18b544b2ab03b0938cdf6cf0bf65c862087ab645c0e0d",
+          "actual_pages": [
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              19
+            ],
+            [
+              "bond_20260914",
+              4
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "rate_paraphrase",
+          "elapsed_ms": 8.921,
+          "retrieval_run_id": "retrieval_8d7f297f2dd47dc0af3ca6b74418bbbc1e4e6275b4a89ca15f616c54fec2b809",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "policy_rate_20260911",
+              2
+            ],
+            [
+              "consumption_20260805",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              24
+            ],
+            [
+              "fi_strategy_20260722",
+              16
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "rate_july_source",
+          "elapsed_ms": 5.998,
+          "retrieval_run_id": "retrieval_4216eb8713b163ab8326fdd566ea3a9e46f7715eb91661334f41ce9706265660",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              4
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "labor_exact",
+          "elapsed_ms": 7.15,
+          "retrieval_run_id": "retrieval_fee56c8bc19db67371a5605e2bb65d2299cad29bc06ab85ce8fc3320969d8d32",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "macro_7m2026",
+              3
+            ],
+            [
+              "macro_7m2026",
+              2
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.3333333333333333,
+          "ndcg_at_k": 0.5
+        },
+        {
+          "id": "labor_paraphrase",
+          "elapsed_ms": 8.166,
+          "retrieval_run_id": "retrieval_944bc299bec4e10fcdf22021287797cf0ab227513ae781fa258ce34f3fa203f8",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "steel_20210415",
+              2
+            ],
+            [
+              "bond_20260914",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "demand_exact",
+          "elapsed_ms": 7.788,
+          "retrieval_run_id": "retrieval_6894def5072a06d32907726b578439f93125c4acba2979d4a3d9aa9a094ca2a1",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "consumption_20260805",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "demand_paraphrase",
+          "elapsed_ms": 8.326,
+          "retrieval_run_id": "retrieval_e072593206203b20786150da71bdb1c709d1a5352cc26dedc6518c1bc78554f4",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              4
+            ],
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "cars",
+          "elapsed_ms": 7.602,
+          "retrieval_run_id": "retrieval_5bd8de8b81c2c31dfaa5cf8a1e0bb8b40ae588a6a998f656e0f1d576305d3c05",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              18
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 0.5,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.38685280723454163
+        },
+        {
+          "id": "fuel_exact",
+          "elapsed_ms": 7.028,
+          "retrieval_run_id": "retrieval_5c8966e7f36dd426a980c6b07b296230b044116ee4f38473be3b1835eb04bc84",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "inflation_20260902",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "fuel_paraphrase",
+          "elapsed_ms": 7.471,
+          "retrieval_run_id": "retrieval_2f7abff6fd02e5b297d3a7d9f363c6235e9f3a5f065951e2f825128739687b2d",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              19
+            ],
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              13
+            ],
+            [
+              "steel_20210415",
+              2
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "weekly_prices",
+          "elapsed_ms": 9.931,
+          "retrieval_run_id": "retrieval_d0fbf68bb013ee9bb0cf1b52731073cf6fb92feed86e77a966e6d61ca936181d",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "bond_20260914",
+              2
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "fx_forecast",
+          "elapsed_ms": 8.891,
+          "retrieval_run_id": "retrieval_0cef150b55ce84536611197fa9116172b4b37c8d7da114552a71449feb1af241",
+          "actual_pages": [
+            [
+              "bond_20260914",
+              4
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "steel_20210415",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "gdp_forecast",
+          "elapsed_ms": 8.807,
+          "retrieval_run_id": "retrieval_cf1704e651bf9ea40531a5ceda3754dfe728a8cb5843484cb093e9ab68465c49",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "recall_at_k": 0.5,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 0.6131471927654584
+        },
+        {
+          "id": "bond_segments",
+          "elapsed_ms": 8.804,
+          "retrieval_run_id": "retrieval_71a2063cd1e099818866b370bf9164239ef63e07ed69340aed62066a95d6bbb4",
+          "actual_pages": [
+            [
+              "bond_20260914",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ],
+            [
+              "fi_strategy_20260722",
+              21
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "fi_strategy_20260722",
+              2
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "floaters",
+          "elapsed_ms": 7.639,
+          "retrieval_run_id": "retrieval_9eb15acdeaeb47bc38135d009e893b89e73295dbc339f7acd8e5e6b69243715d",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              24
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              23
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              24
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "ofz",
+          "elapsed_ms": 7.949,
+          "retrieval_run_id": "retrieval_85dd4334d150b415bc7ed112a0801e05542118eb1f14d566fbfa1ed7d20a19c7",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              7
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ],
+            [
+              "fi_strategy_20260722",
+              19
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "bond_20260914",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "historical_steel",
+          "elapsed_ms": 1.404,
+          "retrieval_run_id": "retrieval_85611bedc6afd74c28f8d5a54db4f7986d0ff108e7345d3a56e0b1cb526c869e",
+          "actual_pages": [
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "steel_20210415",
+              2
+            ],
+            [
+              "steel_20210415",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "steel_20210415",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "undated_gold",
+          "elapsed_ms": 0.241,
+          "retrieval_run_id": "retrieval_76032032411735a988acd0cf72ef17411d01b1ac5205e174b85f5d09748591e2",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "no_permissions",
+          "elapsed_ms": 0.204,
+          "retrieval_run_id": "retrieval_126d923e79249f43898d54c55a05b9bae0b069802c065c0c41ef57f45e62b2b0",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "no_future_sources",
+          "elapsed_ms": 0.266,
+          "retrieval_run_id": "retrieval_5b194845105fc17940d44072527ea7b574fad39cf56a7eb9c0c2076a44a69b3b",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "july_forecast",
+          "elapsed_ms": 5.443,
+          "retrieval_run_id": "retrieval_7a393a31459284a7928afb5b0a3d65f4f54dcd518d4b3c0e4f5527ea48c2fc30",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "macro_july_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "revised_forecast",
+          "elapsed_ms": 7.681,
+          "retrieval_run_id": "retrieval_f730e624dd5ed785bcd9fc3caf1ecec8807185279862bb167640ba38f62abdbc",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "other_horizon",
+          "elapsed_ms": 7.239,
+          "retrieval_run_id": "retrieval_d1774e69792b6f6089ca5a95c782d7d9135954c57de68e53c07525dd19fc0659",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "steel_20210415",
+              1
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2027"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "expired_week",
+          "elapsed_ms": 7.026,
+          "retrieval_run_id": "retrieval_ae81cac060a0d70193d6d9dc1d6fdd1a2d873ac064141c956d55753dea3dd8f2",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "policy_rate_20260911",
+              2
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "inflation_week_forecast"
+          ],
+          "bank_view_status": "historical_only"
+        },
+        {
+          "id": "no_verified_wheat_claim",
+          "elapsed_ms": 6.802,
+          "retrieval_run_id": "retrieval_609a5b25d4edb3ed481c220a8af7d7ee6a68edf1f452c3a608c2ca5a653aada9",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [],
+          "bank_view_status": "not_found"
+        },
+        {
+          "id": "revision_beyond_top_k",
+          "elapsed_ms": 5.851,
+          "retrieval_run_id": "retrieval_ea3df314ff034035523afcae96717a307eecbfac23c8f871363626d23bf79999",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              24
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "restricted_revision",
+          "elapsed_ms": 1.269,
+          "retrieval_run_id": "retrieval_af51a1c077f9ede7774aed5ebb42cbbafbd1087bb38d565e7f81279d9f2d5061",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "macro_july_rate_2026"
+          ],
+          "bank_view_status": "found"
+        }
+      ]
+    },
+    "dense": {
+      "passed_cases": 26,
+      "total_cases": 27,
+      "page_hit_rate_at_5": 0.9411764705882353,
+      "mean_recall_at_5": 0.9117647058823529,
+      "mrr_at_5": 0.6313725490196079,
+      "mean_ndcg_at_5": 0.7016679048427278,
+      "controls_passed": 10,
+      "controls_total": 10,
+      "p50_ms": 8.055,
+      "p95_ms": 11.0709,
+      "results": [
+        {
+          "id": "rate_exact",
+          "elapsed_ms": 15.621,
+          "retrieval_run_id": "retrieval_f1723ca9ea9532fdb7c215877f5f3e15b05d7c97529f47edcd7882ace23734fc",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.2,
+          "ndcg_at_k": 0.38685280723454163
+        },
+        {
+          "id": "rate_paraphrase",
+          "elapsed_ms": 8.531,
+          "retrieval_run_id": "retrieval_c443c23e829f3e0afbdfde6d4f8c50ada147ab4c152743229f5c205aa6df18e6",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "consumption_20260805",
+              3
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "rate_july_source",
+          "elapsed_ms": 11.361,
+          "retrieval_run_id": "retrieval_4d643c241fabd42d371d232e8c1e2437e70272a8845da0b0179f9807582a3647",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              2
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "labor_exact",
+          "elapsed_ms": 5.89,
+          "retrieval_run_id": "retrieval_3891fe1090e0ba57ccddc22d544e3e192b7914b8ba0b95ce96a1807be66394de",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              24
+            ],
+            [
+              "macro_7m2026",
+              2
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "labor_paraphrase",
+          "elapsed_ms": 7.118,
+          "retrieval_run_id": "retrieval_f7aa0290d570118d153243acffd4311d697688e4303284a00ded28a023ee885f",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              23
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.2,
+          "ndcg_at_k": 0.38685280723454163
+        },
+        {
+          "id": "demand_exact",
+          "elapsed_ms": 7.15,
+          "retrieval_run_id": "retrieval_31f5fc8df6bbd2d8398fa55c8fc99f3fb6c674beeab3c64639fe6259ff710358",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "demand_paraphrase",
+          "elapsed_ms": 9.532,
+          "retrieval_run_id": "retrieval_a74eae937bad9722a3ca07fb129aa62eb41700e3746ae9d8f0be458bcf213348",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              18
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "cars",
+          "elapsed_ms": 7.145,
+          "retrieval_run_id": "retrieval_c58b8d905903dd923d17fea5fb23adaa3d3307a29dbdb7e1863c1c51394310f0",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "consumption_20260805",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6934264036172708
+        },
+        {
+          "id": "fuel_exact",
+          "elapsed_ms": 5.825,
+          "retrieval_run_id": "retrieval_e4aea9837ab59edc018485642e790c4afea25755df9a4181c87440ae60b745f9",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "inflation_20260902",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              13
+            ],
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "fuel_paraphrase",
+          "elapsed_ms": 8.366,
+          "retrieval_run_id": "retrieval_e70443a535f5a68a048147a3b0eb4a16492b48e7cd0df6388b15a885cd05f99a",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              13
+            ],
+            [
+              "macro_1h2026",
+              2
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "weekly_prices",
+          "elapsed_ms": 8.311,
+          "retrieval_run_id": "retrieval_1c8e8c4bfb354d446567c869bece5ea9ca1194f18df8edd462d6e655fba31d66",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "bond_20260914",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "fx_forecast",
+          "elapsed_ms": 7.142,
+          "retrieval_run_id": "retrieval_dd6db5be6bf5a6817b8f15216bcfad621066bf34803cfb2a186b2b3ef18f13e1",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              4
+            ],
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "gdp_forecast",
+          "elapsed_ms": 8.072,
+          "retrieval_run_id": "retrieval_3a849082fe07233d30c786821c5d81915a5049755c019e758250a29e5ac89e1c",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "recall_at_k": 0.5,
+          "reciprocal_rank": 0.3333333333333333,
+          "ndcg_at_k": 0.3065735963827292
+        },
+        {
+          "id": "bond_segments",
+          "elapsed_ms": 8.361,
+          "retrieval_run_id": "retrieval_c6c0446670ffc02a50a24b515992fa0f128383e0700e517683eda14e5f0bcfa7",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              15
+            ],
+            [
+              "fi_strategy_20260722",
+              2
+            ],
+            [
+              "bond_20260914",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              21
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "fi_strategy_20260722",
+              2
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "floaters",
+          "elapsed_ms": 9.534,
+          "retrieval_run_id": "retrieval_237ec3bb751cb7221eaa85f0812c6c9c66fc9c7ae01205fd2a0eec41f928dd80",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              24
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              21
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              24
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "ofz",
+          "elapsed_ms": 10.394,
+          "retrieval_run_id": "retrieval_165153caa132efcc2cf722fd2a56b38fe6cf87dd76e371f8ece29ac3c21c14a3",
+          "actual_pages": [
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              18
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "fi_strategy_20260722",
+              19
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "bond_20260914",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "historical_steel",
+          "elapsed_ms": 8.19,
+          "retrieval_run_id": "retrieval_992a7ddd9c4a5bb69fe57ae9210fafa72a46d090e0783596b2bf67a8ca039c8d",
+          "actual_pages": [
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "steel_20210415",
+              2
+            ],
+            [
+              "steel_20210415",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "steel_20210415",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "undated_gold",
+          "elapsed_ms": 0.049,
+          "retrieval_run_id": "retrieval_c19eaf552a8dd5314c65adedd0e4e1da2f95dfd798beee12a744495320e6ffaa",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "no_permissions",
+          "elapsed_ms": 0.025,
+          "retrieval_run_id": "retrieval_483de93bf1ae277ae6e44994082164b3756ffbb6cadc917ec27e56f5d73d917c",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "no_future_sources",
+          "elapsed_ms": 0.082,
+          "retrieval_run_id": "retrieval_d49d88091c0f7b2faa96f9ebfe4e53ba0ccf954ab8987546d7c513a4dafbbe30",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "july_forecast",
+          "elapsed_ms": 8.436,
+          "retrieval_run_id": "retrieval_024dbe45e7dd1d8e457fdef33140728d58ba8c01d845abaa8700eb0e05538318",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "fi_strategy_20260722",
+              11
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "macro_july_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "revised_forecast",
+          "elapsed_ms": 8.055,
+          "retrieval_run_id": "retrieval_1258d8c854ad218317227e22997136724e4f8a83dea12399aa976e75a1fc4961",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "fi_strategy_20260722",
+              11
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "other_horizon",
+          "elapsed_ms": 6.401,
+          "retrieval_run_id": "retrieval_9c29579eed24609c30c2fbc0da3970f36cc3306759a69de7f809284db63d662f",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ],
+            [
+              "macro_1h2026",
+              2
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2027"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "expired_week",
+          "elapsed_ms": 7.221,
+          "retrieval_run_id": "retrieval_c42ce3ded4dc56ea07b0a0f753360684215e1dcffbd076756e831e286dc82d27",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "inflation_20260902",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "inflation_week_forecast"
+          ],
+          "bank_view_status": "historical_only"
+        },
+        {
+          "id": "no_verified_wheat_claim",
+          "elapsed_ms": 9.506,
+          "retrieval_run_id": "retrieval_ffb3e5059a637059ed337ab27482ecfe49424c0ae4382fdc8329ec5dac2636a2",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              26
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [],
+          "bank_view_status": "not_found"
+        },
+        {
+          "id": "revision_beyond_top_k",
+          "elapsed_ms": 7.35,
+          "retrieval_run_id": "retrieval_d314bdba7b53c3dc40d4e8699825c3cad1c92d50003611f07dc50402147f2d27",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              24
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "restricted_revision",
+          "elapsed_ms": 6.176,
+          "retrieval_run_id": "retrieval_e14fcaa51367890e9b322cf49e000a09f173ef4f67b384319b7f91da9dd6552e",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_1h2026",
+              4
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "macro_july_rate_2026"
+          ],
+          "bank_view_status": "found"
+        }
+      ]
+    },
+    "hybrid": {
+      "passed_cases": 25,
+      "total_cases": 27,
+      "page_hit_rate_at_5": 0.8823529411764706,
+      "mean_recall_at_5": 0.8529411764705882,
+      "mrr_at_5": 0.6049019607843137,
+      "mean_ndcg_at_5": 0.6516732995507682,
+      "controls_passed": 10,
+      "controls_total": 10,
+      "p50_ms": 14.637,
+      "p95_ms": 17.4811,
+      "results": [
+        {
+          "id": "rate_exact",
+          "elapsed_ms": 12.895,
+          "retrieval_run_id": "retrieval_5c5f179ff351567df0b041ec4cf2e2c88d28424d68036720da7636776a97f53c",
+          "actual_pages": [
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "rate_paraphrase",
+          "elapsed_ms": 17.332,
+          "retrieval_run_id": "retrieval_05f17dc794495fd87594ae300c7434ce66c5532d8bfcee39cc873eea704b8efe",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              2
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "consumption_20260805",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.2,
+          "ndcg_at_k": 0.38685280723454163
+        },
+        {
+          "id": "rate_july_source",
+          "elapsed_ms": 17.395,
+          "retrieval_run_id": "retrieval_eb0f6553a075d07f84db7d351fce9e813a8a992b9ba4d1e8d74d8cd13dbc5bd9",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "macro_1h2026",
+              4
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "labor_exact",
+          "elapsed_ms": 13.5,
+          "retrieval_run_id": "retrieval_e0fea10ebb005acb6543b4d58f6a1214d51b42e73249c8838bf58e6ff0296158",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "macro_7m2026",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "labor_paraphrase",
+          "elapsed_ms": 14.54,
+          "retrieval_run_id": "retrieval_624c52ce11a181c4b587573a57ab4c25acb1f664f13b1c936b8f697418e9b5a8",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "macro_7m2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "fi_strategy_20260722",
+              23
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "demand_exact",
+          "elapsed_ms": 14.389,
+          "retrieval_run_id": "retrieval_f9ba805562929ae98675a5c085ebd6c2f5ae625987a2ca66eac02bdf8cceec96",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "consumption_20260805",
+              3
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "demand_paraphrase",
+          "elapsed_ms": 17.166,
+          "retrieval_run_id": "retrieval_f094c8fadadf4552ebe42ba3f9837e5da77a0879865696d6cead0ce157854a87",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_7m2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": false,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "recall_at_k": 0.0,
+          "reciprocal_rank": 0,
+          "ndcg_at_k": 0.0
+        },
+        {
+          "id": "cars",
+          "elapsed_ms": 14.679,
+          "retrieval_run_id": "retrieval_c751c17d5f2b212c159e6a0bfd8645d041eb0ece9f1e8bc58b8b5179d96304fe",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              18
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6240505200038379
+        },
+        {
+          "id": "fuel_exact",
+          "elapsed_ms": 12.403,
+          "retrieval_run_id": "retrieval_f0da31dea9246b42a9f3ddb6965efd979e35ba16d89e832949105616e4475090",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "inflation_20260902",
+              2
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "fuel_paraphrase",
+          "elapsed_ms": 15.189,
+          "retrieval_run_id": "retrieval_16e6170ba28d5ff3521185b46dd6c30402ebe40757d8a318872d4bfe71db31ef",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              19
+            ],
+            [
+              "fi_strategy_20260722",
+              13
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "weekly_prices",
+          "elapsed_ms": 16.747,
+          "retrieval_run_id": "retrieval_e5a8344139cce8bf0554568e94e9279afd7b0a61a7d8b970a700645eec265e16",
+          "actual_pages": [
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "bond_20260914",
+              3
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "steel_20210415",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "inflation_20260902",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "fx_forecast",
+          "elapsed_ms": 14.637,
+          "retrieval_run_id": "retrieval_8ebbf128962adaade5de8b5c1fba9871de2d05a6f0bb1ae53c056820858c0678",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              4
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.5,
+          "ndcg_at_k": 0.6309297535714575
+        },
+        {
+          "id": "gdp_forecast",
+          "elapsed_ms": 15.512,
+          "retrieval_run_id": "retrieval_70e2c9750238d6389b8231a54b6da02a158bfb7bb47084d3387aea5fc2e34cc0",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ],
+            [
+              "consumption_20260805",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ]
+          ],
+          "recall_at_k": 0.5,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 0.6131471927654584
+        },
+        {
+          "id": "bond_segments",
+          "elapsed_ms": 16.015,
+          "retrieval_run_id": "retrieval_1ddb900ebff25f3fb4f298e50a48abca4c965b3f9f94f4dbffdf6b5e881dad14",
+          "actual_pages": [
+            [
+              "bond_20260914",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              2
+            ],
+            [
+              "fi_strategy_20260722",
+              21
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "fi_strategy_20260722",
+              2
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.3333333333333333,
+          "ndcg_at_k": 0.5
+        },
+        {
+          "id": "floaters",
+          "elapsed_ms": 17.518,
+          "retrieval_run_id": "retrieval_f71ca1b22b6d0dfd2e3c1ace0f9c2566b12467370ad5caa052af072377c79d30",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              24
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              21
+            ],
+            [
+              "macro_7m2026",
+              1
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              24
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "ofz",
+          "elapsed_ms": 18.008,
+          "retrieval_run_id": "retrieval_b2b4ddbd3cf2a98ecc0ac32b233fb9f4f9ad3ab5f3ba0c48b26f85b7df458d2a",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ],
+            [
+              "fi_strategy_20260722",
+              19
+            ],
+            [
+              "bond_20260914",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              5
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "bond_20260914",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 0.25,
+          "ndcg_at_k": 0.43067655807339306
+        },
+        {
+          "id": "historical_steel",
+          "elapsed_ms": 9.086,
+          "retrieval_run_id": "retrieval_527c7f5706f5971a19f079b69d49b3600fb914e9d9bc7536a279664aeb569684",
+          "actual_pages": [
+            [
+              "steel_20210415",
+              1
+            ],
+            [
+              "steel_20210415",
+              2
+            ],
+            [
+              "steel_20210415",
+              3
+            ]
+          ],
+          "kind": "page_retrieval",
+          "passed": true,
+          "expected_pages": [
+            [
+              "steel_20210415",
+              1
+            ]
+          ],
+          "recall_at_k": 1.0,
+          "reciprocal_rank": 1.0,
+          "ndcg_at_k": 1.0
+        },
+        {
+          "id": "undated_gold",
+          "elapsed_ms": 0.354,
+          "retrieval_run_id": "retrieval_c8fe311cc5b03b70de7b0f5c4c62ab6e36a318a2783094fd29b2bcb4165b44ea",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "no_permissions",
+          "elapsed_ms": 0.222,
+          "retrieval_run_id": "retrieval_3b2c04b3e7eeaf8b0a3bbee1fde86e493ed0b048993089ea6a6171571280fe9a",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "no_future_sources",
+          "elapsed_ms": 0.266,
+          "retrieval_run_id": "retrieval_24345141efeee619138edd7e974e55d6df6931ba806e5baf2293253804dcd31e",
+          "actual_pages": [],
+          "kind": "scope_control",
+          "passed": true
+        },
+        {
+          "id": "july_forecast",
+          "elapsed_ms": 13.354,
+          "retrieval_run_id": "retrieval_68b4bd42bd6921017f886ccf254b9f5b844c3f2feaea914691b21916003914de",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ],
+            [
+              "fi_strategy_20260722",
+              6
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "macro_july_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "revised_forecast",
+          "elapsed_ms": 15.968,
+          "retrieval_run_id": "retrieval_5e852de8ac4fe279da87542305cfca99230478acb9843b8519363bee94ecfb34",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ],
+            [
+              "fi_strategy_20260722",
+              10
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              12
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "other_horizon",
+          "elapsed_ms": 13.45,
+          "retrieval_run_id": "retrieval_8039a5dceb6864889ffc2b7e6b6ba58a5ad2c465208d03760cdfbf57ac14b74f",
+          "actual_pages": [
+            [
+              "policy_rate_20260911",
+              1
+            ],
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "fi_strategy_20260722",
+              3
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "fi_strategy_20260722",
+              9
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2027"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "expired_week",
+          "elapsed_ms": 14.69,
+          "retrieval_run_id": "retrieval_999d125782a21703aaba07e818e0f46dac4385ff75d0c1526c6a7ee51a6760aa",
+          "actual_pages": [
+            [
+              "consumption_20260805",
+              2
+            ],
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "policy_rate_20260911",
+              2
+            ],
+            [
+              "inflation_20260902",
+              2
+            ],
+            [
+              "policy_rate_20260911",
+              1
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "inflation_week_forecast"
+          ],
+          "bank_view_status": "historical_only"
+        },
+        {
+          "id": "no_verified_wheat_claim",
+          "elapsed_ms": 15.445,
+          "retrieval_run_id": "retrieval_f8237b67d39a917a1ba71abf0d230aa77da925c9cc8663a1121f921e187fda85",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "consumption_20260805",
+              1
+            ],
+            [
+              "inflation_20260902",
+              1
+            ],
+            [
+              "macro_1h2026",
+              2
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [],
+          "bank_view_status": "not_found"
+        },
+        {
+          "id": "revision_beyond_top_k",
+          "elapsed_ms": 12.095,
+          "retrieval_run_id": "retrieval_8b0b44adcd010f8d89ee76da453fedde04196270cb57abc2d054907c00e307e9",
+          "actual_pages": [
+            [
+              "fi_strategy_20260722",
+              24
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "policy_september_rate_2026"
+          ],
+          "bank_view_status": "found"
+        },
+        {
+          "id": "restricted_revision",
+          "elapsed_ms": 6.722,
+          "retrieval_run_id": "retrieval_a5c4c3facc49b7cc329e9858bd49f1ab24fc7a2911efc1545f3944e0a9cc1e33",
+          "actual_pages": [
+            [
+              "macro_1h2026",
+              1
+            ],
+            [
+              "macro_1h2026",
+              3
+            ],
+            [
+              "macro_1h2026",
+              2
+            ],
+            [
+              "macro_1h2026",
+              4
+            ]
+          ],
+          "kind": "claim_control",
+          "passed": true,
+          "actual_claims": [
+            "macro_july_rate_2026"
+          ],
+          "bank_view_status": "found"
+        }
+      ]
+    }
+  }
+}
