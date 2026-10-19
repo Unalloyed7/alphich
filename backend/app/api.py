@@ -6,16 +6,20 @@ from __future__ import annotations
 
 import hashlib
 import os
-import secrets
+import re
 import time
+import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import Base, Company, DemoSession, feature_evidence, make_session_factory
+from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
+                      digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
 
 
 class DemoSessionRequest(BaseModel):
@@ -42,7 +46,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         Base.metadata.create_all(engine)
         yield
 
-    app = FastAPI(title="Alphich API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Alphich API", version="0.2.0", lifespan=lifespan)
 
     def get_db():
         with session_factory() as db:
@@ -119,6 +123,109 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
                     "FTS countries do not establish trade direction or transaction currency.",
                     "Credit flag does not disclose debt amount, contract rate, or maturity.",
                 ]}
+
+    @app.post("/api/v1/publications", status_code=202, response_model=JobView)
+    def submit_publication(
+        payload: PublicationInput,
+        idempotency_key: str | None = Header(default=None),
+        demo: DemoSession = Depends(current_session),
+        db: Session = Depends(get_db),
+    ):
+        if not idempotency_key or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", idempotency_key):
+            raise HTTPException(400, "Idempotency-Key header must contain 8-128 URL-safe characters")
+        if db.get(Company, demo.company_id) is None:
+            raise HTTPException(403, "Selected company profile is no longer available")
+        request_hash = digest_request(payload)
+        old = db.scalar(select(Job).where(
+            Job.owner_session_hash == demo.token_hash,
+            Job.operation == "publication_ingest",
+            Job.idempotency_key == idempotency_key,
+        ))
+        if old:
+            if old.request_hash != request_hash:
+                raise HTTPException(409, "Idempotency-Key was already used with a different payload")
+            return view_job(old)
+
+        # Atomic with job creation. Savepoints also allow recovery from the
+        # unique-constraint race when several requests submit the same article.
+        content_hash = digest_input(payload)
+        source = db.scalar(select(SourceDocument).where(
+            SourceDocument.company_id == demo.company_id,
+            SourceDocument.content_hash == content_hash,
+        ))
+        if source is None:
+            source = SourceDocument(
+                id=new_id("src"), company_id=demo.company_id, title=payload.title,
+                body=payload.text, source_url=payload.source_url,
+                published_at=payload.published_at.isoformat() if payload.published_at else None,
+                received_at=utc_iso(), fetched_at=None, content_hash=content_hash,
+                extraction_status="raw_only", completeness="user_supplied_text", version=1,
+            )
+            try:
+                with db.begin_nested():
+                    db.add(source)
+                    db.flush()
+            except IntegrityError:
+                source = db.scalar(select(SourceDocument).where(
+                    SourceDocument.company_id == demo.company_id,
+                    SourceDocument.content_hash == content_hash,
+                ))
+                if source is None:
+                    raise
+
+        now = int(time.time())
+        job = Job(id=new_id("job"), owner_session_hash=demo.token_hash,
+                  company_id=demo.company_id, operation="publication_ingest",
+                  idempotency_key=idempotency_key, request_hash=request_hash,
+                  source_id=source.id, status="queued", stage="waiting",
+                  result_type="event", result_id=None, error=None, attempt_count=0,
+                  created_at=now, available_at=now)
+        try:
+            with db.begin_nested():
+                db.add(job)
+                db.flush()
+        except IntegrityError:
+            job = db.scalar(select(Job).where(
+                Job.owner_session_hash == demo.token_hash,
+                Job.operation == "publication_ingest",
+                Job.idempotency_key == idempotency_key,
+            ))
+            if job is None:
+                raise
+            if job.request_hash != request_hash:
+                raise HTTPException(409, "Idempotency-Key was already used with a different payload")
+        db.commit()
+        return view_job(job)
+
+    @app.get("/api/v1/jobs/{job_id}", response_model=JobView)
+    def job_status(job_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):
+        job = db.get(Job, job_id)
+        if job is None or job.owner_session_hash != demo.token_hash or job.company_id != demo.company_id:
+            raise HTTPException(404, "Job not found")
+        return view_job(job)
+
+    @app.get("/api/v1/events/{event_id}")
+    def event_detail(event_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):
+        event = db.get(Event, event_id)
+        if event is None or event.company_id != demo.company_id:
+            raise HTTPException(404, "Event not found")
+        source = db.get(SourceDocument, event.source_id)
+        if source is None or source.company_id != demo.company_id:
+            raise HTTPException(404, "Source not found")
+        return serialize_event(event, source)
+
+    @app.get("/api/v1/sources/{source_id}")
+    def source_detail(source_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):
+        source = db.get(SourceDocument, source_id)
+        if source is None or source.company_id != demo.company_id:
+            raise HTTPException(404, "Source not found")
+        return {"id": source.id, "company_id": source.company_id, "title": source.title,
+                "text": source.body, "url": source.source_url, "url_verified": False,
+                "published_at": source.published_at, "received_at": source.received_at,
+                "fetched_at": source.fetched_at,
+                "content_hash": source.content_hash, "version": source.version,
+                "extraction_status": source.extraction_status, "completeness": source.completeness,
+                "note": "User-submitted text. URL is not fetched or independently verified."}
 
     return app
 
