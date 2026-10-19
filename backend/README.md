@@ -1,0 +1,70 @@
+# Alphich backend — first increment
+
+This is a **working backend foundation**, not the entire news-analysis product.
+Current endpoints implement database health, bounded demo sessions, accessible company list,
+and profile/evidence-ready feature extraction. The agent, ingestion queue, RAG, and insight
+endpoints from `docs/contracts.md` are **not implemented yet**.
+
+## Run with Docker Compose
+
+From the repository root:
+
+```sh
+mkdir -p data/raw
+# Download df_Uid_data_hack.csv from the organizers' folder into data/raw/.
+# Never commit organizers' raw CSV or their LLM API keys to the public repo.
+docker compose up -d --build
+docker compose run --rm api python -m app.importer /data/raw/df_Uid_data_hack.csv
+curl http://127.0.0.1:8000/api/v1/health
+```
+
+`DEMO_COMPANY_IDS` defines the **server** allowlist (default `U_9250,U_99802,U_44792`).
+These are references to the organizers' anonymized IDs, not actual organizations.
+`POSTGRES_PASSWORD` should be set outside local development. The API port binds only to localhost.
+
+To test without the organizers' CSV, first run `DEMO_COMPANY_IDS=DEMO_A,DEMO_B docker compose up -d --build`, then:
+
+```sh
+docker compose run --rm -v ./backend/fixtures:/fixtures:ro api python -m app.importer /fixtures/companies.csv
+```
+
+## Demo request
+
+```sh
+curl -X POST http://127.0.0.1:8000/api/v1/demo-session \
+  -H 'Content-Type: application/json' \
+  -d '{"company_id":"U_9250","role":"cfo"}'
+# Save the returned token in a shell variable, e.g. TOKEN=<token>
+curl -H "X-Demo-Session: $TOKEN" http://127.0.0.1:8000/api/v1/companies
+curl -H "X-Demo-Session: $TOKEN" http://127.0.0.1:8000/api/v1/companies/U_9250/profile
+```
+
+`/docs` shows OpenAPI; `/api/v1/health` reports DB connectivity. Sessions last two hours.
+Switch companies by starting a NEW allowed session. No arbitrary company reads are permitted.
+This is a **demo gate**, not production authentication; do not expose it publicly with
+real/sensitive profiles. The CSV contains anonymized data. Raw rows never appear in the API.
+
+## Data-quality semantics
+
+- IDs and OKVED strings stay strings; missing input remains `null`.
+- Boolean `1.0`/`0.0` is parsed; ambiguous values retain a quality flag.
+- The importer preserves each source row in `company_raw_rows` and quarantines the complete
+  conflicting-ID group (`company_quarantine`); identical repeated profiles preserve row provenance.
+- Import is all-or-nothing. A second import requires `--replace`, invalidating old demo sessions.
+- `revenue_raw` has `revenue_unit: null`; no assumed ruble units or snapshot date.
+- FTS flags/country conflicts are reported; a country alone does not reveal trade direction.
+- Each feature evidence ID is deterministically bound to the immutable profile version and source rows.
+- Do **not** add payment-graph signals before excluding self-payments and documenting coverage.
+
+## Test locally
+
+```sh
+cd backend
+python -m pip install -r requirements.txt
+pytest -q
+```
+
+For local SQLite development only, use `DATABASE_URL=sqlite:///./alphich.db`.
+The Compose deployment uses PostgreSQL. P0 uses SQLAlchemy `create_all`; use Alembic
+migrations before shipping a schema with ongoing data evolution. Full transitive lock
+and automated CI are outstanding deliverables.

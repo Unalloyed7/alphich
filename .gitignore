@@ -11,3 +11,4 @@ data/processed/
 data/private/
 tmp/
 .DS_Store
+*.db
