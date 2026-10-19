@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.*.local
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+data/raw/
+data/processed/
+data/private/
+tmp/
+.DS_Store
