@@ -1,9 +1,11 @@
-# Alphich backend — first increment
+# Alphich backend — company foundation + news ingestion
 
 This is a **working backend foundation**, not the entire news-analysis product.
 Current endpoints implement database health, bounded demo sessions, accessible company list,
-and profile/evidence-ready feature extraction. The agent, ingestion queue, RAG, and insight
-endpoints from `docs/contracts.md` are **not implemented yet**.
+profile/evidence-ready feature extraction, and real queued news ingestion with a separate worker.
+**The agent, LLM extraction, RAG, RSS collection, company-specific ranking, and insight endpoints
+from `docs/contracts.md` are NOT implemented yet.** See [NEWS_INGESTION.md](NEWS_INGESTION.md)
+for the new routes, job protocol and limits.
 
 ## Run with Docker Compose
 
@@ -68,3 +70,13 @@ For local SQLite development only, use `DATABASE_URL=sqlite:///./alphich.db`.
 The Compose deployment uses PostgreSQL. P0 uses SQLAlchemy `create_all`; use Alembic
 migrations before shipping a schema with ongoing data evolution. Full transitive lock
 and automated CI are outstanding deliverables.
+
+## News ingestion and worker
+
+The Compose stack now runs a separate `worker` service. It polls persistent `jobs`,
+creates a raw `event` from each submitted publication, and uses bounded retries.
+
+Follow **[NEWS_INGESTION.md](NEWS_INGESTION.md)** for complete curl examples and
+security limitations. `POST /publications` returns **202**; poll `GET /jobs/{id}`
+and then fetch `GET /events/{id}`. `GET /sources/{id}` returns the original pasted
+text to the same company. Raw events have `facts=[]` until factual extraction is built.
