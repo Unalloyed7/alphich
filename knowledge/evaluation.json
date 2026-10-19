@@ -1,0 +1,227 @@
+{
+  "corpus_version": "ca4780bfb8fa975b6bd016573db1781c71a43227f5690ced20ad23ebe02d98e1",
+  "evaluation_scope": "small_curated_development_set",
+  "mode": "lexical_baseline_and_forecast_rules",
+  "cases": 10,
+  "passed": 10,
+  "mean_recall_at_k": 1.0,
+  "mrr": 0.75,
+  "results": [
+    {
+      "id": "rate_revision_source",
+      "kind": "search",
+      "passed": true,
+      "expected": [
+        [
+          "policy_rate_20260911",
+          1
+        ]
+      ],
+      "actual": [
+        [
+          "bond_20260914",
+          1
+        ],
+        [
+          "policy_rate_20260911",
+          1
+        ],
+        [
+          "fi_strategy_20260722",
+          12
+        ],
+        [
+          "fi_strategy_20260722",
+          19
+        ],
+        [
+          "bond_20260914",
+          4
+        ]
+      ],
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.5
+    },
+    {
+      "id": "labor_source",
+      "kind": "search",
+      "passed": true,
+      "expected": [
+        [
+          "macro_7m2026",
+          1
+        ]
+      ],
+      "actual": [
+        [
+          "macro_1h2026",
+          2
+        ],
+        [
+          "consumption_20260805",
+          1
+        ],
+        [
+          "macro_7m2026",
+          3
+        ],
+        [
+          "macro_7m2026",
+          1
+        ],
+        [
+          "macro_7m2026",
+          2
+        ]
+      ],
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 0.25
+    },
+    {
+      "id": "consumption_source",
+      "kind": "search",
+      "passed": true,
+      "expected": [
+        [
+          "consumption_20260805",
+          1
+        ]
+      ],
+      "actual": [
+        [
+          "consumption_20260805",
+          1
+        ],
+        [
+          "macro_1h2026",
+          2
+        ],
+        [
+          "macro_7m2026",
+          2
+        ],
+        [
+          "consumption_20260805",
+          2
+        ],
+        [
+          "consumption_20260805",
+          3
+        ]
+      ],
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "id": "fuel_source",
+      "kind": "search",
+      "passed": true,
+      "expected": [
+        [
+          "inflation_20260902",
+          1
+        ]
+      ],
+      "actual": [
+        [
+          "inflation_20260902",
+          1
+        ],
+        [
+          "inflation_20260902",
+          2
+        ],
+        [
+          "fi_strategy_20260722",
+          12
+        ],
+        [
+          "consumption_20260805",
+          2
+        ],
+        [
+          "macro_1h2026",
+          2
+        ]
+      ],
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "id": "historical_steel",
+      "kind": "search",
+      "passed": true,
+      "expected": [
+        [
+          "steel_20210415",
+          1
+        ]
+      ],
+      "actual": [
+        [
+          "steel_20210415",
+          1
+        ],
+        [
+          "steel_20210415",
+          2
+        ],
+        [
+          "steel_20210415",
+          3
+        ]
+      ],
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "id": "no_future_documents",
+      "kind": "search",
+      "passed": true,
+      "expected": [],
+      "actual": [],
+      "recall_at_k": null,
+      "reciprocal_rank": null
+    },
+    {
+      "id": "july_rate_snapshot",
+      "kind": "forecast",
+      "passed": true,
+      "expected": [
+        "macro_july_rate_2026"
+      ],
+      "actual": [
+        "macro_july_rate_2026"
+      ]
+    },
+    {
+      "id": "september_rate_revision",
+      "kind": "forecast",
+      "passed": true,
+      "expected": [
+        "policy_september_rate_2026"
+      ],
+      "actual": [
+        "policy_september_rate_2026"
+      ]
+    },
+    {
+      "id": "separate_2027_horizon",
+      "kind": "forecast",
+      "passed": true,
+      "expected": [
+        "policy_september_rate_2027"
+      ],
+      "actual": [
+        "policy_september_rate_2027"
+      ]
+    },
+    {
+      "id": "future_forecast_unavailable",
+      "kind": "forecast",
+      "passed": true,
+      "expected": [],
+      "actual": []
+    }
+  ]
+}
