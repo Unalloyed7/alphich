@@ -1,0 +1,990 @@
+{
+  "scope": "fictional_open_development_matrix_not_real_news_quality",
+  "label_pairs": 150,
+  "profiles_sha256": "511b8d98de4c9739fadd6b8ea696bfd207d6153aed191d34a76ed921611c81aa",
+  "events_sha256": "ba0f58bd7b213a718d5e905cfe8022d2da688773cfef6aaf71448ec6fd1fbf25",
+  "labels_sha256": "b0d268fab429837ceb78de409b740ee86c07b56300a40bf3510884323a78a2af",
+  "as_of": "2026-10-20T12:00:00+00:00",
+  "embedding_space_id": "embedding_space_db5f177d683951ef15594e1d39605b2d17181bc1fb8a98f14d34c4ada031615f",
+  "timing": "one pass per mode, warm worker, query cache cleared per company; no generation calls",
+  "modes": {
+    "lexical": {
+      "mean_ndcg_at_5": 0.9618661138535163,
+      "unsupported_items": 0,
+      "p50_ms": 7.563,
+      "results": [
+        {
+          "company_id": "S_BUILD",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "construction",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "regional_build",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match",
+                "registration_region_context"
+              ]
+            },
+            {
+              "event_id": "china_customs",
+              "priority": 73.493,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 9.942,
+          "retrieval_run_id": "news_selection_b582c3952f558df715ac498cb202ca1808fc58157cf3288b81d4d35e4389c004"
+        },
+        {
+          "company_id": "S_RENT",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 98.876,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "deposit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 98.749,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "deposit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rental",
+              "priority": 90.712,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.436,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            },
+            {
+              "event_id": "fuel",
+              "priority": 58.327,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 6.115,
+          "retrieval_run_id": "news_selection_40dec097f5c73fdc8fa9a8f7541ca09cd172039a74f629a76992f4d0c0a75e9b"
+        },
+        {
+          "company_id": "S_SOFTWARE",
+          "ndcg_at_5": 0.8093305692675814,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "software_update",
+              "priority": 90.894,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "software",
+              "priority": 90.831,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 65.749,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_decision",
+              "priority": 65.573,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.493,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate",
+            "raw_software"
+          ],
+          "elapsed_ms": 7.563,
+          "retrieval_run_id": "news_selection_f341459791956ede04dc67a59f15e2605dbcf429e14626177ca0873e155a91b5"
+        },
+        {
+          "company_id": "S_FAB",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "metalworks",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 65.749,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_decision",
+              "priority": 65.573,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.436,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            },
+            {
+              "event_id": "fuel",
+              "priority": 58.327,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 5.6,
+          "retrieval_run_id": "news_selection_3ff17e5e14c12298d8f9dd9c1454df1a2b4a1e2c6125153f7d44593c7ca7b751"
+        },
+        {
+          "company_id": "S_GRAIN",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "grain_trade",
+              "priority": 73.739,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel",
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "china_customs",
+              "priority": 73.551,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.436,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 10.602,
+          "retrieval_run_id": "news_selection_004f0973e00a93060c33bd2606f4016fd88da66f390ae4ad3149ceffd4dfd6d6"
+        }
+      ]
+    },
+    "dense": {
+      "mean_ndcg_at_5": 0.9618661138535163,
+      "unsupported_items": 0,
+      "p50_ms": 65.416,
+      "results": [
+        {
+          "company_id": "S_BUILD",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "construction",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "regional_build",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match",
+                "registration_region_context"
+              ]
+            },
+            {
+              "event_id": "china_customs",
+              "priority": 73.612,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 89.437,
+          "retrieval_run_id": "news_selection_45a19b4076a905ed89e37a2cd915431d1476d09722cb70052c061ce1e902e7ca"
+        },
+        {
+          "company_id": "S_RENT",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 98.812,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "deposit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 98.313,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "deposit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rental",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.739,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            },
+            {
+              "event_id": "fuel",
+              "priority": 58.551,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 69.125,
+          "retrieval_run_id": "news_selection_47106fc2a1311033df06708b26fd2c263d5f3cd0853b63a0656d28dedc0ec4ee"
+        },
+        {
+          "company_id": "S_SOFTWARE",
+          "ndcg_at_5": 0.8093305692675814,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "software",
+              "priority": 90.894,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "software_update",
+              "priority": 90.831,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "rate_decision",
+              "priority": 65.812,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 65.313,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.739,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate",
+            "raw_software"
+          ],
+          "elapsed_ms": 53.924,
+          "retrieval_run_id": "news_selection_4380759c04d28651b6e4a8e1f3da37b711a6d43fbfbdb6411f63ea21446174a9"
+        },
+        {
+          "company_id": "S_FAB",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "metalworks",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "rate_decision",
+              "priority": 65.812,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 65.313,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.739,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            },
+            {
+              "event_id": "fuel",
+              "priority": 58.551,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 53.152,
+          "retrieval_run_id": "news_selection_4e2b8f0803bfbdf37cc140f6be52906bd10ccc1608038f6683979edd09354b02"
+        },
+        {
+          "company_id": "S_GRAIN",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "grain_trade",
+              "priority": 73.739,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel",
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "china_customs",
+              "priority": 73.674,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.739,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 65.416,
+          "retrieval_run_id": "news_selection_b458b5e2359076c65c8ec763be36808af25e79ffd7c5e6c75370ab1394bb69fd"
+        }
+      ]
+    },
+    "hybrid": {
+      "mean_ndcg_at_5": 0.9618661138535163,
+      "unsupported_items": 0,
+      "p50_ms": 56.399,
+      "results": [
+        {
+          "company_id": "S_BUILD",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "construction",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "regional_build",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match",
+                "registration_region_context"
+              ]
+            },
+            {
+              "event_id": "china_customs",
+              "priority": 73.493,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 74.861,
+          "retrieval_run_id": "news_selection_a0324181f54c23b250607b77c5f65a37a8928ec68a28cdc15d49e44f9ab33478"
+        },
+        {
+          "company_id": "S_RENT",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 98.697,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "deposit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 98.531,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "deposit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rental",
+              "priority": 90.779,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.507,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            },
+            {
+              "event_id": "fuel",
+              "priority": 58.34,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 56.399,
+          "retrieval_run_id": "news_selection_453a334e1c9e5f3c424725d1d54a2c48738c36a238b885f874523ccea392c4e3"
+        },
+        {
+          "company_id": "S_SOFTWARE",
+          "ndcg_at_5": 0.8093305692675814,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "software_update",
+              "priority": 90.863,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "software",
+              "priority": 90.832,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "rate_decision",
+              "priority": 65.693,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 65.531,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.507,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate",
+            "raw_software"
+          ],
+          "elapsed_ms": 46.314,
+          "retrieval_run_id": "news_selection_cd648b4ee46568cc5dda375097952478de05c6f7454bbb1a7fba1226f919452c"
+        },
+        {
+          "company_id": "S_FAB",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "metalworks",
+              "priority": 90.958,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "rate_decision",
+              "priority": 65.693,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 65.531,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.507,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            },
+            {
+              "event_id": "fuel",
+              "priority": 58.34,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 46.705,
+          "retrieval_run_id": "news_selection_3afa1bcaa7f74f9709d2176b250696f480fe9a2bbda1b325b20fc4259551bfe7"
+        },
+        {
+          "company_id": "S_GRAIN",
+          "ndcg_at_5": 1.0,
+          "unsupported_items": 0,
+          "items": [
+            {
+              "event_id": "rate_decision",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "rate_forecast",
+              "priority": 100,
+              "grade": 3,
+              "tier": "direct",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "credit_rate_channel",
+                "national_rate_context"
+              ]
+            },
+            {
+              "event_id": "grain_trade",
+              "priority": 73.739,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel",
+                "industry_scope_match"
+              ]
+            },
+            {
+              "event_id": "china_customs",
+              "priority": 73.613,
+              "grade": 2,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "country_trade_channel"
+              ]
+            },
+            {
+              "event_id": "inflation",
+              "priority": 58.507,
+              "grade": 1,
+              "tier": "context",
+              "status": "applicable_with_conditions",
+              "reason_codes": [
+                "national_price_context"
+              ]
+            }
+          ],
+          "extraction_candidates": [
+            "raw_rate"
+          ],
+          "elapsed_ms": 63.139,
+          "retrieval_run_id": "news_selection_c76a9762219ed1319283cf30f56e4710e1afe9f5e861eac3b9924b32b7592aca"
+        }
+      ]
+    }
+  }
+}

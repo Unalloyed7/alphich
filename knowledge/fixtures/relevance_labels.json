@@ -1,0 +1,763 @@
+{
+  "scope": "manually_defined_synthetic_development_matrix_not_holdout",
+  "as_of": "2026-10-20T12:00:00+00:00",
+  "company_ids": [
+    "S_BUILD",
+    "S_RENT",
+    "S_SOFTWARE",
+    "S_FAB",
+    "S_GRAIN"
+  ],
+  "labels": [
+    {
+      "company_id": "S_BUILD",
+      "event_id": "china_customs",
+      "grade": 2
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "china_customs",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "china_customs",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "china_customs",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "china_customs",
+      "grade": 2
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "china_politics",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "china_politics",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "china_politics",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "china_politics",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "china_politics",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "china_sports",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "china_sports",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "china_sports",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "china_sports",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "china_sports",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "construction",
+      "grade": 3
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "construction",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "construction",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "construction",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "construction",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "demand",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "demand",
+      "grade": 1
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "demand",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "demand",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "demand",
+      "grade": 1
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "entertainment",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "entertainment",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "entertainment",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "entertainment",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "entertainment",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "fed",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "fed",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "fed",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "fed",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "fed",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "foreign_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "foreign_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "foreign_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "foreign_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "foreign_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "fuel",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "fuel",
+      "grade": 1
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "fuel",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "fuel",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "fuel",
+      "grade": 1
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "future_law",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "future_law",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "future_law",
+      "grade": 3
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "future_law",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "future_law",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "future_publication",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "future_publication",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "future_publication",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "future_publication",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "future_publication",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "fx",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "fx",
+      "grade": 1
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "fx",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "fx",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "fx",
+      "grade": 1
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "gold",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "gold",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "gold",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "gold",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "gold",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "grain_trade",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "grain_trade",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "grain_trade",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "grain_trade",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "grain_trade",
+      "grade": 2
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "inflation",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "inflation",
+      "grade": 1
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "inflation",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "inflation",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "inflation",
+      "grade": 1
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "labor",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "labor",
+      "grade": 1
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "labor",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "labor",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "labor",
+      "grade": 1
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "metalworks",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "metalworks",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "metalworks",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "metalworks",
+      "grade": 3
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "metalworks",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "moscow",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "moscow",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "moscow",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "moscow",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "moscow",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "prompt_injection",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "prompt_injection",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "prompt_injection",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "prompt_injection",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "prompt_injection",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "rate_decision",
+      "grade": 3
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "rate_decision",
+      "grade": 3
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "rate_decision",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "rate_decision",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "rate_decision",
+      "grade": 3
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "rate_forecast",
+      "grade": 3
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "rate_forecast",
+      "grade": 3
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "rate_forecast",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "rate_forecast",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "rate_forecast",
+      "grade": 3
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "raw_rate",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "raw_rate",
+      "grade": 1
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "raw_rate",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "raw_rate",
+      "grade": 1
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "raw_rate",
+      "grade": 1
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "raw_software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "raw_software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "raw_software",
+      "grade": 1
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "raw_software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "raw_software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "regional_build",
+      "grade": 3
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "regional_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "regional_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "regional_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "regional_build",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "rental",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "rental",
+      "grade": 3
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "rental",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "rental",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "rental",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "software",
+      "grade": 3
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "software",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "software_update",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "software_update",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "software_update",
+      "grade": 3
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "software_update",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "software_update",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "steel_prices",
+      "grade": 1
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "steel_prices",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "steel_prices",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "steel_prices",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "steel_prices",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "unknown_availability",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "unknown_availability",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "unknown_availability",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "unknown_availability",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "unknown_availability",
+      "grade": 0
+    },
+    {
+      "company_id": "S_BUILD",
+      "event_id": "zz_rate_copy",
+      "grade": 0
+    },
+    {
+      "company_id": "S_RENT",
+      "event_id": "zz_rate_copy",
+      "grade": 0
+    },
+    {
+      "company_id": "S_SOFTWARE",
+      "event_id": "zz_rate_copy",
+      "grade": 0
+    },
+    {
+      "company_id": "S_FAB",
+      "event_id": "zz_rate_copy",
+      "grade": 0
+    },
+    {
+      "company_id": "S_GRAIN",
+      "event_id": "zz_rate_copy",
+      "grade": 0
+    }
+  ]
+}

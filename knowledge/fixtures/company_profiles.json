@@ -1,0 +1,1103 @@
+{
+  "synthetic": true,
+  "companies": [
+    {
+      "schema_version": "company-context-v1",
+      "company_id": "S_BUILD",
+      "profile_version": "3b1bdae982fd614ccd22c548607faadb4f0bca9dde873da6517df8547c68bdf5",
+      "context_version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+      "profile": {
+        "id": "S_BUILD",
+        "client_type": "CLIENT",
+        "industry": {
+          "code": "42.99",
+          "name": "Строительство инженерных сооружений"
+        },
+        "registration_region": "Демонстрационный регион",
+        "registration_city": "Демо",
+        "group_id": "G_BUILD",
+        "revenue_raw": "40000000000",
+        "revenue_unit": null,
+        "snapshot_at": null,
+        "employees_fns_band": "101-250",
+        "products": {
+          "rko": true,
+          "guarantee": false,
+          "loan": true,
+          "lease": false,
+          "deposit": false,
+          "payroll": false,
+          "factoring": false
+        },
+        "fts": {
+          "flag": true,
+          "countries": [
+            "КИТАЙ",
+            "ТУРЦИЯ"
+          ]
+        },
+        "quality_flags": [],
+        "source_record": 1,
+        "source_fields": {
+          "SYNTHETIC_U": "S_BUILD",
+          "ORG_TYPE": "КОММ_ОРГ",
+          "OKFS_NAME": "ЧАСТНАЯ СОБСТВЕННОСТЬ",
+          "COMPANY_AGE_YEARS_GRADATION": "8-15",
+          "ECO_MARK_LABEL": "Оптимизация",
+          "MAINOKVED_CODE": "42.99",
+          "MAINOKVED_NAME": "Строительство инженерных сооружений",
+          "NEGATIVEMARK": "0.0",
+          "AMOUNT_WORKERS_FNS_GRADATION": "101-250",
+          "AMOUNT_WORKERS_SPARK_GRADATION": "",
+          "CL_TYPE": "CLIENT",
+          "CL_PRODUCT_RKO_MARK": "1.0",
+          "CL_PRODUCT_GAR_MARK": "0.0",
+          "CL_PRODUCT_LOA_MARK": "1.0",
+          "CL_PRODUCT_LEA_MARK": "0.0",
+          "CL_PRODUCT_DEP_MARK": "0.0",
+          "CL_PRODUCT_ZPP_MARK": "0.0",
+          "FTS_FLAG": "1.0",
+          "FTS_COUNTRY_NAME": "КИТАЙ, КИТАЙ, ТУРЦИЯ",
+          "FACTORING_MARK": "0.0",
+          "REVENUE_COMPANY": "40000000000",
+          "GROUP_ID": "G_BUILD",
+          "CITY": "Демо",
+          "REGION": "Демонстрационный регион"
+        }
+      },
+      "features": [
+        {
+          "id": "feature:S_BUILD:industry:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "industry",
+          "value": {
+            "code": "42.99",
+            "name": "Строительство инженерных сооружений"
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_main_okved",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:registration_region:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "registration_region",
+          "value": "Демонстрационный регион",
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_registration_region",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:products:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "products",
+          "value": {
+            "rko": true,
+            "guarantee": false,
+            "loan": true,
+            "lease": false,
+            "deposit": false,
+            "payroll": false,
+            "factoring": false
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_product_flags_unknown_preserved",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:fts:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "fts",
+          "value": {
+            "flag": true,
+            "countries": [
+              "КИТАЙ",
+              "ТУРЦИЯ"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_fts_with_quality_flags",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:group_profile_count:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "group_profile_count",
+          "value": 2,
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "usable_profiles_in_same_declared_group",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:person_links:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "person_links",
+          "value": {
+            "linked_person_count": 2,
+            "other_linked_company_count": 2
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "shared_person_no_role_inferred",
+          "source_refs": [
+            {
+              "dataset": "df_Fid_Uid_link_hack.csv",
+              "sha256": "a0e11398a9a4c7e74fc6ece80540407b520e4003c3768c8d2263c92619f2d660"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:payment_incoming:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "payment_incoming",
+          "value": {
+            "amount_raw": "100",
+            "currency": null,
+            "period": null,
+            "payment_count": 3,
+            "counterparty_count": 2,
+            "unknown_profile_counterparty_count": 1,
+            "known_profile_amount_share": 0.6,
+            "within_known_group_amount_share": 0.6,
+            "top_counterparty_share": 0.6,
+            "top_counterparties": [
+              {
+                "company_id": "S_METAL",
+                "amount_raw": "60",
+                "payment_count": 2,
+                "share_of_all_flow": 0.6,
+                "profile_known": true,
+                "industry": {
+                  "code": "46.72",
+                  "name": "Торговля оптовая металлами"
+                }
+              },
+              {
+                "company_id": "S_UNKNOWN",
+                "amount_raw": "40",
+                "payment_count": 1,
+                "share_of_all_flow": 0.4,
+                "profile_known": false,
+                "industry": null
+              }
+            ],
+            "known_sectors": [
+              {
+                "code": "46.72",
+                "name": "Торговля оптовая металлами",
+                "amount_raw": "60",
+                "share_of_all_flow": 0.6
+              }
+            ],
+            "top_n": 10,
+            "shares_denominator_raw": "100",
+            "normalized_duplicate_rows_skipped": 1,
+            "additional_pair_rows_aggregated": 0,
+            "limitations": [
+              "payment_period_unknown",
+              "payment_currency_unknown",
+              "payment_purpose_unknown",
+              "repeated_payment_rows_demo_policy"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "nonself_all_flow_denominator_normalized_duplicates_once",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_payment_hack.csv",
+              "sha256": "2c6db2996cee41435c069df55aed2f565f6906e429afe8d126a8bd7d5ea8a296"
+            },
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_BUILD:payment_outgoing:63cb340e9c76bca1",
+          "company_id": "S_BUILD",
+          "name": "payment_outgoing",
+          "value": {
+            "amount_raw": "120",
+            "currency": null,
+            "period": null,
+            "payment_count": 6,
+            "counterparty_count": 2,
+            "unknown_profile_counterparty_count": 1,
+            "known_profile_amount_share": 0.4166666667,
+            "within_known_group_amount_share": 0.4166666667,
+            "top_counterparty_share": 0.5833333333,
+            "top_counterparties": [
+              {
+                "company_id": "S_UNKNOWN",
+                "amount_raw": "70",
+                "payment_count": 3,
+                "share_of_all_flow": 0.5833333333,
+                "profile_known": false,
+                "industry": null
+              },
+              {
+                "company_id": "S_METAL",
+                "amount_raw": "50",
+                "payment_count": 3,
+                "share_of_all_flow": 0.4166666667,
+                "profile_known": true,
+                "industry": {
+                  "code": "46.72",
+                  "name": "Торговля оптовая металлами"
+                }
+              }
+            ],
+            "known_sectors": [
+              {
+                "code": "46.72",
+                "name": "Торговля оптовая металлами",
+                "amount_raw": "50",
+                "share_of_all_flow": 0.4166666667
+              }
+            ],
+            "top_n": 10,
+            "shares_denominator_raw": "120",
+            "normalized_duplicate_rows_skipped": 0,
+            "additional_pair_rows_aggregated": 1,
+            "limitations": [
+              "payment_period_unknown",
+              "payment_currency_unknown",
+              "payment_purpose_unknown",
+              "repeated_payment_rows_demo_policy"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "nonself_all_flow_denominator_normalized_duplicates_once",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_payment_hack.csv",
+              "sha256": "2c6db2996cee41435c069df55aed2f565f6906e429afe8d126a8bd7d5ea8a296"
+            },
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        }
+      ],
+      "limitations": [
+        "company_snapshot_date_unknown",
+        "revenue_unit_unknown",
+        "market_share_unavailable",
+        "credit_terms_unknown",
+        "person_link_role_unknown"
+      ]
+    },
+    {
+      "schema_version": "company-context-v1",
+      "company_id": "S_RENT",
+      "profile_version": "3b1bdae982fd614ccd22c548607faadb4f0bca9dde873da6517df8547c68bdf5",
+      "context_version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+      "profile": {
+        "id": "S_RENT",
+        "client_type": "CLIENT",
+        "industry": {
+          "code": "68.20.2",
+          "name": "Аренда нежилого недвижимого имущества"
+        },
+        "registration_region": "Демонстрационный регион",
+        "registration_city": "Демо",
+        "group_id": "G_RENT",
+        "revenue_raw": "20000000000",
+        "revenue_unit": null,
+        "snapshot_at": null,
+        "employees_fns_band": "101-250",
+        "products": {
+          "rko": true,
+          "guarantee": false,
+          "loan": false,
+          "lease": false,
+          "deposit": true,
+          "payroll": false,
+          "factoring": false
+        },
+        "fts": {
+          "flag": false,
+          "countries": []
+        },
+        "quality_flags": [],
+        "source_record": 2,
+        "source_fields": {
+          "SYNTHETIC_U": "S_RENT",
+          "ORG_TYPE": "КОММ_ОРГ",
+          "OKFS_NAME": "ЧАСТНАЯ СОБСТВЕННОСТЬ",
+          "COMPANY_AGE_YEARS_GRADATION": "8-15",
+          "ECO_MARK_LABEL": "Оптимизация",
+          "MAINOKVED_CODE": "68.20.2",
+          "MAINOKVED_NAME": "Аренда нежилого недвижимого имущества",
+          "NEGATIVEMARK": "0.0",
+          "AMOUNT_WORKERS_FNS_GRADATION": "101-250",
+          "AMOUNT_WORKERS_SPARK_GRADATION": "",
+          "CL_TYPE": "CLIENT",
+          "CL_PRODUCT_RKO_MARK": "1.0",
+          "CL_PRODUCT_GAR_MARK": "0.0",
+          "CL_PRODUCT_LOA_MARK": "0.0",
+          "CL_PRODUCT_LEA_MARK": "0.0",
+          "CL_PRODUCT_DEP_MARK": "1.0",
+          "CL_PRODUCT_ZPP_MARK": "0.0",
+          "FTS_FLAG": "0.0",
+          "FTS_COUNTRY_NAME": "",
+          "FACTORING_MARK": "0.0",
+          "REVENUE_COMPANY": "20000000000",
+          "GROUP_ID": "G_RENT",
+          "CITY": "Демо",
+          "REGION": "Демонстрационный регион"
+        }
+      },
+      "features": [
+        {
+          "id": "feature:S_RENT:industry:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "industry",
+          "value": {
+            "code": "68.20.2",
+            "name": "Аренда нежилого недвижимого имущества"
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_main_okved",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:registration_region:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "registration_region",
+          "value": "Демонстрационный регион",
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_registration_region",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:products:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "products",
+          "value": {
+            "rko": true,
+            "guarantee": false,
+            "loan": false,
+            "lease": false,
+            "deposit": true,
+            "payroll": false,
+            "factoring": false
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_product_flags_unknown_preserved",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:fts:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "fts",
+          "value": {
+            "flag": false,
+            "countries": []
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_fts_with_quality_flags",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:group_profile_count:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "group_profile_count",
+          "value": 1,
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "usable_profiles_in_same_declared_group",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:person_links:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "person_links",
+          "value": {
+            "linked_person_count": 1,
+            "other_linked_company_count": 0
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "shared_person_no_role_inferred",
+          "source_refs": [
+            {
+              "dataset": "df_Fid_Uid_link_hack.csv",
+              "sha256": "a0e11398a9a4c7e74fc6ece80540407b520e4003c3768c8d2263c92619f2d660"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:payment_incoming:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "payment_incoming",
+          "value": {
+            "amount_raw": "0",
+            "currency": null,
+            "period": null,
+            "payment_count": 0,
+            "counterparty_count": 0,
+            "unknown_profile_counterparty_count": 0,
+            "known_profile_amount_share": null,
+            "within_known_group_amount_share": null,
+            "top_counterparty_share": null,
+            "top_counterparties": [],
+            "known_sectors": [],
+            "top_n": 10,
+            "shares_denominator_raw": "0",
+            "normalized_duplicate_rows_skipped": 0,
+            "additional_pair_rows_aggregated": 0,
+            "limitations": [
+              "payment_period_unknown",
+              "payment_currency_unknown",
+              "payment_purpose_unknown",
+              "no_observed_payments"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "nonself_all_flow_denominator_normalized_duplicates_once",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_payment_hack.csv",
+              "sha256": "2c6db2996cee41435c069df55aed2f565f6906e429afe8d126a8bd7d5ea8a296"
+            },
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_RENT:payment_outgoing:63cb340e9c76bca1",
+          "company_id": "S_RENT",
+          "name": "payment_outgoing",
+          "value": {
+            "amount_raw": "0",
+            "currency": null,
+            "period": null,
+            "payment_count": 0,
+            "counterparty_count": 0,
+            "unknown_profile_counterparty_count": 0,
+            "known_profile_amount_share": null,
+            "within_known_group_amount_share": null,
+            "top_counterparty_share": null,
+            "top_counterparties": [],
+            "known_sectors": [],
+            "top_n": 10,
+            "shares_denominator_raw": "0",
+            "normalized_duplicate_rows_skipped": 0,
+            "additional_pair_rows_aggregated": 0,
+            "limitations": [
+              "payment_period_unknown",
+              "payment_currency_unknown",
+              "payment_purpose_unknown",
+              "no_observed_payments"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "nonself_all_flow_denominator_normalized_duplicates_once",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_payment_hack.csv",
+              "sha256": "2c6db2996cee41435c069df55aed2f565f6906e429afe8d126a8bd7d5ea8a296"
+            },
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        }
+      ],
+      "limitations": [
+        "company_snapshot_date_unknown",
+        "revenue_unit_unknown",
+        "market_share_unavailable",
+        "credit_terms_unknown",
+        "person_link_role_unknown"
+      ]
+    },
+    {
+      "schema_version": "company-context-v1",
+      "company_id": "S_SOFTWARE",
+      "profile_version": "3b1bdae982fd614ccd22c548607faadb4f0bca9dde873da6517df8547c68bdf5",
+      "context_version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+      "profile": {
+        "id": "S_SOFTWARE",
+        "client_type": "CLIENT",
+        "industry": {
+          "code": "62.01",
+          "name": "Разработка компьютерного программного обеспечения"
+        },
+        "registration_region": "Демонстрационный регион",
+        "registration_city": "Демо",
+        "group_id": "G_SOFTWARE",
+        "revenue_raw": "18000000000",
+        "revenue_unit": null,
+        "snapshot_at": null,
+        "employees_fns_band": "101-250",
+        "products": {
+          "rko": true,
+          "guarantee": false,
+          "loan": false,
+          "lease": false,
+          "deposit": false,
+          "payroll": false,
+          "factoring": false
+        },
+        "fts": {
+          "flag": false,
+          "countries": []
+        },
+        "quality_flags": [],
+        "source_record": 3,
+        "source_fields": {
+          "SYNTHETIC_U": "S_SOFTWARE",
+          "ORG_TYPE": "КОММ_ОРГ",
+          "OKFS_NAME": "ЧАСТНАЯ СОБСТВЕННОСТЬ",
+          "COMPANY_AGE_YEARS_GRADATION": "8-15",
+          "ECO_MARK_LABEL": "Оптимизация",
+          "MAINOKVED_CODE": "62.01",
+          "MAINOKVED_NAME": "Разработка компьютерного программного обеспечения",
+          "NEGATIVEMARK": "0.0",
+          "AMOUNT_WORKERS_FNS_GRADATION": "101-250",
+          "AMOUNT_WORKERS_SPARK_GRADATION": "",
+          "CL_TYPE": "CLIENT",
+          "CL_PRODUCT_RKO_MARK": "1.0",
+          "CL_PRODUCT_GAR_MARK": "0.0",
+          "CL_PRODUCT_LOA_MARK": "0.0",
+          "CL_PRODUCT_LEA_MARK": "0.0",
+          "CL_PRODUCT_DEP_MARK": "0.0",
+          "CL_PRODUCT_ZPP_MARK": "0.0",
+          "FTS_FLAG": "0.0",
+          "FTS_COUNTRY_NAME": "",
+          "FACTORING_MARK": "0.0",
+          "REVENUE_COMPANY": "18000000000",
+          "GROUP_ID": "G_SOFTWARE",
+          "CITY": "Демо",
+          "REGION": "Демонстрационный регион"
+        }
+      },
+      "features": [
+        {
+          "id": "feature:S_SOFTWARE:industry:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "industry",
+          "value": {
+            "code": "62.01",
+            "name": "Разработка компьютерного программного обеспечения"
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_main_okved",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:registration_region:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "registration_region",
+          "value": "Демонстрационный регион",
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_registration_region",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:products:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "products",
+          "value": {
+            "rko": true,
+            "guarantee": false,
+            "loan": false,
+            "lease": false,
+            "deposit": false,
+            "payroll": false,
+            "factoring": false
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_product_flags_unknown_preserved",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:fts:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "fts",
+          "value": {
+            "flag": false,
+            "countries": []
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "profile_fts_with_quality_flags",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:group_profile_count:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "group_profile_count",
+          "value": 1,
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "usable_profiles_in_same_declared_group",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:person_links:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "person_links",
+          "value": {
+            "linked_person_count": 0,
+            "other_linked_company_count": 0
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "shared_person_no_role_inferred",
+          "source_refs": [
+            {
+              "dataset": "df_Fid_Uid_link_hack.csv",
+              "sha256": "a0e11398a9a4c7e74fc6ece80540407b520e4003c3768c8d2263c92619f2d660"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:payment_incoming:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "payment_incoming",
+          "value": {
+            "amount_raw": "0",
+            "currency": null,
+            "period": null,
+            "payment_count": 0,
+            "counterparty_count": 0,
+            "unknown_profile_counterparty_count": 0,
+            "known_profile_amount_share": null,
+            "within_known_group_amount_share": null,
+            "top_counterparty_share": null,
+            "top_counterparties": [],
+            "known_sectors": [],
+            "top_n": 10,
+            "shares_denominator_raw": "0",
+            "normalized_duplicate_rows_skipped": 0,
+            "additional_pair_rows_aggregated": 0,
+            "limitations": [
+              "payment_period_unknown",
+              "payment_currency_unknown",
+              "payment_purpose_unknown",
+              "no_observed_payments"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "nonself_all_flow_denominator_normalized_duplicates_once",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_payment_hack.csv",
+              "sha256": "2c6db2996cee41435c069df55aed2f565f6906e429afe8d126a8bd7d5ea8a296"
+            },
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        },
+        {
+          "id": "feature:S_SOFTWARE:payment_outgoing:63cb340e9c76bca1",
+          "company_id": "S_SOFTWARE",
+          "name": "payment_outgoing",
+          "value": {
+            "amount_raw": "0",
+            "currency": null,
+            "period": null,
+            "payment_count": 0,
+            "counterparty_count": 0,
+            "unknown_profile_counterparty_count": 0,
+            "known_profile_amount_share": null,
+            "within_known_group_amount_share": null,
+            "top_counterparty_share": null,
+            "top_counterparties": [],
+            "known_sectors": [],
+            "top_n": 10,
+            "shares_denominator_raw": "0",
+            "normalized_duplicate_rows_skipped": 0,
+            "additional_pair_rows_aggregated": 0,
+            "limitations": [
+              "payment_period_unknown",
+              "payment_currency_unknown",
+              "payment_purpose_unknown",
+              "no_observed_payments"
+            ]
+          },
+          "version": "63cb340e9c76bca12da7fb374a410423882f1e4784b5d26eae86b7651ddb3dfb",
+          "method": "nonself_all_flow_denominator_normalized_duplicates_once",
+          "source_refs": [
+            {
+              "dataset": "df_Uid_payment_hack.csv",
+              "sha256": "2c6db2996cee41435c069df55aed2f565f6906e429afe8d126a8bd7d5ea8a296"
+            },
+            {
+              "dataset": "df_Uid_data_hack.csv",
+              "sha256": "9a03d2cc44fe27352ac8241023356ef0060eebcad8cf71a083e5eba0e07889ff"
+            }
+          ]
+        }
+      ],
+      "limitations": [
+        "company_snapshot_date_unknown",
+        "revenue_unit_unknown",
+        "market_share_unavailable",
+        "credit_terms_unknown",
+        "person_link_role_unknown"
+      ]
+    },
+    {
+      "id": "S_FAB",
+      "industry": {
+        "okved_code": "25.11",
+        "okved_name": "Производство строительных металлических конструкций"
+      },
+      "products": {
+        "CL_PRODUCT_LOA_MARK": false,
+        "CL_PRODUCT_DEP_MARK": false,
+        "CL_PRODUCT_LEA_MARK": false,
+        "CL_PRODUCT_GAR_MARK": false,
+        "CL_PRODUCT_RKO_MARK": true,
+        "CL_PRODUCT_ZPP_MARK": false,
+        "FACTORING_MARK": false
+      },
+      "region_registration": "Тестовый регион металлообработки",
+      "fts_flag": false,
+      "fts_countries": [],
+      "quality_flags": [],
+      "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+      "features": [
+        {
+          "id": "feature_4ea28bdd595a569277df14a1ecc70db33c1613455bff192848fac71a56e64a7a",
+          "name": "okved_code",
+          "value": "25.11",
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:okved_code"
+          ]
+        },
+        {
+          "id": "feature_dfa96d47d606aa80d006b5284d5fdf8c74c83f6b3567196c92a705d6fe03d63d",
+          "name": "okved_name",
+          "value": "Производство строительных металлических конструкций",
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:okved_name"
+          ]
+        },
+        {
+          "id": "feature_03187f51e2e0244a1fc03bd9c41950f57eda5aeb664235690efac990e565d527",
+          "name": "region_registration",
+          "value": "Тестовый регион металлообработки",
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:region_registration"
+          ]
+        },
+        {
+          "id": "feature_9e6d12db0416b4f38ad246eef7ae36774977c5a49190a6fe27edc5973ae69f57",
+          "name": "fts_countries",
+          "value": [],
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:fts_countries"
+          ]
+        },
+        {
+          "id": "feature_2709a0ef6d60ca24ef34770cb8eafc7ee68fb41bfab4accbbce16285673bb172",
+          "name": "CL_PRODUCT_LOA_MARK",
+          "value": false,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:CL_PRODUCT_LOA_MARK"
+          ]
+        },
+        {
+          "id": "feature_edef1dced5aec56734e43cc8e570537dd16c646df11e7713b17f137b94075466",
+          "name": "CL_PRODUCT_DEP_MARK",
+          "value": false,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:CL_PRODUCT_DEP_MARK"
+          ]
+        },
+        {
+          "id": "feature_51bfa29b03e90111484929093137b10d48bf44b6b799cdd9169c0e5536d3d14d",
+          "name": "CL_PRODUCT_LEA_MARK",
+          "value": false,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:CL_PRODUCT_LEA_MARK"
+          ]
+        },
+        {
+          "id": "feature_82d207207f1da9f3558baf6320a665ca31f82cef62bc3198654c4d2d830c1399",
+          "name": "CL_PRODUCT_GAR_MARK",
+          "value": false,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:CL_PRODUCT_GAR_MARK"
+          ]
+        },
+        {
+          "id": "feature_30045f400d72b339fb1cffb08bc7c6d152f3389028bcf2d6654f0cb32bd70ead",
+          "name": "CL_PRODUCT_RKO_MARK",
+          "value": true,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:CL_PRODUCT_RKO_MARK"
+          ]
+        },
+        {
+          "id": "feature_7bf4603807645a60db7d442bfd6a45e13e0d1c9e0330836d6973eea128ecc4c2",
+          "name": "CL_PRODUCT_ZPP_MARK",
+          "value": false,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:CL_PRODUCT_ZPP_MARK"
+          ]
+        },
+        {
+          "id": "feature_12e3c948496a82a2b752e5d8b40ed39edc8e1d780466c55e55e67728228a5d08",
+          "name": "FACTORING_MARK",
+          "value": false,
+          "profile_version": "e6a846fbe60c8a11dba8215200b96174250881b0bb97977e6592cbdba53bedea",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_FAB:FACTORING_MARK"
+          ]
+        }
+      ],
+      "limitations": [
+        "synthetic_company",
+        "company_snapshot_date_unknown",
+        "revenue_unit_unknown"
+      ]
+    },
+    {
+      "id": "S_GRAIN",
+      "industry": {
+        "okved_code": "46.21",
+        "okved_name": "Торговля оптовая зерном"
+      },
+      "products": {
+        "CL_PRODUCT_LOA_MARK": true,
+        "CL_PRODUCT_DEP_MARK": false,
+        "CL_PRODUCT_LEA_MARK": false,
+        "CL_PRODUCT_GAR_MARK": false,
+        "CL_PRODUCT_RKO_MARK": true,
+        "CL_PRODUCT_ZPP_MARK": false,
+        "FACTORING_MARK": false
+      },
+      "region_registration": "Тестовый аграрный регион",
+      "fts_flag": true,
+      "fts_countries": [
+        "Китай",
+        "Индия"
+      ],
+      "quality_flags": [],
+      "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+      "features": [
+        {
+          "id": "feature_f9325259be2e699e850afd04c9959a6e7cc5a3d8d9bfecdab452c3e27ead85c2",
+          "name": "okved_code",
+          "value": "46.21",
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:okved_code"
+          ]
+        },
+        {
+          "id": "feature_363827bb3bae8c4de9f2e816be0d9b7144fb1a7d7283556f691b21511bb8248a",
+          "name": "okved_name",
+          "value": "Торговля оптовая зерном",
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:okved_name"
+          ]
+        },
+        {
+          "id": "feature_083ab44ca4292ef2fd7a7371b55c47a6cd038f441c20db66d63ee59c93c658a2",
+          "name": "region_registration",
+          "value": "Тестовый аграрный регион",
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:region_registration"
+          ]
+        },
+        {
+          "id": "feature_05a37386f89aff2c034c8d33f7539e1c8e023e6b5c64fe713e1f7041e8654a84",
+          "name": "fts_countries",
+          "value": [
+            "Китай",
+            "Индия"
+          ],
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:fts_countries"
+          ]
+        },
+        {
+          "id": "feature_b5ea1eb8c7656aa43d33caef029ac0964d755a4b13e3d08d847ea224b51ce224",
+          "name": "CL_PRODUCT_LOA_MARK",
+          "value": true,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:CL_PRODUCT_LOA_MARK"
+          ]
+        },
+        {
+          "id": "feature_fd95bf2b1ece79326dc7ef4ce30c4141b97ba21ba889c5ec4166a48d2a3b912f",
+          "name": "CL_PRODUCT_DEP_MARK",
+          "value": false,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:CL_PRODUCT_DEP_MARK"
+          ]
+        },
+        {
+          "id": "feature_862f84379ebc498837898ae72cd1b550e688d424b8ca84b82143cd2e5678ee75",
+          "name": "CL_PRODUCT_LEA_MARK",
+          "value": false,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:CL_PRODUCT_LEA_MARK"
+          ]
+        },
+        {
+          "id": "feature_9872b2f52ba2312525093f3b25cd72f2bc87a1614afebfcb74316ea4df7de07a",
+          "name": "CL_PRODUCT_GAR_MARK",
+          "value": false,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:CL_PRODUCT_GAR_MARK"
+          ]
+        },
+        {
+          "id": "feature_0273e77464f3df59e6321db8aa6da39a613b0174f8f89eca401611b017cf2820",
+          "name": "CL_PRODUCT_RKO_MARK",
+          "value": true,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:CL_PRODUCT_RKO_MARK"
+          ]
+        },
+        {
+          "id": "feature_4eb8e1bf1eb935afc937437ea60ef3f044da2a395a0c5a9291629cb51ef50cca",
+          "name": "CL_PRODUCT_ZPP_MARK",
+          "value": false,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:CL_PRODUCT_ZPP_MARK"
+          ]
+        },
+        {
+          "id": "feature_ae4a057a3383d9ceaadbc2452f3fa36fbded473afcfb1fdb08ad7e3c00f8ae0c",
+          "name": "FACTORING_MARK",
+          "value": false,
+          "profile_version": "2febe85d2f332a7baefc0ad8a06dcf1156ca9bf35580b5c3460e8f7e2292f114",
+          "method": "synthetic_source_field",
+          "source_refs": [
+            "company_fixture:S_GRAIN:FACTORING_MARK"
+          ]
+        }
+      ],
+      "limitations": [
+        "synthetic_company",
+        "company_snapshot_date_unknown",
+        "revenue_unit_unknown"
+      ]
+    }
+  ]
+}

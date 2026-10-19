@@ -111,6 +111,9 @@ class E5Encoder:
                    for i in range(0, len(prepared_texts), batch_size)]
         return np.concatenate(batches) if batches else np.empty((0, self.dimension), dtype=np.float32)
 
+    def count_tokens(self, prepared_text):
+        return len(self.tokenizer.encode(prepared_text, add_special_tokens=True).ids)
+
     @lru_cache(maxsize=128)
     def _cached_query(self, query):
         return self._encode(["query: " + query], "query: ")[0]

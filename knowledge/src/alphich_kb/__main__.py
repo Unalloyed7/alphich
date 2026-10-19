@@ -66,7 +66,24 @@ def main(argv=None):
     compare_parser = commands.add_parser("compare-retrieval", help="Compare lexical, dense and hybrid on one index")
     compare_parser.add_argument("--index-dir", required=True)
     compare_parser.add_argument("--cases", default="knowledge/retrieval_cases.json")
-    for child in (index_parser, retrieve_parser, compare_parser):
+    news_parser = commands.add_parser("select-news", help="Select company-specific events and plan bank retrieval")
+    news_parser.add_argument("--profiles", default="knowledge/fixtures/company_profiles.json")
+    news_parser.add_argument("--events", default="knowledge/fixtures/news_events.json")
+    news_parser.add_argument("--company-id", required=True)
+    news_parser.add_argument("--as-of", required=True)
+    news_parser.add_argument("--role", choices=["cfo", "ceo"], default="cfo")
+    news_parser.add_argument("--mode", choices=["lexical", "dense", "hybrid"], default="hybrid")
+    news_parser.add_argument("--limit", type=int, default=5)
+    news_parser.add_argument("--allow-event", action="append")
+    news_parser.add_argument("--bank-index-dir")
+    news_parser.add_argument("--bank-event-id")
+    news_parser.add_argument("--allow-bank-document", action="append")
+    news_compare = commands.add_parser("compare-news", help="Evaluate selection on fictional company/event grades")
+    news_compare.add_argument("--profiles", default="knowledge/fixtures/company_profiles.json")
+    news_compare.add_argument("--events", default="knowledge/fixtures/news_events.json")
+    news_compare.add_argument("--labels", default="knowledge/fixtures/relevance_labels.json")
+    news_compare.add_argument("--mode", choices=["lexical", "hybrid"], default="hybrid")
+    for child in (index_parser, retrieve_parser, compare_parser, news_parser, news_compare):
         child.add_argument("--model-dir", default="data/models/e5-base")
         child.add_argument("--model-manifest", default="knowledge/embedding-model.json")
         child.add_argument("--threads", type=int, default=2)
@@ -122,11 +139,18 @@ def main(argv=None):
             if args.context_only:
                 from .context import context_for_model
                 result = context_for_model(result)
-        else:
+        elif args.command == "compare-retrieval":
             from .embeddings import E5Encoder
             from .compare import compare_retrieval
             encoder = E5Encoder(args.model_dir, args.model_manifest, args.threads)
             result = compare_retrieval(args.index_dir, args.cases, encoder)
+        elif args.command == "select-news":
+            from .personalization.cli import select_from_files
+            result = select_from_files(args)
+        else:
+            from .personalization.cli import load_encoder
+            from .personalization.evaluate import evaluate_selection
+            result = evaluate_selection(args.profiles, args.events, args.labels, load_encoder(args))
     except (KnowledgeError, OSError, ValueError, KeyError, ImportError) as error:
         print(f"alphich-kb: {error}", file=sys.stderr)
         return 2
