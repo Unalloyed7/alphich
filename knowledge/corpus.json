@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "source_folder_url": "https://drive.google.com/drive/folders/15xZTLF1lZ65p6o5xpNA_fRbxjoV-UlG1",
+  "retrieved_on": "2026-10-20",
+  "documents": [
+    {
+      "id": "bond_20260914",
+      "file": "bond.pdf",
+      "original_filename": "Бонд_Бриф_14092026.pdf",
+      "title": "Бонд Бриф: Итоги недели",
+      "url": "https://drive.google.com/file/d/1bPzix_332N2CyMY0tqCHuYtGsfJWnFGv/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1bPzix_332N2CyMY0tqCHuYtGsfJWnFGv",
+      "sha256": "87dc17520e2a744f95580ee2ec42461d0ee6ebf19e752622a49c49600cb1b055",
+      "pages": 5,
+      "published_at": "2026-09-14",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "bonds",
+        "policy_rate",
+        "inflation",
+        "credit",
+        "budget"
+      ],
+      "topics_scope": "document",
+      "observed_period": "Week ending 2026-09-11",
+      "document_forecast_period": null,
+      "exclude_pages": []
+    },
+    {
+      "id": "steel_20210415",
+      "file": "steels.pdf",
+      "original_filename": "ALFA_Russian_Steels_1К21PreviewUpdate_15Apr2021.pdf",
+      "title": "Российская сталь: Ралли цен продолжается; прогноз результатов за 1К21",
+      "url": "https://drive.google.com/file/d/1yLCBrIoyIsubLTEBvBHh6io48ysnW-wn/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1yLCBrIoyIsubLTEBvBHh6io48ysnW-wn",
+      "sha256": "36eaaa58ae68d858db3600dbf3cc93d0bdefb8ca03f1f5cc154c532cc32e0c86",
+      "pages": 4,
+      "published_at": "2021-04-15",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "steel",
+        "metals",
+        "exports",
+        "raw_material_cost",
+        "working_capital"
+      ],
+      "topics_scope": "document",
+      "observed_period": "2021Q1",
+      "document_forecast_period": "2021Q2",
+      "exclude_pages": []
+    },
+    {
+      "id": "macro_7m2026",
+      "file": "7m26.pdf",
+      "original_filename": "ALFA-7M26.pdf",
+      "title": "Макростатистика 7М26",
+      "url": "https://drive.google.com/file/d/1HZDq3WGRFdzgm1TZ5hWL23Q3I9c2Eq64/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1HZDq3WGRFdzgm1TZ5hWL23Q3I9c2Eq64",
+      "sha256": "3c64c1e43f3b46a795f9581967f2dbc8efb0994cb77ab82e95da180830e9ff8c",
+      "pages": 4,
+      "published_at": "2026-09-07",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "labor",
+        "retail",
+        "industrial_production",
+        "corporate_credit",
+        "profits"
+      ],
+      "topics_scope": "document",
+      "observed_period": "2026-01 through 2026-07",
+      "document_forecast_period": null,
+      "exclude_pages": []
+    },
+    {
+      "id": "consumption_20260805",
+      "file": "consumption.pdf",
+      "original_filename": "ALFA-consumption.pdf",
+      "title": "Потребление на пике",
+      "url": "https://drive.google.com/file/d/1riR1lhsb6EY1MwGMxdBlS_tI5ed9mIiz/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1riR1lhsb6EY1MwGMxdBlS_tI5ed9mIiz",
+      "sha256": "807ee9925cf7d15ecffc72ad7142f9a83d342cd19690e12dd3b90aa2ba8ea1c6",
+      "pages": 4,
+      "published_at": "2026-08-05",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "retail",
+        "consumption",
+        "autos",
+        "labor",
+        "wages"
+      ],
+      "topics_scope": "document",
+      "observed_period": null,
+      "document_forecast_period": "2026H2 and 2026Q4",
+      "exclude_pages": []
+    },
+    {
+      "id": "policy_rate_20260911",
+      "file": "alphich-policy-rate.pdf",
+      "original_filename": "ALFA-Macro_Insights-Policy_Rate_11Sep.pdf",
+      "title": "Ключевая ставка ЦБ РФ: Ставка без изменения на 14,0%, риторика стала жестче",
+      "url": "https://drive.google.com/file/d/1shHG89LtMgHT1_uEebHmQSFZe_zbeq7-/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1shHG89LtMgHT1_uEebHmQSFZe_zbeq7-",
+      "sha256": "92a96805f2b720f76bd0c52d2491044812b38401ab62d0f4a9157b4ca81c49bb",
+      "pages": 4,
+      "published_at": "2026-09-11",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "policy_rate",
+        "inflation",
+        "corporate_credit",
+        "budget"
+      ],
+      "topics_scope": "document",
+      "observed_period": null,
+      "document_forecast_period": "2026 year-end and 2027 year-end",
+      "exclude_pages": []
+    },
+    {
+      "id": "macro_1h2026",
+      "file": "macro1h26.pdf",
+      "original_filename": "ALFA-macro_stat1H26.pdf",
+      "title": "Макростатистика 1П26",
+      "url": "https://drive.google.com/file/d/1khcHwoS0FkG9p_0J4XoHGaGq3B4V0ime/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1khcHwoS0FkG9p_0J4XoHGaGq3B4V0ime",
+      "sha256": "84899553fadf3e49abac7074c7b7d2afc2fa5c70b7fde0bf4c3eabe3d7402266",
+      "pages": 5,
+      "published_at": "2026-07-31",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "gdp",
+        "consumption",
+        "industrial_production",
+        "imports",
+        "wages",
+        "policy_rate",
+        "fx"
+      ],
+      "topics_scope": "document",
+      "observed_period": "2026H1",
+      "document_forecast_period": "2026 year-end",
+      "exclude_pages": []
+    },
+    {
+      "id": "fi_strategy_20260722",
+      "file": "fi_strategy.pdf",
+      "original_filename": "FI_Strategy_3Q26_22072026.pdf",
+      "title": "Долговой рынок. Тактический взгляд на 3-й квартал 2026г: Время собирать камни",
+      "url": "https://drive.google.com/file/d/1hq3Fhyz9ce_sRyGUQB1MdoHeQdfAJfhK/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1hq3Fhyz9ce_sRyGUQB1MdoHeQdfAJfhK",
+      "sha256": "6c3a4882ee784b608880693d8ba2b62d0ba2236e34b404179adaab909c6dd046",
+      "pages": 27,
+      "published_at": "2026-07-22",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "bonds",
+        "financing",
+        "floating_rate",
+        "fixed_rate",
+        "fx_bonds",
+        "market_structure"
+      ],
+      "topics_scope": "document",
+      "observed_period": null,
+      "document_forecast_period": "2026Q3",
+      "exclude_pages": []
+    },
+    {
+      "id": "gold_aug2026",
+      "file": "gold.pdf",
+      "original_filename": "Gold_digest_August26.pdf",
+      "title": "Обзор рынка золота. Август 2026",
+      "url": "https://drive.google.com/file/d/1a7TXOCHARfKzUR0hn9Cm9gQSrIldxTDE/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=1a7TXOCHARfKzUR0hn9Cm9gQSrIldxTDE",
+      "sha256": "4159576a6223985dd318b6f5a04ad4aeb888f47a6c266d0e9ee9eb35bf01e245",
+      "pages": 8,
+      "published_at": null,
+      "publication_precision": "unknown",
+      "date_label": "Август 2026",
+      "date_source": null,
+      "topics": [
+        "gold",
+        "fed",
+        "usd",
+        "china",
+        "central_bank_reserves",
+        "commodities"
+      ],
+      "topics_scope": "document",
+      "observed_period": "2026-08",
+      "document_forecast_period": null,
+      "exclude_pages": []
+    },
+    {
+      "id": "inflation_20260902",
+      "file": "inflation.pdf",
+      "original_filename": "Inflation_tracker_02.pdf",
+      "title": "Инфляция 25-31 августа: основные выводы",
+      "url": "https://drive.google.com/file/d/19iW3Ph8_wO0HHQY7Ik4lTfC3jRc9gjWV/view",
+      "download_url": "https://drive.google.com/uc?export=download&id=19iW3Ph8_wO0HHQY7Ik4lTfC3jRc9gjWV",
+      "sha256": "09d5537f6a52f5f8f2d9518ed9171e794382972ce38cbdc4bd3099b2db129d0c",
+      "pages": 3,
+      "published_at": "2026-09-02",
+      "publication_precision": "day",
+      "date_label": null,
+      "date_source": {
+        "page": 1,
+        "method": "visual_review"
+      },
+      "topics": [
+        "inflation",
+        "fuel",
+        "food",
+        "consumer_prices",
+        "fx"
+      ],
+      "topics_scope": "document",
+      "observed_period": "2026-08-25 through 2026-08-31",
+      "document_forecast_period": "2026-09-01 through 2026-09-07",
+      "exclude_pages": []
+    }
+  ]
+}

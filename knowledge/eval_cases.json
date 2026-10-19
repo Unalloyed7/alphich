@@ -1,0 +1,15 @@
+{
+  "scope": "Curated development cases for source retrieval and forecast chronology; no claim of unseen-news quality",
+  "cases": [
+    {"id": "rate_revision_source", "kind": "search", "query": "ключевая ставка прогноз", "as_of": "2026-10-20", "expected_pages": [["policy_rate_20260911", 1]], "limit": 5},
+    {"id": "labor_source", "kind": "search", "query": "рынок труда зарплаты", "as_of": "2026-10-20", "expected_pages": [["macro_7m2026", 1]], "limit": 5},
+    {"id": "consumption_source", "kind": "search", "query": "потребление розничная торговля", "as_of": "2026-10-20", "expected_pages": [["consumption_20260805", 1]], "limit": 5},
+    {"id": "fuel_source", "kind": "search", "query": "бензин инфляция", "as_of": "2026-10-20", "expected_pages": [["inflation_20260902", 1]], "limit": 5},
+    {"id": "historical_steel", "kind": "search", "query": "сталь металлурги", "as_of": "2021-05-01", "expected_pages": [["steel_20210415", 1]], "limit": 5},
+    {"id": "no_future_documents", "kind": "search", "query": "ставка инфляция", "as_of": "2020-01-01", "expected_pages": [], "limit": 5},
+    {"id": "july_rate_snapshot", "kind": "forecast", "as_of": "2026-08-01", "metric": "policy_rate", "horizon": "2026-12-31", "expected_claims": ["macro_july_rate_2026"]},
+    {"id": "september_rate_revision", "kind": "forecast", "as_of": "2026-10-20", "metric": "policy_rate", "horizon": "2026-12-31", "expected_claims": ["policy_september_rate_2026"]},
+    {"id": "separate_2027_horizon", "kind": "forecast", "as_of": "2026-10-20", "metric": "policy_rate", "horizon": "2027-12-31", "expected_claims": ["policy_september_rate_2027"]},
+    {"id": "future_forecast_unavailable", "kind": "forecast", "as_of": "2026-07-01", "metric": "policy_rate", "horizon": "2026-12-31", "expected_claims": []}
+  ]
+}

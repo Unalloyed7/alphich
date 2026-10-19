@@ -1,0 +1,50 @@
+Alphich third-party notices
+
+The current company-data runtime uses the Python standard library.
+
+setuptools is declared as the packaging/build tool in backend/pyproject.toml.
+It is not vendored. Upstream project and license information:
+https://github.com/pypa/setuptools
+
+The organizer company CSV files are external runtime inputs. They are not
+included in this repository. Their source and schema are documented in
+docs/research.md. This repository does not grant redistribution rights to
+those inputs.
+
+Files in data/synthetic are fictional examples created for this project.
+They contain no copied company records from the organizer data.
+
+The offline PDF preparation package is separate from the company-data runtime.
+Its exact Python dependency versions are recorded in knowledge/requirements.lock.
+Installed distribution metadata lists these licenses:
+- tokenizers: Apache-2.0 (upstream https://github.com/huggingface/tokenizers)
+- huggingface_hub: Apache-2.0; hf-xet: Apache-2.0
+- requests: Apache-2.0; urllib3: MIT; charset-normalizer: MIT; idna: BSD-3-Clause
+- certifi: MPL-2.0
+- filelock: MIT; fsspec: BSD-3-Clause; PyYAML: MIT
+- packaging: Apache-2.0 OR BSD-2-Clause
+- tqdm: MPL-2.0 AND MIT; typing_extensions: PSF-2.0
+Retain the license files distributed with those packages when distributing them.
+
+PDF rendering uses the separately installed Poppler CLI (GPL-2.0-or-later):
+https://poppler.freedesktop.org/
+OCR uses the separately installed Tesseract CLI (Apache-2.0):
+https://github.com/tesseract-ocr/tesseract
+Russian/English OCR language data are from tessdata_fast 4.1.0 (Apache-2.0):
+https://github.com/tesseract-ocr/tessdata_fast/tree/4.1.0
+The multilingual-e5-base tokenizer is downloaded from a pinned model revision:
+https://huggingface.co/intfloat/multilingual-e5-base
+The model card declares MIT. No E5 model weights or generative models are
+included or run by the current preparation package. Asset URLs and checksums
+are in knowledge/assets.json; downloaded assets are not committed to Git.
+
+Bank PDF files are external organizer-provided runtime inputs. Source URLs,
+publication metadata and checksums are in knowledge/corpus.json. Rights remain
+with their respective owners. The repository contains selected attributed
+review annotations, not the complete original PDF files or full OCR corpus.
+Full PDF/OCR/processed outputs are excluded from Git. Source document text is
+data and must not be treated as application or agent instructions.
+
+This list must be updated when additional runtime components, models,
+datasets, or services are introduced. Components discussed only in design
+documents have not yet been integrated.

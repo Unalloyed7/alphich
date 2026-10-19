@@ -3,11 +3,14 @@
 .env.*.local
 .venv/
 __pycache__/
+*.egg-info/
+build/
 .pytest_cache/
 node_modules/
 dist/
 data/raw/
 data/processed/
 data/private/
+data/models/
 tmp/
 .DS_Store

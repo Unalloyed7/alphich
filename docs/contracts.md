@@ -11,9 +11,14 @@
 | payment_edge | payer_id, beneficiary_id, amount_raw, count, source_rows, is_self, ambiguity_flags |
 | person_company_link | person_id, company_id, source_row; тип связи unknown |
 | source_document | id, kind, title, url, published_at, publication_precision, fetched_at, content_hash, version, extraction_status |
-| document_chunk | id, document_id, page, section, text, source_span, topics, forecast_horizon, ocr_checked |
+| document_chunk | id, document_id, parent_id, page/исходные spans, section, text, text_version, topics, forecast_horizon, ocr_checked |
+| bank_claim | id, document_chunk_id, kind, attributed_to, metric, geography, scenario, value/unit, observed_period, forecast_horizon, position_role, revision_of, verification_status |
 | event | id, version, title, published_at, event_at, topics, entities, fact_ids, source_ids, completeness |
-| event_fact | id, event_id, event_version, text, source_chunk_ids, extraction_status, verification_status |
+| event_fact | id, event_id, event_version, text, source_chunk_ids, source_available_at, extraction_status, verification_status |
+| search_facet | id, company_id, profile_version, role, text, feature_ids, template_version |
+| embedding_space | id, model_id/revision, tokenizer/config, dimension, prefix_mode, normalization, preprocessing/chunker_version |
+| text_embedding | owner_kind/id/version, text_hash, embedding_space_id, vector, created_at |
+| retrieval_run | id, corpus_kind/version, query/facets, filters, embedding_space_id, ranking_version, candidates/ranks, exclusions, selected_evidence_ids |
 | insight | id, company_id, role, event_id, as_of, status, claims, risks, opportunities, next_steps, missing_data, run_id, cache_key |
 | answer | id, insight_id, question, claims, evidence_ids, missing_data, status, run_id, created_at |
 | agent_run / agent_step | id, state, action, tool_arguments, evidence_ids, validation_results, timestamps, model, prompt_version, usage |
@@ -74,6 +79,8 @@
 
 Это пример структуры, а не готовая карточка реального события. `bank_view.status` принимает `found`, `historical_only`, `conflicting`, `not_found`. Если позиция банка найдена, соответствующие `claims` имеют `kind=bank_view`, ссылку на фрагмент с датой и страницей.
 
+`found` означает подходящую оценку в загруженном корпусе, а не подтверждение текущей позиции всего банка. У `bank_claim` значение `position_role=current_in_document` относится к дате документа; `previous_view` и `conditional` не подменяют его. Дата публикации и горизонт сравниваются отдельно.
+
 Все типы тезисов: `news_fact`, `company_fact`, `bank_view`, `model_inference`. В массив evidence входят ID, выданные сервером, а не придуманные моделью ссылки. Проценты концентрации ссылаются на рассчитанный `company_feature`, где сохранен знаменатель и правило исключения self-payments.
 
 `risks` и `opportunities` содержат ID тезисов из `claims`; отдельного неподтвержденного текста в них нет. Каждый `next_step` имеет `text`, `basis_claim_ids` и `conditions`. Проверка проходит по всей карточке, включая заголовок, причины релевантности и действия; тезисы не могут обходить ее через свободные поля.
@@ -89,6 +96,18 @@
 | document_chunk | document_id, page или source_span, url, content_hash, extraction_status; для PDF страница обязательна |
 
 Каждый evidence ID неизменяем и закреплен за конкретной версией данных. Обновление источника создает новый ID; прежняя карточка сохраняет прежние доказательства и дату. ID в JSON примерах условные; production формат не должен ссылаться на изменяемое значение «последняя версия». Наследование доступа проверяется и для всех вложенных source_refs.
+
+Embedding — средство поиска, а не тип доказательства. Смысловое сходство не становится news_fact/company_fact. Для банковского утверждения доказательство ссылается на точный document_chunk/span. Parent expansion добавляет контекст; если используется подтверждение вне исходного child, сервер выдает отдельный evidence ID на нужный span. Ссылки на соседние абзацы не подменяются ссылкой на поисковое совпадение.
+
+## Результат отбора и поиска
+
+Каждый элемент ленты содержит `event_id/version`, `priority`, `relevance_tier`, `reason_codes`, `matched_feature_ids`, `matched_fact_ids`, `semantic_facet_ids`, `coverage`, `limitations`, `retrieval_run_id`. Уровни `direct`, `context`, `hypothesis` описывают основание релевантности; они не являются вероятностями ущерба. Если известен только смысловой матч, не создаем отсутствующий fact ID.
+
+В retrieval run сохраняются lexical/dense/fusion ранги кандидатов, примененные фильтры доступа и времени, ID расширенного parent, выбранные/отклоненные bank claims и причины исключения. Два контура имеют `corpus_kind=news|bank`, а заданный сервером контекст доступа не заменяется аргументами модели.
+
+Запрос возвращает пригодные evidence IDs, статус полноты и режим `hybrid|lexical_fallback`. Режим входит в ключ кэша. Версии embeddings не заменяют версии evidence; изменение кодировщика требует повторного поиска, изменение OCR также требует новых ID текстовых доказательств.
+
+Дата анализа и доступ зафиксированы в задаче сервером и применяются ко всем инструментам, расширениям и обходам revision. Историческая сводка события использует только допустимые на тот момент публикации и факты; `source_available_at` относится к подтверждающей версии источника, не к дате описанного события или времени извлечения LLM.
 
 ## Основной API
 
