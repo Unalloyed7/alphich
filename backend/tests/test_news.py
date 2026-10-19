@@ -243,3 +243,26 @@ def test_sources_with_different_urls_keep_distinct_provenance(app_store):
         assert db.scalar(select(func.count()).select_from(Event)) == 3
         assert db.scalar(select(func.count()).select_from(SourceDocument).where(
             SourceDocument.published_at.is_(None))) == 1
+
+
+def test_list_events_is_scoped_and_persisted(app_store):
+    client, factory, tokens = app_store
+    a, b = tokens['U_A'], tokens['U_B']
+    assert client.get('/api/v1/companies/U_A/events', headers=a).json() == {'items': []}
+    assert client.get('/api/v1/companies/U_B/events', headers=a).status_code == 403
+    assert client.get('/api/v1/companies/U_A/events').status_code == 401
+    assert client.get('/api/v1/companies/U_A/events?limit=0', headers=a).status_code == 422
+    assert client.get('/api/v1/companies/U_A/events?limit=51', headers=a).status_code == 422
+    first = publish(client, a, key='first-list-item')
+    assert first.status_code == 202
+    assert client.get('/api/v1/companies/U_A/events', headers=a).json() == {'items': []}
+    assert process_next_job(factory)
+    events = client.get('/api/v1/companies/U_A/events', headers=a).json()['items']
+    assert len(events) == 1
+    assert events[0]['title'] == story()['title']
+    assert events[0]['extraction_status'] == 'pending_extraction'
+    assert client.get('/api/v1/companies/U_B/events', headers=b).json()['items'] == []
+    assert publish(client, a, key='second-list-item', title='Вторая публикация')
+    assert process_next_job(factory)
+    assert len(client.get('/api/v1/companies/U_A/events?limit=1', headers=a).json()['items']) == 1
+    assert len(client.get('/api/v1/companies/U_A/events?limit=50', headers=a).json()['items']) == 2
