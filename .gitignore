@@ -14,3 +14,4 @@ data/private/
 data/models/
 tmp/
 .DS_Store
+*.db
