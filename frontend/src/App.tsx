@@ -174,16 +174,59 @@ function Profile({ profile }: { profile: CompanyProfile | null }) {
 }
 
 function EventDrawer({ event, source, loading, error, onClose, onSource }: { event: Event; source: SourceDetail | null; loading: boolean; error: string | null; onClose: () => void; onSource: (id: string) => void }) {
-  useEffect(() => { const onEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', onEscape); return () => window.removeEventListener('keydown', onEscape); }, [onClose]);
-  return <div className="drawer-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div className="drawer" role="dialog" aria-modal="true" aria-label="Информация о событии"><header className="drawer-head"><span className="eyebrow">ПОДРОБНОСТИ СОБЫТИЯ</span><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></header>
-    <div className="drawer-scroll"><StatusPill status="raw"/><h2>{event.title}</h2><div className="drawer-metadata"><div><span>Публикация</span><strong>{formattedDate(event.published_at)}</strong></div><div><span>Событие</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Дата события не установлена'}</strong></div><div><span>ID события</span><strong className="mono wrap-text">{event.id}</strong></div><div><span>AI-извлечение</span><strong>{event.extraction_status}</strong></div></div>
-    <Notice>Эта карточка содержит только сохранённый текст. Факты, риски, возможности и позиция банка появятся после подключения агентного анализа.</Notice>
-    <h3 className="drawer-section-title">Первоисточники ({event.source_ids.length})</h3>
-    <div className="source-row">{event.source_ids.map((id, index) => <button className="source-button" type="button" key={id} onClick={() => onSource(id)}><Icon name="file" size={18}/> Источник {index + 1}<Icon name="chevron" size={16}/></button>)}</div>
-    {loading && <div className="source-loading"><span className="spinner"/> Загружаем текст…</div>}
-    {error && <Notice kind="error">{error}</Notice>}
-    {source && <section className="source-reader"><div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div><p className="source-full-text">{source.text}</p><div className="source-footer"><span><Icon name="alert" size={15}/> Ссылка не верифицирована</span>{source.url && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть внешний адрес</a>}</div></section>}
-    </div></div></div>;
+  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
+  const sourcePanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [onClose]);
+
+  // An expanded source can be below the fold in the drawer. Bring loading,
+  // errors, and the original article into view after their state is rendered.
+  useEffect(() => {
+    if (activeSourceId) sourcePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [activeSourceId, loading, source, error]);
+
+  return <div className="drawer-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="drawer" role="dialog" aria-modal="true" aria-label="Информация о событии">
+      <header className="drawer-head"><span className="eyebrow">ПОДРОБНОСТИ СОБЫТИЯ</span><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></header>
+      <div className="drawer-scroll">
+        <StatusPill status="raw"/><h2>{event.title}</h2>
+        <div className="drawer-metadata">
+          <div><span>Публикация</span><strong>{formattedDate(event.published_at)}</strong></div>
+          <div><span>Событие</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Дата события не установлена'}</strong></div>
+          <div><span>ID события</span><strong className="mono wrap-text">{event.id}</strong></div>
+          <div><span>AI-извлечение</span><strong>{event.extraction_status}</strong></div>
+        </div>
+        <Notice>Эта карточка содержит только сохранённый текст. Факты, риски, возможности и позиция банка появятся после подключения агентного анализа.</Notice>
+        <h3 className="drawer-section-title">Первоисточники ({event.source_ids.length})</h3>
+        <div className="source-row">
+          {event.source_ids.map((id, index) => <button
+            className={`source-button ${activeSourceId === id ? 'active' : ''}`}
+            type="button"
+            key={id}
+            aria-expanded={activeSourceId === id}
+            aria-controls="active-source-panel"
+            onClick={() => {
+              setActiveSourceId(id);
+              onSource(id);
+            }}
+          ><Icon name="file" size={18}/> Источник {index + 1} <span className="source-button-hint">{activeSourceId === id ? 'Открыт' : 'Просмотреть'}</span><Icon name="chevron" size={16}/></button>)}
+        </div>
+        {activeSourceId && <div id="active-source-panel" ref={sourcePanelRef} className="source-panel" role="region" aria-label="Текст первоисточника" aria-live="polite">
+          {loading && <div className="source-loading"><span className="spinner"/> Загружаем текст источника…</div>}
+          {error && <Notice kind="error">{error}</Notice>}
+          {source && source.id === activeSourceId && <section className="source-reader">
+            <div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div>
+            <p className="source-full-text">{source.text}</p>
+            <div className="source-footer"><span><Icon name="alert" size={15}/> Ссылка не верифицирована</span>{source.url && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть внешний адрес</a>}</div>
+          </section>}
+        </div>}
+      </div>
+    </div>
+  </div>;
 }
 
 function App() {
@@ -305,9 +348,14 @@ function App() {
     finally { if (request === latestSourceRequest.current) setSourceLoading(false); }
   }, [safeError, session]);
   const openEvent = useCallback((event: Event) => {
-    setSelectedEvent(event); setSource(null); setSourceError(null);
-    if (event.source_ids[0]) void openSource(event.source_ids[0]);
-  }, [openSource]);
+    // Source loading is explicit: clicking "Источник 1" must visibly open it.
+    // Invalidate an outstanding response from a previously opened event.
+    latestSourceRequest.current += 1;
+    setSelectedEvent(event);
+    setSource(null);
+    setSourceLoading(false);
+    setSourceError(null);
+  }, []);
   const openEventId = useCallback(async (id: string) => {
     if (!session) return;
     try { const event = await api.event(id, session.token); openEvent(event); }
@@ -342,7 +390,7 @@ function App() {
         <footer className="app-footer"><span>© ALPHICH / HACKATHON PROTOTYPE</span><span>Профили обезличены · Источники требуют проверки</span></footer>
       </div>
     </main>
-    {selectedEvent && <EventDrawer event={selectedEvent} source={source} loading={sourceLoading} error={sourceError} onClose={() => { latestSourceRequest.current += 1; setSelectedEvent(null); }} onSource={id => void openSource(id)}/>}
+    {selectedEvent && <EventDrawer key={selectedEvent.id} event={selectedEvent} source={source} loading={sourceLoading} error={sourceError} onClose={() => { latestSourceRequest.current += 1; setSelectedEvent(null); }} onSource={id => void openSource(id)}/>}
   </div>;
 }
 

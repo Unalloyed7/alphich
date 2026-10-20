@@ -18,3 +18,10 @@
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 .switch-session{font-size:10px;font-weight:800;color:#d83241;background:#fff3f4;border:1px solid #f7dade;border-radius:8px;padding:8px 10px}.switch-session:hover{background:#ffeaec}@media(max-width:630px){.switch-session{padding:8px 7px;font-size:9px}}
+
+/* The original source opens on an explicit button press and is scrolled into view. */
+.source-button.active { border-color: #ef3340; background: #fff6f7; }
+.source-button:focus-visible { outline: 2px solid #ef3340; outline-offset: 2px; }
+.source-button-hint { font-size: 10px; font-weight: 600; color: #8d8d98; margin-left: auto; }
+.source-button.active .source-button-hint { color: #ce2532; }
+.source-panel { scroll-margin-top: 18px; }
