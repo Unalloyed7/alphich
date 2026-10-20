@@ -56,6 +56,8 @@ export interface Job {
   result_type: string;
   result_id: string | null;
   error: string | null;
+  created_at?: number;
+  source_title?: string;
 }
 
 export interface SourceSummary {

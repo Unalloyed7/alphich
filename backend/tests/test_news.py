@@ -266,3 +266,57 @@ def test_list_events_is_scoped_and_persisted(app_store):
     assert process_next_job(factory)
     assert len(client.get('/api/v1/companies/U_A/events?limit=1', headers=a).json()['items']) == 1
     assert len(client.get('/api/v1/companies/U_A/events?limit=50', headers=a).json()['items']) == 2
+
+
+def test_list_jobs_recovers_session_history_without_cross_session_access(app_store):
+    client, factory, tokens = app_store
+    a, b = tokens['U_A'], tokens['U_B']
+    url = '/api/v1/jobs'
+    assert client.get(url).status_code == 401
+    assert client.get(url, headers=a).json() == {'items': []}
+    assert client.get(url + '?limit=0', headers=a).status_code == 422
+    assert client.get(url + '?limit=51', headers=a).status_code == 422
+
+    first = publish(client, a, key='job-list-first')
+    assert first.status_code == 202
+    first_id = first.json()['id']
+    assert process_next_job(factory)
+    items = client.get(url, headers=a).json()['items']
+    assert len(items) == 1
+    assert items[0]['id'] == first_id
+    assert items[0]['status'] == 'succeeded'
+    assert items[0]['source_title'] == story()['title']
+    assert isinstance(items[0]['created_at'], int)
+
+    other_session = client.post('/api/v1/demo-session', json={'company_id': 'U_A', 'role': 'ceo'})
+    assert other_session.status_code == 201
+    other_headers = {'X-Demo-Session': other_session.json()['token']}
+    assert client.get(url, headers=other_headers).json() == {'items': []}
+    assert client.get(url, headers=b).json() == {'items': []}
+
+    second = publish(client, a, key='job-list-second', title='Второе событие о ставке')
+    assert second.status_code == 202
+    assert len(client.get(url + '?limit=1', headers=a).json()['items']) == 1
+    ids = {item['id'] for item in client.get(url, headers=a).json()['items']}
+    assert ids == {first_id, second.json()['id']}
+
+
+def test_event_listing_supports_bounded_pagination(app_store):
+    client, factory, tokens = app_store
+    a, b = tokens['U_A'], tokens['U_B']
+    base = '/api/v1/companies/U_A/events'
+    assert client.get(base + '?offset=-1', headers=a).status_code == 422
+    assert client.get(base + '?offset=100001', headers=a).status_code == 422
+    assert client.get('/api/v1/companies/U_B/events?offset=2', headers=a).status_code == 403
+    for idx in range(5):
+        resp = publish(client, a, key=f'paginated-news-{idx:03}', title=f'Новость номер {idx + 1}')
+        assert resp.status_code == 202
+        assert process_next_job(factory)
+    full = client.get(base + '?limit=50', headers=a).json()['items']
+    first = client.get(base + '?limit=2&offset=0', headers=a).json()['items']
+    middle = client.get(base + '?limit=2&offset=2', headers=a).json()['items']
+    last = client.get(base + '?limit=2&offset=4', headers=a).json()['items']
+    empty = client.get(base + '?limit=2&offset=6', headers=a).json()['items']
+    assert [item['id'] for item in first + middle + last] == [item['id'] for item in full]
+    assert empty == []
+    assert client.get('/api/v1/companies/U_B/events', headers=b).json() == {'items': []}

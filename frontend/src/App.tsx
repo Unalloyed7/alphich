@@ -5,7 +5,7 @@ import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, Publicati
 type Screen = 'dashboard' | 'publish' | 'events' | 'profile';
 type IconName = 'grid' | 'plus' | 'list' | 'briefcase' | 'chevron' | 'arrow' | 'refresh' | 'check' | 'clock' | 'link' | 'file' | 'alert' | 'close' | 'send' | 'logout' | 'activity' | 'copy' | 'search';
 const SESSION_STORAGE_KEY = 'alphich.demo-session.v1';
-const jobStorageKey = (token: string) => `alphich.jobs.v1.${token.slice(0, 16)}`;
+const EVENTS_PAGE_SIZE = 20;
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -38,13 +38,6 @@ function readSession(): DemoSession | null {
     const value = JSON.parse(raw) as DemoSession;
     return value.token && value.expires_at > Date.now() / 1000 ? value : null;
   } catch { return null; }
-}
-
-function readJobIds(token: string): string[] {
-  try {
-    const value = JSON.parse(sessionStorage.getItem(jobStorageKey(token)) || '[]') as unknown;
-    return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string').slice(0, 10) : [];
-  } catch { return []; }
 }
 
 function formattedDate(date: string | null): string {
@@ -140,12 +133,32 @@ function EventCard({ item, onOpen }: { item: Event; onOpen: (event: Event) => vo
   </button>;
 }
 
-function EventsList({ items, loading, onReload, onOpen, onPublish }: { items: Event[]; loading: boolean; onReload: () => void; onOpen: (event: Event) => void; onPublish: () => void }) {
+function EventsList({ items, loading, onReload, onOpen, onPublish, hasMore = false, moreLoading = false, onMore }: {
+  items: Event[];
+  loading: boolean;
+  onReload: () => void;
+  onOpen: (event: Event) => void;
+  onPublish: () => void;
+  hasMore?: boolean;
+  moreLoading?: boolean;
+  onMore?: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const normalized = search.trim().toLocaleLowerCase('ru-RU');
+  const visible = items.filter(item => !normalized || [item.title, ...item.sources.map(source => source.title)]
+    .some(part => part.toLocaleLowerCase('ru-RU').includes(normalized)));
   return <div className="panel event-panel">
-    <div className="section-header"><div><div className="eyebrow">ЖУРНАЛ СОБЫТИЙ</div><h2>Обработанные публикации</h2></div><button type="button" className="ghost-button" onClick={onReload} disabled={loading}><Icon name="refresh" size={16}/> Обновить</button></div>
+    <div className="section-header"><div><div className="eyebrow">ЖУРНАЛ СОБЫТИЙ</div><h2>Обработанные публикации</h2></div><button type="button" className="ghost-button" onClick={onReload} disabled={loading || moreLoading}><Icon name="refresh" size={16}/> Обновить</button></div>
+    {items.length > 0 && <div className="event-toolbar">
+      <label htmlFor="event-search">Поиск по загруженным событиям</label>
+      <input id="event-search" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Название публикации…" autoComplete="off"/>
+      <span className="event-counter" aria-live="polite">Найдено: {visible.length} из {items.length}{hasMore ? ' · Есть более старые' : ''}</span>
+    </div>}
     {loading && items.length === 0 ? <div className="empty-state"><span className="spinner"/> Загружаем события…</div> : items.length === 0 ?
-      <div className="empty-state"><div className="empty-icon"><Icon name="file" size={27}/></div><h3>Пока нет событий</h3><p>Добавь первую публикацию. После обработки worker она появится здесь автоматически.</p><button className="secondary-button" type="button" onClick={onPublish}><Icon name="plus" size={16}/> Добавить публикацию</button></div> :
-      <div className="event-list">{items.map(item => <EventCard key={item.id} item={item} onOpen={onOpen}/>)}</div>}
+      <div className="empty-state"><div className="empty-icon"><Icon name="file" size={27}/></div><h3>Пока нет событий</h3><p>Добавь первую публикацию. После обработки worker она появится здесь автоматически.</p><button className="secondary-button" type="button" onClick={onPublish}><Icon name="plus" size={16}/> Добавить публикацию</button></div> : visible.length === 0 ?
+      <div className="empty-state"><h3>Совпадений нет</h3><p>Поиск выполняется только среди загруженных событий. Можно загрузить более старые.</p><button type="button" className="ghost-button" onClick={() => setSearch('')}>Сбросить поиск</button></div> :
+      <div className="event-list">{visible.map(item => <EventCard key={item.id} item={item} onOpen={onOpen}/>)}</div>}
+    {hasMore && onMore && <div className="event-pagination"><button className="secondary-button" type="button" disabled={loading || moreLoading} onClick={onMore}>{moreLoading ? 'Загружаем…' : 'Показать ещё события'}</button></div>}
   </div>;
 }
 
@@ -154,7 +167,7 @@ function JobList({ ids, jobs, onEvent }: { ids: string[]; jobs: Record<string, J
     {ids.length === 0 ? <div className="job-empty">Отправь публикацию — здесь появится задача и её статус.</div> :
       <div className="job-list">{ids.slice(0, 6).map(id => { const job = jobs[id]; return <div className="job-item" key={id}>
         <div className={`job-status-icon ${job?.status ?? 'queued'}`}><Icon name={job?.status === 'succeeded' ? 'check' : job?.status === 'failed' ? 'alert' : 'clock'} size={18}/></div>
-        <div className="job-details"><span className="job-title">{job ? jobLabel(job) : 'Загружаем статус…'}</span><span className="mono job-id">{id}</span>{job?.error && <span className="job-error">Код ошибки: {job.error}</span>}</div>
+        <div className="job-details"><span className="job-title">{job ? jobLabel(job) : 'Загружаем статус…'}</span>{job?.source_title && <span className="job-source-title" title={job.source_title}>{job.source_title}</span>}<span className="mono job-id">{id}</span>{job?.error && <span className="job-error">Код ошибки: {job.error}</span>}</div>
         {job?.status === 'succeeded' && job.result_id ? <button type="button" className="job-open" onClick={() => onEvent(job.result_id!)} aria-label="Открыть событие"><Icon name="arrow" size={17}/></button> : job?.status === 'running' || job?.status === 'queued' ? <span className="spinner tiny"/> : null}
       </div>; })}</div>}
     <div className="jobs-note"><span className="pulse-circle"/> Статусы обновляются автоматически</div>
@@ -231,6 +244,8 @@ function EventDrawer({ event, source, loading, error, onClose, onSource }: { eve
 
 function App() {
   const [session, setSession] = useState<DemoSession | null>(readSession);
+  const activeSessionToken = useRef(session?.token ?? null);
+  activeSessionToken.current = session?.token ?? null;
   const [screen, setScreen] = useState<Screen>('dashboard');
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -239,6 +254,9 @@ function App() {
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsMoreLoading, setEventsMoreLoading] = useState(false);
+  const [eventsHasMore, setEventsHasMore] = useState(false);
+  const [jobsError, setJobsError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobIds, setJobIds] = useState<string[]>([]);
@@ -253,7 +271,7 @@ function App() {
   const logOut = useCallback(() => {
     latestSourceRequest.current += 1;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    setSession(null); setProfile(null); setEvents([]); setCompanies([]); setSelectedEvent(null); setError(null); setJobIds([]); setJobs({}); setScreen('dashboard');
+    setSession(null); setProfile(null); setEvents([]); setEventsHasMore(false); setCompanies([]); setSelectedEvent(null); setError(null); setJobIds([]); setJobs({}); setJobsError(null); setScreen('dashboard');
   }, []);
 
   const safeError = useCallback((e: unknown): string => {
@@ -278,53 +296,82 @@ function App() {
 
   const reloadEvents = useCallback(async (current: DemoSession) => {
     setEventsLoading(true);
-    try { const data = await api.events(current.company_id, current.token); setEvents(data.items); }
-    catch (e) { setError(safeError(e)); } finally { setEventsLoading(false); }
+    try {
+      const data = await api.events(current.company_id, current.token, EVENTS_PAGE_SIZE, 0);
+      if (activeSessionToken.current !== current.token) return;
+      setEvents(data.items);
+      setEventsHasMore(data.items.length === EVENTS_PAGE_SIZE);
+    } catch (e) { if (activeSessionToken.current === current.token) setError(safeError(e)); }
+    finally { if (activeSessionToken.current === current.token) setEventsLoading(false); }
   }, [safeError]);
+
+  const loadMoreEvents = useCallback(async () => {
+    if (!session || eventsMoreLoading || eventsLoading || !eventsHasMore) return;
+    setEventsMoreLoading(true);
+    try {
+      const data = await api.events(session.company_id, session.token, EVENTS_PAGE_SIZE, events.length);
+      if (activeSessionToken.current !== session.token) return;
+      setEvents(current => {
+        const existing = new Set(current.map(event => event.id));
+        return [...current, ...data.items.filter(event => !existing.has(event.id))];
+      });
+      setEventsHasMore(data.items.length === EVENTS_PAGE_SIZE);
+    } catch (e) { if (activeSessionToken.current === session.token) setError(safeError(e)); }
+    finally { if (activeSessionToken.current === session.token) setEventsMoreLoading(false); }
+  }, [session, eventsMoreLoading, eventsLoading, eventsHasMore, events.length, safeError]);
 
   useEffect(() => {
     if (!session) return;
     let active = true;
-    setProfile(null); setEvents([]); setCompanies([]); setError(null);
-    setJobIds(readJobIds(session.token)); setJobs({});
+    setProfile(null); setEvents([]); setEventsHasMore(false); setCompanies([]); setError(null);
+    setJobIds([]); setJobs({}); setJobsError(null);
     void Promise.allSettled([
       api.profile(session.company_id, session.token),
       api.companies(session.token),
-      api.events(session.company_id, session.token),
+      api.events(session.company_id, session.token, EVENTS_PAGE_SIZE, 0),
+      api.jobs(session.token),
     ]).then(results => {
       if (!active) return;
       if (results[0].status === 'fulfilled') setProfile(results[0].value); else setError(safeError(results[0].reason));
       if (results[1].status === 'fulfilled') setCompanies(results[1].value.items);
-      if (results[2].status === 'fulfilled') setEvents(results[2].value.items); else setError(safeError(results[2].reason));
+      if (results[2].status === 'fulfilled') {
+        setEvents(results[2].value.items);
+        setEventsHasMore(results[2].value.items.length === EVENTS_PAGE_SIZE);
+      } else setError(safeError(results[2].reason));
+      if (results[3].status === 'fulfilled') {
+        setJobIds(results[3].value.items.map(job => job.id));
+        setJobs(Object.fromEntries(results[3].value.items.map(job => [job.id, job])));
+      } else setJobsError(safeError(results[3].reason));
     });
     return () => { active = false; };
   }, [session, safeError]);
 
   useEffect(() => {
     if (!session) return;
-    sessionStorage.setItem(jobStorageKey(session.token), JSON.stringify(jobIds));
-    if (jobIds.length === 0) return;
     let active = true;
+    let previousCompleted: string | null = null;
     const refresh = async () => {
-      const outcome = await Promise.allSettled(jobIds.slice(0, 8).map(id => api.job(id, session.token)));
-      if (!active) return;
-      const updated: Record<string, Job> = {};
-      let finished = false;
-      for (const result of outcome) {
-        if (result.status === 'fulfilled') {
-          updated[result.value.id] = result.value;
-          if (result.value.status === 'succeeded') finished = true;
-        } else if (result.reason instanceof ApiError && result.reason.status === 401) {
-          logOut(); return;
+      try {
+        const result = await api.jobs(session.token);
+        if (!active) return;
+        setJobsError(null);
+        setJobIds(result.items.map(job => job.id));
+        setJobs(Object.fromEntries(result.items.map(job => [job.id, job])));
+        const completedSignature = result.items.filter(job => job.status === 'succeeded').map(job => job.id).sort().join(',');
+        if (previousCompleted !== null && completedSignature !== previousCompleted) {
+          await reloadEvents(session);
         }
+        previousCompleted = completedSignature;
+      } catch (e) {
+        if (!active) return;
+        if (e instanceof ApiError && e.status === 401) { logOut(); return; }
+        setJobsError(safeError(e));
       }
-      setJobs(previous => ({ ...previous, ...updated }));
-      if (finished) { try { const data = await api.events(session.company_id, session.token); if (active) setEvents(data.items); } catch { /* Event list has a separate retry control. */ } }
     };
     void refresh();
     const id = window.setInterval(() => { void refresh(); }, 3000);
     return () => { active = false; window.clearInterval(id); };
-  }, [jobIds, session, logOut]);
+  }, [session, logOut, reloadEvents, safeError]);
 
   const publish = async (payload: PublicationPayload): Promise<boolean> => {
     if (!session) return false;
@@ -379,13 +426,14 @@ function App() {
       <header className="topbar"><div className="breadcrumb"><span>Alphich</span><Icon name="chevron" size={15}/><strong>{NAV.find(x => x.key === screen)?.label}</strong></div><div className="topbar-right"><span className={`online-badge online-${health}`}><span className="online-dot"/>{health === 'online' ? 'API доступен' : health === 'offline' ? 'Нет связи с API' : 'Проверяем API'}</span><div className="user-badge"><span className="avatar">{session.role === 'cfo' ? 'Ф' : 'Г'}</span><span>{session.company_id}<small>{session.role === 'cfo' ? 'Финансовый директор' : 'Генеральный директор'}</small></span><button type="button" className="switch-session" onClick={() => setRelogin(true)}>Сменить</button></div></div></header>
       <div className="page-content">
         {error && <div className="global-error"><Notice kind="error" onClose={() => setError(null)}>{error}</Notice></div>}
+        {jobsError && <div className="global-error"><Notice kind="error" onClose={() => setJobsError(null)}>Не удалось обновить историю задач: {jobsError}</Notice></div>}
         {screen === 'dashboard' && <>
           <div className="hero"><div className="hero-content"><div className="hero-overline"><span className="hero-dot"/> ЦЕНТР БИЗНЕС-АНАЛИТИКИ</div><h1>Контекст важнее<br/><em>заголовков.</em></h1><p>Все новые публикации, статусы обработки и подтверждающие материалы — в одном месте.</p><button type="button" className="hero-button" onClick={() => setScreen('publish')}>Добавить публикацию <Icon name="arrow" size={18}/></button></div><div className="hero-figure"><div className="hero-ring ring-a"/><div className="hero-ring ring-b"/><div className="hero-letter">α</div><div className="hero-figure-caption">DATA <span>→</span> CONTEXT <span>→</span> INSIGHT</div></div></div>
           <div className="stat-grid"><div className="stat"><span><Icon name="briefcase" size={19}/> Компания</span><strong>{session.company_id}</strong><small>{company?.okved_name || 'Профиль подключён'}</small></div><div className="stat"><span><Icon name="file" size={19}/> События</span><strong>{events.length.toString().padStart(2, '0')}</strong><small>Сохранены в PostgreSQL</small></div><div className="stat"><span><Icon name="check" size={19}/> Завершено задач</span><strong>{completed.toString().padStart(2, '0')}</strong><small>Из задач этой демосессии</small></div><div className="stat"><span><Icon name="activity" size={19}/> В обработке</span><strong>{pending.toString().padStart(2, '0')}</strong><small>Статус обновляется автоматически</small></div></div>
           <div className="dashboard-grid"><EventsList items={events.slice(0, 5)} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/></div>
         </>}
         {screen === 'publish' && <><div className="page-title"><div className="eyebrow">NEWS INGESTION / P0</div><h1>Новая публикация<span>.</span></h1><p>Проверь полный путь от отправки текста до события в базе данных.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>FastAPI сохраняет источник и создаёт задачу. Worker забирает её из PostgreSQL и создаёт событие. Статус можно отслеживать здесь.</p><span>Время обработки обычно небольшое, но зависит от состояния worker.</span></div></div></div></>}
-        {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
+        {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
         {screen === 'profile' && <><div className="page-title"><div className="eyebrow">COMPANY CONTEXT / P0</div><h1>Контекст компании<span>.</span></h1><p>Признаки, на которых в дальнейшем будет основана персонализированная аналитика.</p></div><Profile profile={profile}/></>}
         <footer className="app-footer"><span>© ALPHICH / HACKATHON PROTOTYPE</span><span>Профили обезличены · Источники требуют проверки</span></footer>
       </div>
