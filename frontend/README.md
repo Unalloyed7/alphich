@@ -9,7 +9,7 @@ React + TypeScript + Vite UI. The UI performs real requests to the backend (no d
 - `GET /api/v1/companies/{id}/events` — stored events for the authorized company;
 - `GET /api/v1/events/{id}`, `/sources/{id}` — event details and raw source.
 
-**This is not an AI news interpretation interface yet.** The server currently produces raw events, without verified facts or bank opinions. No insights, RAG answers, or fake AI claims are displayed.
+**This is not an AI news interpretation interface yet.** This UI displays ingestion events and original sources. The server also has separate insight, question, evidence and run endpoints described in [docs/llm.md](../docs/llm.md); the UI still needs to connect those endpoints. Real model credentials are not available yet. No fake AI claims are displayed.
 
 ## Quick start via Docker (recommended)
 

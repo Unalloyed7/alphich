@@ -20,6 +20,8 @@ from sqlalchemy.orm import Session
 from app.core import Base, Company, DemoSession, feature_evidence, make_session_factory
 from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
                       digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
+from app.intelligence.routes import register_routes
+from app.intelligence.service import event_payload
 
 
 class DemoSessionRequest(BaseModel):
@@ -200,6 +202,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
     @app.get("/api/v1/jobs")
     def list_session_jobs(
         limit: int = Query(default=20, ge=1, le=50),
+        operation: str = Query(default="publication_ingest", pattern="^(publication_ingest|insight_analysis|insight_question)$"),
         demo: DemoSession = Depends(current_session),
         db: Session = Depends(get_db),
     ):
@@ -215,7 +218,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
                 Job.owner_session_hash == demo.token_hash,
                 Job.company_id == demo.company_id,
                 SourceDocument.company_id == demo.company_id,
-                Job.operation == "publication_ingest",
+                Job.operation == operation,
             )
             .order_by(Job.created_at.desc(), Job.id.desc())
             .limit(limit)
@@ -252,7 +255,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
             .offset(offset)
             .limit(limit)
         ).all()
-        return {"items": [serialize_event(event, source) for event, source in rows]}
+        return {"items": [event_payload(db, event, source) for event, source in rows]}
 
     @app.get("/api/v1/events/{event_id}")
     def event_detail(event_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):
@@ -262,7 +265,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         source = db.get(SourceDocument, event.source_id)
         if source is None or source.company_id != demo.company_id:
             raise HTTPException(404, "Source not found")
-        return serialize_event(event, source)
+        return event_payload(db, event, source)
 
     @app.get("/api/v1/sources/{source_id}")
     def source_detail(source_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):
@@ -277,6 +280,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
                 "extraction_status": source.extraction_status, "completeness": source.completeness,
                 "note": "User-submitted text. URL is not fetched or independently verified."}
 
+    register_routes(app, get_db, current_session, session_factory)
     return app
 
 

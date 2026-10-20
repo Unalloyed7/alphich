@@ -1,6 +1,6 @@
 # Контракты данных Alphich
 
-Контракты фиксируются до параллельной разработки интерфейса, API и агента. Ниже целевой формат; серверные схемы и OpenAPI появятся при реализации.
+Ниже общий целевой контракт. Реализованные API профилей, публикаций и [LLM runtime](llm.md) доступны в OpenAPI; инструкция LLM уточняет фактические параметры, статусы, ограничения окна extraction и границы пока не подключённого интерфейса.
 
 ## Основные сущности
 
@@ -94,6 +94,7 @@
 | company_feature | feature_name, value, unit, method, coverage, profile_version; dataset и исходные строки в source_refs |
 | event_fact | event_id, event_version, source_chunk_ids; подтверждающий текст публикации доступен через source_refs |
 | document_chunk | document_id, page или source_span, url, content_hash, extraction_status; для PDF страница обязательна |
+| bank_claim | Проверенный тезис реестра, document_chunk_id, metric/horizon, published_at, position_role и исходные PDF/page/span |
 
 Каждый evidence ID неизменяем и закреплен за конкретной версией данных. Обновление источника создает новый ID; прежняя карточка сохраняет прежние доказательства и дату. ID в JSON примерах условные; production формат не должен ссылаться на изменяемое значение «последняя версия». Наследование доступа проверяется и для всех вложенных source_refs.
 

@@ -27,12 +27,14 @@ def claim_job(session_factory: sessionmaker, *, now: int | None = None) -> tuple
     with session_factory.begin() as db:
         # Third crashed attempt cannot be reclaimed; do not leave it running forever.
         db.execute(update(Job).where(
+            Job.operation == "publication_ingest",
             Job.status == "running", Job.attempt_count >= MAX_ATTEMPTS,
             Job.lease_expires_at <= now,
         ).values(status="failed", stage="failed", error="worker_lease_expired",
                  finished_at=now, lease_expires_at=None))
         candidates = db.scalars(
             select(Job).where(
+                Job.operation == "publication_ingest",
                 Job.available_at <= now,
                 Job.attempt_count < MAX_ATTEMPTS,
                 or_(Job.status == "queued", (Job.status == "running") & (Job.lease_expires_at <= now)),

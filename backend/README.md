@@ -3,9 +3,10 @@
 This is a **working backend foundation**, not the entire news-analysis product.
 Current endpoints implement database health, bounded demo sessions, accessible company list,
 profile/evidence-ready feature extraction, and real queued news ingestion with a separate worker.
-**The agent, LLM extraction, RAG, RSS collection, company-specific ranking, and insight endpoints
-from `docs/contracts.md` are NOT implemented yet.** See [NEWS_INGESTION.md](NEWS_INGESTION.md)
-for the new routes, job protocol and limits.
+The separate [LLM runtime](../docs/llm.md) implements extraction, scoped RAG, an agent,
+verified insights, questions and budget accounting. Organizer credentials are not available yet;
+integration tests use scripted gateway responses. RSS collection remains a separate task.
+See [NEWS_INGESTION.md](NEWS_INGESTION.md) for the raw ingestion routes and protocol.
 
 ## Run with Docker Compose
 
@@ -79,4 +80,8 @@ creates a raw `event` from each submitted publication, and uses bounded retries.
 Follow **[NEWS_INGESTION.md](NEWS_INGESTION.md)** for complete curl examples and
 security limitations. `POST /publications` returns **202**; poll `GET /jobs/{id}`
 and then fetch `GET /events/{id}`. `GET /sources/{id}` returns the original pasted
-text to the same company. Raw events have `facts=[]` until factual extraction is built.
+text to the same company. Raw events have `facts=[]` until an explicit LLM analysis task completes extraction.
+
+## LLM анализ
+
+В `app/intelligence/` добавлены отдельный worker, API анализа и вопросов, проверки и общий бюджет. Настройки шлюза, список маршрутов, ограничения и проверка запуска — в [docs/llm.md](../docs/llm.md). По умолчанию генерация отключена до получения реальных model ID, ключа и подтверждённых тарифов. API загрузки публикаций сохраняет прежний контракт.

@@ -1,3 +1,19 @@
+x-llm-environment: &llm-environment
+  LLM_BASE_URL: ${LLM_BASE_URL:-}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_EXTRACTION_MODEL: ${LLM_EXTRACTION_MODEL:-}
+  LLM_ANALYSIS_MODEL: ${LLM_ANALYSIS_MODEL:-}
+  LLM_MODEL_CATALOG_JSON: ${LLM_MODEL_CATALOG_JSON:-[]}
+  LLM_PRICES_CONFIRMED: ${LLM_PRICES_CONFIRMED:-0}
+  LLM_DAILY_LIMIT_RUB: ${LLM_DAILY_LIMIT_RUB:-500}
+  LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-45}
+  LLM_MAX_CALLS: ${LLM_MAX_CALLS:-8}
+  LLM_MAX_TOOLS: ${LLM_MAX_TOOLS:-8}
+  BANK_INDEX_DIR: /data/processed/bank-index-v1
+  E5_MODEL_DIR: /data/models/e5-base
+  E5_MODEL_MANIFEST: /srv/knowledge/embedding-model.json
+  BANK_ALLOWED_DOCUMENT_IDS: ${BANK_ALLOWED_DOCUMENT_IDS-*}
+
 services:
   postgres:
     image: postgres:16.8
@@ -14,15 +30,19 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      <<: *llm-environment
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
       DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-U_9250,U_99802,U_44792}
     volumes:
       - ./data/raw:/data/raw:ro
+      - ./data/processed:/data/processed:ro
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -31,7 +51,9 @@ services:
       timeout: 5s
       retries: 12
   worker:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     command: ["python", "-m", "app.worker", "--poll-interval", "1"]
     restart: unless-stopped
     depends_on:
@@ -41,6 +63,23 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
+  analysis-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-m", "app.intelligence.worker"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      <<: *llm-environment
+      DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
+    volumes:
+      - ./data/processed:/data/processed:ro
+      - ./data/models:/data/models:ro
   frontend:
     build: ./frontend
     restart: unless-stopped
