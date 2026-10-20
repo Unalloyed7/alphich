@@ -1,0 +1,37 @@
+/* Kept separate to avoid altering the existing dashboard theme. */
+.insight-panel{border-top:1px solid #e6e8ed;margin-top:32px;padding-top:22px;color:#24252d;font-size:13px;line-height:1.7}
+.insight-panel h3,.insight-feed h2{font-size:21px;line-height:1.3;letter-spacing:-.5px;margin:6px 0 12px}
+.insight-panel h4{font-size:18px;line-height:1.4;margin:18px 0 8px}
+.insight-panel h5{font-size:13px;margin:19px 0 8px}
+.insight-heading small{font-size:10px;font-weight:800;letter-spacing:1px;color:#a83c49}
+.insight-muted{font-size:12px;color:#767982;line-height:1.65;overflow-wrap:anywhere}
+.insight-error{border:1px solid #f1c6c6;background:#fff5f5;color:#9a2931;border-radius:8px;padding:10px;font-size:12px;overflow-wrap:anywhere}
+.insight-budget{background:#f7f7f9;border-radius:9px;padding:13px;display:grid;gap:5px;color:#666975;font-size:11px;margin:10px 0 18px}
+.insight-budget span:first-child{font-weight:800;color:#333}
+.insight-primary,.insight-question button{border:none;border-radius:9px;background:#bd2434;color:white;font-size:12px;font-weight:800;padding:12px 18px;cursor:pointer}
+.insight-primary:disabled,.insight-question button:disabled{background:#d6d7dd;color:#777;cursor:not-allowed}
+.insight-job{font-size:11px;color:#636773;overflow-wrap:anywhere}
+.insight-result{margin-top:18px}
+.insight-claims{display:grid;gap:9px}
+.insight-claim{padding:14px 15px;border:1px solid #e6e6eb;border-radius:10px;background:#fff}
+.insight-claim p{margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.insight-claim-kind{display:inline-block;font-weight:800;font-size:10px;color:#515360;text-transform:uppercase;letter-spacing:.35px}
+.insight-claim-bank_view{color:#a8273e}.insight-claim-model_inference{color:#215b8f}
+.insight-evidence-links{display:flex;flex-wrap:wrap;gap:6px}
+.insight-evidence-links button,.insight-link{border:1px solid #e3e3e8;border-radius:7px;background:#fbfbfd;color:#a8273e;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:700;overflow-wrap:anywhere}
+.insight-evidence,.insight-trace,.insight-answer{border-left:3px solid #ad2b3b;background:#faf9f9;border-radius:5px;padding:12px 15px;margin-top:18px;overflow-wrap:anywhere}
+.insight-trace p{font-size:11px;overflow-wrap:anywhere}
+.insight-evidence a{color:#a8273e}
+.insight-question{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+.insight-question label{font-weight:800}
+.insight-question textarea{font:inherit;width:100%;border-radius:8px;border:1px solid #d9dbe1;padding:10px;resize:vertical;box-sizing:border-box;min-height:80px}
+.insight-question button{align-self:flex-start}
+.insight-feed{padding:28px;display:grid;gap:14px}
+.insight-feed .section-header{margin-bottom:7px}
+.insight-feed-item{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:15px;border:1px solid #eee;border-radius:10px}
+.insight-feed-item strong{font-size:14px;overflow-wrap:anywhere}
+.insight-feed-item p{font-size:12px;margin:5px 0}
+.insight-feed-item button{flex-shrink:0}
+@media(max-width:650px){.insight-feed{padding:16px}.insight-feed-item{flex-direction:column}.insight-panel{font-size:12px}}
+
+.status-analyzed{background:#e8f6ee;color:#27724b}
