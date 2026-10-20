@@ -11,7 +11,7 @@ import time
 import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -203,6 +203,26 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         if job is None or job.owner_session_hash != demo.token_hash or job.company_id != demo.company_id:
             raise HTTPException(404, "Job not found")
         return view_job(job)
+
+    @app.get("/api/v1/companies/{company_id}/events")
+    def company_events(
+        company_id: str,
+        limit: int = Query(default=30, ge=1, le=50),
+        demo: DemoSession = Depends(current_session),
+        db: Session = Depends(get_db),
+    ):
+        """List only completed raw events for the authorized demo company."""
+        if company_id != demo.company_id:
+            raise HTTPException(403, "Session does not grant access to this company")
+        rows = db.execute(
+            select(Event, SourceDocument)
+            .join(SourceDocument, Event.source_id == SourceDocument.id)
+            .where(Event.company_id == demo.company_id,
+                   SourceDocument.company_id == demo.company_id)
+            .order_by(SourceDocument.received_at.desc(), Event.id.desc())
+            .limit(limit)
+        ).all()
+        return {"items": [serialize_event(event, source) for event, source in rows]}
 
     @app.get("/api/v1/events/{event_id}")
     def event_detail(event_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):

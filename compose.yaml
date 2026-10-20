@@ -41,5 +41,13 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5173:80"
 volumes:
   pgdata:
