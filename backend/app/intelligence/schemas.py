@@ -165,6 +165,38 @@ class SemanticReview(Strict):
         default_factory=list, max_length=12, description="Error codes only; [] if all claims and actions pass. No explanations or reasoning.")
 
 
+class ResearchHandoff(Strict):
+    action: Literal["handoff"]
+    bank_claim_ids: list[str] = Field(max_length=6, description="Only existing bank_claim IDs from this run; no generated facts")
+    gaps: list[Literal["no_current_position", "forecast_horizon_unknown", "conflicting_positions",
+                       "no_applicable_evidence"]] = Field(max_length=4)
+
+
+class ResearchDecision(Strict):
+    decision: Annotated[SearchBank | ResearchHandoff, Field(discriminator="action")]
+
+
+class FinalResearchDecision(Strict):
+    decision: ResearchHandoff
+
+
+class InspectEvidence(Strict):
+    action: Literal["inspect_evidence"]
+    ids: list[str] = Field(min_length=1, max_length=3)
+
+
+class VerificationVerdict(SemanticReview):
+    action: Literal["verdict"]
+
+
+class VerificationDecision(Strict):
+    decision: Annotated[InspectEvidence | VerificationVerdict, Field(discriminator="action")]
+
+
+class FinalVerificationDecision(Strict):
+    decision: VerificationVerdict
+
+
 class InsightRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     event_id: str = Field(min_length=1, max_length=40)

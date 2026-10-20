@@ -44,6 +44,7 @@ repeated_tool_without_new_evidence evidence_outside_scope wrong_evidence_kind ag
 card_validation_failed evaluation_job_failed evaluation_worker_did_not_claim_job evaluation_job_not_completed
 evaluation_requires_dedicated_synthetic_database evaluation_database_has_pending_jobs
 evaluation_internal_error evaluation_fixture_company_mismatch""".split())
+SAFE_ERRORS = SAFE_ERRORS | {"invalid_research_handoff", "research_agent_limit", "invalid_verification_review"}
 
 
 def safe_error(value):
@@ -73,15 +74,16 @@ def _validate_cases(data):
                 raise ValueError()
         if source.get("maximum_facts", 10) < source.get("minimum_facts", 0):
             raise ValueError()
-        for key in ("expected_topics", "forbidden_output", "require_personal_card_for"):
+        for key in ("expected_topics", "forbidden_output", "require_personal_card_for", "expected_relevance_codes", "forbidden_relevance_codes"):
             if key in source and (not isinstance(source[key], list) or any(not isinstance(v, str) for v in source[key])):
                 raise ValueError()
         if set(source.get("require_personal_card_for", [])) - set(companies):
             raise ValueError()
         if source.get("expected_status") not in (None, "insufficient_evidence", "ready_with_conditions"):
             raise ValueError()
-        if type(source.get("forbid_instruction_facts", False)) is not bool:
-            raise ValueError()
+        for key in ("forbid_instruction_facts", "forbid_personal_inference"):
+            if type(source.get(key, False)) is not bool:
+                raise ValueError()
         if not isinstance(source.get("expected_fact_attributes", {}), dict):
             raise ValueError()
         features = source.get("required_personal_feature_by_company", {})
@@ -194,6 +196,18 @@ def check_case(row, source, with_questions=False):
         issues.append("expected_fact_attributes_missing")
     if source.get("expected_status") and card.get("status") != source["expected_status"]:
         issues.append("unexpected_card_status")
+    if source.get("forbid_personal_inference") and any(c.get("kind") == "model_inference" for c in card.get("claims", [])):
+        issues.append("unexpected_personal_inference")
+    reasons = card.get("relevance_reasons", [])
+    if not isinstance(reasons, list):
+        issues.append("invalid_result_structure")
+        codes = set()
+    else:
+        codes = {reason["code"] for reason in reasons if isinstance(reason, dict) and isinstance(reason.get("code"), str)}
+    if not set(source.get("expected_relevance_codes", [])) <= codes:
+        issues.append("expected_relevance_reason_missing")
+    if set(source.get("forbidden_relevance_codes", [])) & codes:
+        issues.append("forbidden_relevance_reason")
     if row["company_id"] in source.get("require_personal_card_for", []):
         if card.get("status") != "ready_with_conditions" or not any(c.get("kind") == "model_inference" for c in card.get("claims", [])):
             issues.append("expected_personal_card_missing")
@@ -274,7 +288,11 @@ def _safe_run(run):
                              "issues": [safe_error(v) for v in run.get("verification", {}).get("issues", [])]},
             "tool_actions": [s.get("action") for s in run.get("steps", []) if s.get("action") in {
                 "search_bank_materials", "search_related_events", "get_company_features", "get_payment_neighbors", "get_evidence", "cache_hit"}],
-            "llm_calls": [{k: c.get(k) for k in ("id", "model", "purpose", "status", "input_tokens", "output_tokens", "cost_rub", "cost_source", "reserved_rub")} |
+            "agent_actions": [{"agent_role": s.get("agent_role"), "action": s.get("action"), "to_agent": s.get("to_agent")}
+                              for s in run.get("steps", []) if s.get("agent_role") in {"analyst", "bank_researcher", "verifier", "coordinator"}
+                              and s.get("action") in {"search_bank_materials", "search_related_events", "get_company_features",
+                                                      "get_payment_neighbors", "get_evidence", "agent_handoff", "verify_card", "verify_card_schema"}],
+            "llm_calls": [{k: c.get(k) for k in ("id", "model", "purpose", "agent_role", "status", "input_tokens", "output_tokens", "cost_rub", "cost_source", "reserved_rub")} |
                           {"error": safe_error(c["error"]) if c.get("error") else None} for c in run.get("llm_calls", [])]}
 
 

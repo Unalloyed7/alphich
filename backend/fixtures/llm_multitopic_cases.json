@@ -1,0 +1,55 @@
+{
+  "version": "llm-multitopic-development-v2",
+  "scope": "synthetic_multitopic_controls_not_real_news_or_independent_benchmark",
+  "companies": ["LLM_DEMO_LOAN", "LLM_DEMO_DEPOSIT", "LLM_DEMO_UNKNOWN"],
+  "roles": ["cfo", "ceo"],
+  "sources": [
+    {
+      "id": "synthetic-ru-inflation",
+      "provenance": "synthetic_economic_control_not_real_news",
+      "title": "Учебное сообщение о потребительских ценах в России",
+      "text": "В России в учебном отчётном месяце потребительские цены выросли на 0,6%. Структура затрат отдельных компаний и их закупочные цены в сообщении не раскрыты.",
+      "minimum_facts": 1,
+      "expected_topics": ["inflation"],
+      "expected_fact_attributes": {"geography": "RU", "kind": "report"},
+      "expected_relevance_codes": ["national_price_context"],
+      "question": "Какие данные компании необходимы, чтобы оценить изменение её расходов?"
+    },
+    {
+      "id": "synthetic-ru-fx",
+      "provenance": "synthetic_economic_control_not_real_news",
+      "title": "Учебное сообщение о российском валютном рынке",
+      "text": "На валютном рынке России вырос курс доллара к рублю. Сведения о валюте договоров и структуре выручки отдельных компаний отсутствуют.",
+      "minimum_facts": 1,
+      "expected_topics": ["fx"],
+      "expected_fact_attributes": {"geography": "RU", "kind": "report"},
+      "expected_relevance_codes": ["national_fx_context"],
+      "forbidden_relevance_codes": ["country_trade_channel"],
+      "question": "Каких данных не хватает, чтобы установить валютную экспозицию компании?"
+    },
+    {
+      "id": "synthetic-us-rate",
+      "provenance": "synthetic_foreign_jurisdiction_control_not_real_news",
+      "title": "Учебное решение ФРС США",
+      "text": "Федеральная резервная система США сохранила процентную ставку на прежнем уровне. Данных о валюте обязательств российских компаний нет.",
+      "minimum_facts": 1,
+      "expected_topics": ["policy_rate"],
+      "expected_fact_attributes": {"geography": "US", "kind": "rate_decision"},
+      "forbidden_relevance_codes": ["national_rate_context", "credit_rate_channel", "deposit_rate_channel"],
+      "expected_status": "insufficient_evidence",
+      "forbid_personal_inference": true
+    },
+    {
+      "id": "synthetic-us-trade",
+      "provenance": "synthetic_trade_without_company_exposure_control_not_real_news",
+      "title": "Учебная импортная пошлина в США",
+      "text": "В США введена новая импортная пошлина на промышленное оборудование. Сведения о российских контрагентах и поставках в сообщении отсутствуют.",
+      "minimum_facts": 1,
+      "expected_topics": ["trade_rules"],
+      "expected_fact_attributes": {"geography": "US", "kind": "regulatory_change"},
+      "forbidden_relevance_codes": ["country_trade_channel"],
+      "expected_status": "insufficient_evidence",
+      "forbid_personal_inference": true
+    }
+  ]
+}

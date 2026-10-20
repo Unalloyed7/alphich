@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core import feature_evidence
 from app.news import Event, SourceDocument, new_id, serialize_event
-from . import VERSION
+from . import AGENT_ROLES, VERSION
 from .agent import Tools, analyze
 from .extraction import EXTRACTION_VERSION, extract
 from .provider import Calls, Provider, hashed
@@ -82,6 +82,8 @@ class Runtime:
     def versions(self):
         bank = self.bank()
         return {"runtime": VERSION, "extraction": EXTRACTION_VERSION,
+                "agent_graph": {"roles": list(AGENT_ROLES), "research_max_calls": 2, "verification_max_calls": 2,
+                                "shared_max_calls": self.settings.max_calls, "shared_max_tools": self.settings.max_tools},
                 "models": [self.settings.extraction_model, self.settings.analysis_model],
                 "generation": {key: [m.input_limit, m.output_limit, m.reasoning_enabled, m.response_mode]
                                for key, m in self.settings.models.items()
@@ -258,6 +260,10 @@ class Runtime:
             bank_claim_ids = [c["id"] for c in draft["claims"] if c["kind"] == "bank_view"]
             if not bank_claim_ids:
                 bank_status = "not_found"
+            elif bank_status == "not_found":
+                # A frozen question may retain authorized reviewed evidence
+                # even when the current index/version is unavailable for search.
+                bank_status = "found"
             payload = {"company_id": job.company_id, "role": task.role, "event_id": event["id"],
                        "event_version": event["version"], "profile_version": task.profile["profile_version"],
                        "as_of": scope.as_of, "analysis_mode": "as_of", "status": "insufficient_evidence" if verification["status"] == "insufficient_evidence" else "ready_with_conditions",

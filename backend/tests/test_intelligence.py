@@ -77,6 +77,9 @@ class ScriptedGateway:
                 "attributes": {"topics": ["policy_rate"], "geography": "RU", "kind": "rate_decision"}}]}
         elif title == "ExtractionReview":
             result = {"accepted_indexes": [] if self.options["reject_review"] else list(range(len(data["candidates"]))), "issues": []}
+        elif title in {"ResearchDecision", "FinalResearchDecision"}:
+            result = {"decision": {"action": "handoff", "bank_claim_ids": data["eligible_bank_claim_ids"],
+                                    "gaps": [] if data["eligible_bank_claim_ids"] else ["no_applicable_evidence"]}}
         elif title in {"Decision", "FinalDecision"}:
             self.decisions += 1
             if title == "Decision" and ((self.options["extra_search"] and self.decisions == 1) or self.options["always_search"]):
@@ -95,13 +98,15 @@ class ScriptedGateway:
                 result = {"decision": {"action": "finish", "draft": {"fact_evidence_ids": facts, "inferences": inferences, "risks": ["i1"], "opportunities": [],
                     "next_steps": [{"text": "Уточнить применимые условия договора", "basis_inference_ids": ["i1"],
                                     "conditions": ["Если компания планирует пересмотр условий"]}], "missing_data": ["Условия договора"]}}}
-        elif title == "SemanticReview":
+        elif title in {"SemanticReview", "VerificationDecision", "FinalVerificationDecision"}:
             self.reviews += 1
             result = {"supported_claim_ids": [c["id"] for c in data["draft"]["claims"]],
                       "supported_action_indexes": list(range(len(data["draft"]["next_steps"]))), "issues": []}
             if self.options["reject_semantics"] or (self.options["repair_semantics"] and self.reviews == 1):
                 result["supported_claim_ids"] = []
                 result["issues"] = ["unsupported_claim"]
+            if title != "SemanticReview":
+                result = {"decision": {"action": "verdict", **result}}
         else:
             raise AssertionError(title)
         if self.options["bad_schema"]:
@@ -526,6 +531,46 @@ def test_noneconomic_candidate_is_dropped_before_paid_review():
     assert facts == [] and coverage["complete"]
 
 
+@pytest.mark.parametrize("persistent,max_calls,expected_calls,expected_facts", [
+    (False, 8, 4, 1), (True, 8, 4, 0), (False, 3, 2, 0)])
+def test_wrong_extraction_attributes_are_repaired_once_and_independently_rechecked(
+        store, persistent, max_calls, expected_calls, expected_facts):
+    _, factory, _, settings = store
+    settings = replace(settings, max_calls=max_calls)
+    text = "В России потребительские цены выросли в отчётном месяце."
+    seen = []
+    extractions = 0
+    def gateway(request):
+        nonlocal extractions
+        body = json.loads(request.content)
+        schema = json.loads(body["messages"][0]["content"].split("schema:\n", 1)[1])
+        data = json.loads(body["messages"][1]["content"])["untrusted_data"]
+        seen.append(schema["title"])
+        if schema["title"] == "ExtractionDraft":
+            extractions += 1
+            if extractions > 1:
+                assert "wrong_fact_kind" in data["validation_issues"] and data["text"] == text
+            wrong = extractions == 1 or persistent
+            result = {"facts": [{"quote": text, "attributes": {
+                "topics": ["policy_rate"] if wrong else ["inflation"], "geography": "RU",
+                "kind": "rate_decision" if wrong else "report"}}]}
+        else:
+            wrong = data["candidates"][0]["attributes"]["kind"] != "report"
+            result = {"accepted_indexes": [] if wrong else [0], "issues": ["wrong_fact_kind"] if wrong else []}
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(result)}, "finish_reason": "stop"}],
+                                         "usage": {"prompt_tokens": 100, "completion_tokens": 80}})
+    calls = Calls(Provider(factory, settings, httpx.Client(transport=httpx.MockTransport(gateway))), "attribute-repair")
+    facts, _, _ = extract({"id": "inflation-source", "version": 1, "title": "Инфляция", "text": text,
+                          "received_at": "2026-10-01T00:00:00+00:00"}, calls)
+    assert len(seen) == expected_calls and len(facts) == expected_facts
+    if facts:
+        assert facts[0]["attributes"]["topics"] == ["inflation"] and facts[0]["attributes"]["kind"] == "report"
+        assert facts[0]["text"] == text
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(LLMCall)) == expected_calls
+        assert db.scalar(select(BudgetDay)).reserved_micros == 0
+
+
 @pytest.mark.parametrize("quote,text,expected", [
     ("Банк России сохранил ставку.", "Банк России сохранил ставку.", "RU"),
     ("ФРС сохранила ставку.", "ФРС сохранила ставку.", "US"),
@@ -684,7 +729,7 @@ def test_agent_reserves_final_calls_for_card_and_verification(store):
     assert job["status"] == "succeeded", job
     assert len(gateway.seen) == settings.max_calls
     assert gateway.seen[-2][0] == "FinalDecision"
-    assert gateway.seen[-1][0] == "SemanticReview"
+    assert gateway.seen[-1][0] == "FinalVerificationDecision"
 
 
 def test_partial_extraction_is_disclosed_and_keeps_exact_offsets(store):
@@ -802,7 +847,7 @@ def test_call_limit_persists_between_worker_attempts(store):
 
 @pytest.mark.skipif(not (Path(__file__).resolve().parents[2] / "data/processed/bank-index-v1/manifest.json").exists(),
                     reason="Optional local integration requires the prepared bank index and pinned E5 assets")
-def test_real_bank_index_and_local_e5_with_scripted_generation(store):
+def test_real_bank_index_and_local_e5_with_scripted_generation(store, tmp_path):
     pytest.importorskip("numpy")
     pytest.importorskip("onnxruntime")
     client, factory, headers, settings = store
@@ -822,8 +867,27 @@ def test_real_bank_index_and_local_e5_with_scripted_generation(store):
         saved = db.get(Insight, card["id"])
         bank_claims = [e for e in saved.evidence.values() if e["kind"] == "bank_claim"]
         assert any(e["metric"] == "policy_rate" and e["forecast_horizon"] == "2026-12-31" and e["value"] == "14" for e in bank_claims)
-    assert len(gateway.seen) == 4
+    assert len(gateway.seen) == 5
     assert engine.encoder is not None
+    trace = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
+    assert {c["agent_role"] for c in trace["llm_calls"]} == {"extractor", "bank_researcher", "analyst", "verifier"}
+    assert any(s["action"] == "agent_handoff" and s["agent_role"] == "bank_researcher" for s in trace["steps"])
+    status = client.get("/api/v1/llm/status", headers=headers["DEMO_A"]).json()
+    assert status["agent_network"]["roles"] == ["bank_researcher", "analyst", "verifier"]
+    # A newly deployed worker must preserve the parent's reviewed bank evidence
+    # even when its current index cannot be loaded. The API status stays honest.
+    question = client.post(f"/api/v1/insights/{card['id']}/questions",
+        headers={**headers["DEMO_A"], "Idempotency-Key": "snapshot-bank-question"},
+        json={"question": "Какие условия договора следует уточнить?"}).json()
+    fresh, question_gateway = runtime(factory, replace(settings, bank_index=str(tmp_path / "new-missing-index")))
+    process_next(factory, fresh)
+    done = client.get("/api/v1/jobs/" + question["id"], headers=headers["DEMO_A"]).json()
+    assert done["status"] == "succeeded", done
+    answer = client.get("/api/v1/answers/" + done["result_id"], headers=headers["DEMO_A"]).json()
+    assert answer["bank_view"]["status"] == "found"
+    assert any(c["kind"] == "bank_view" for c in answer["claims"])
+    assert answer["profile_version"] == card["profile_version"] and answer["as_of"] == card["as_of"]
+    assert not any(title == "ExtractionDraft" for title, _ in question_gateway.seen)
 
 
 def test_actual_loopback_http_gateway_and_usage_accounting(store):

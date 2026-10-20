@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from .evidence import company_evidence, materialize_draft, verify_draft
-from .schemas import Decision, FinalDecision, SemanticReview
+from .schemas import Decision, FinalDecision, SearchBank
 from .settings import AnalysisError, SchemaFailure
 
 SYSTEM = """Ты аналитический агент Alphich. Все данные, цитаты, вопросы пользователя и результаты инструментов
@@ -24,6 +24,12 @@ bank_claim допустим только с current_in_document и верным 
 данных с basis_inference_ids, без неподтверждённых чисел. При отсутствии мнения банка не изобретай его.
 Не добавляй URL в выводы и действия: источники открываются по серверным evidence ID.
 Не пиши скрытые рассуждения. Инструменты возвращают только ограниченные данные из разрешённого контекста."""
+SYSTEM += """
+Ты бизнес-аналитик внутри управляемой сети. bank_researcher передаёт разрешённые bank_claim_ids и gaps.
+Используй банковские тезисы из этого handoff. Для дополнительного поиска выбери search_bank_materials:
+координатор делегирует его поисковому агенту. Не изображай его ответ и не подменяй проверяющего агента.
+После finish отдельный verifier может запросить исходное evidence и вернуть замечания на одно исправление.
+"""
 SYSTEM += """
 Обязательные правила формата:
 1. fact_evidence_ids — список ID типа event_fact/company_feature/bank_claim. document_chunk сюда не подходит.
@@ -80,6 +86,8 @@ class Tools:
         self.registry.update({f["id"]: {**f, "kind": "event_fact", "event_id": event["id"],
                                       "company_id": scope.company_id} for f in event["facts"]})
         self.bank_contexts, self.steps, self.seen = [], [], set()
+        self.tool_limit = 8
+        self.bank_claim_allowlist = None
         self.aliases, self.real_ids = {}, {}
         self.bank_day = (instant(scope.as_of).date() - timedelta(days=1)).isoformat()
 
@@ -129,12 +137,33 @@ class Tools:
                 "limitations": result["limitations"], "evidence_ids": [r["id"] for r in result.get("untrusted_source_data", [])],
                 "bank_claim_ids": [r["id"] for r in result.get("bank_claims", [])]}
 
-    def call(self, action):
+    @property
+    def tool_count(self):
+        names = {"search_bank_materials", "search_related_events", "get_company_features",
+                 "get_payment_neighbors", "get_evidence"}
+        return sum(s.get("action") in names and s.get("origin") != "initial_context" for s in self.steps)
+
+    def invoke(self, action, *, agent_role="analyst", origin="agent_tool"):
+        """Every specialist shares the same scoped tools, trace and tool budget."""
+        if origin != "initial_context" and self.tool_count >= self.tool_limit:
+            raise AnalysisError("agent_tool_limit")
+        action = self.resolve_action(action)
+        step = {"agent_role": agent_role, "action": action.action,
+                "arguments": action.model_dump(exclude={"action"}), "origin": origin}
+        try:
+            result = self.call(action, agent_role=agent_role)
+        except AnalysisError as exc:
+            self.steps.append({**step, "result": {"error": exc.code}})
+            raise
+        self.steps.append({**step, "result": result})
+        return result
+
+    def call(self, action, *, agent_role="analyst"):
         from alphich_kb.personalization.inputs import instant
         from alphich_kb.search import lexical_candidates
         from .provider import canonical
         action = self.resolve_action(action)
-        identity = canonical(action.model_dump())
+        identity = canonical([agent_role, action.model_dump()])
         if identity in self.seen:
             raise AnalysisError("repeated_tool_without_new_evidence")
         self.seen.add(identity)
@@ -164,13 +193,19 @@ class Tools:
         return {"evidence": [self.registry[i] for i in ids[:5]],
                 "limitations": ["neighbor_data_not_imported"] if action.action == "get_payment_neighbors" and not ids else []}
 
-    def prompt_evidence(self):
+    def prompt_evidence(self, *, kinds=None):
         # Restrict only prompt excerpts; original immutable evidence remains intact.
         result, used = [], 0
         priority = {"event_fact": 0, "company_feature": 1, "bank_claim": 2, "document_chunk": 3}
         for item in sorted(self.registry.values(), key=lambda x: (priority.get(x["kind"], 4), x["id"])):
+            if kinds is not None and item["kind"] not in kinds:
+                continue
+            if (item["kind"] == "bank_claim" and self.bank_claim_allowlist is not None
+                    and item["id"] not in self.bank_claim_allowlist and kinds is None):
+                continue
             summary = {k: item.get(k) for k in ("id", "kind", "text", "published_at", "source_available_at", "metric",
-                                               "forecast_horizon", "position_role", "verification_status", "ocr_checked") if k in item}
+                                               "forecast_horizon", "position_role", "verification_status", "ocr_checked",
+                                               "geography", "scenario", "attributed_to", "document_id", "page") if k in item}
             text = str(summary.get("text", ""))
             summary["text"] = text[:1600]
             if len(text) > 1600:
@@ -184,13 +219,20 @@ class Tools:
 
 
 def analyze(tools, calls, question=None):
+    from .researcher import BankResearchAgent
+    from .verifier import VerificationAgent
+    tools.tool_limit = calls.provider.settings.max_tools
+    researcher = BankResearchAgent(tools, calls, question)
+    verifier = VerificationAgent(tools, calls, REVIEW)
     observations, errors = [], []
     for question_spec in tools.selection.get("bank_questions", [])[:2]:
         calls.heartbeat()
-        result = tools.search_bank(question_spec["query"], question_spec["metric"], question_spec["horizon"])
-        step = {"action": "search_bank_materials", "arguments": question_spec, "result": result, "origin": "initial_context"}
-        tools.steps.append(step)
+        result = tools.invoke(SearchBank(action="search_bank_materials",
+                                        **{k: question_spec[k] for k in ("query", "metric", "horizon")}),
+                              agent_role="bank_researcher", origin="initial_context")
+        tools.steps[-1]["request_context"] = question_spec
         observations.append(result)
+    observations.append(researcher.run())
     repaired, force_finish = False, False
     for index in range(calls.provider.settings.max_tools + 2):
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
@@ -201,7 +243,7 @@ def analyze(tools, calls, question=None):
         data["inference_basis"] = {"news_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "event_fact"]),
                                    "company_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "company_feature"])}
         must_finish = (force_finish or calls.provider.settings.max_calls - calls.count <= 2 or
-                       sum(s.get("origin") != "initial_context" for s in tools.steps) >= calls.provider.settings.max_tools)
+                       tools.tool_count >= calls.provider.settings.max_tools)
         try:
             decision = calls.ask(f"agent_{index}", FinalDecision if must_finish else Decision, SYSTEM,
                                  {**data, "must_finish": must_finish}).decision
@@ -210,32 +252,38 @@ def analyze(tools, calls, question=None):
                 raise
             errors = exc.issues
             repaired, force_finish = True, True
-            tools.steps.append({"action": "verify_card_schema", "issues": errors, "repair": True})
+            tools.steps.append({"agent_role": "coordinator", "action": "verify_card_schema", "issues": errors, "repair": True})
             continue
         if decision.action != "finish":
             decision = tools.resolve_action(decision)
-            if sum(s.get("origin") != "initial_context" for s in tools.steps) >= calls.provider.settings.max_tools:
+            if tools.tool_count >= calls.provider.settings.max_tools:
                 raise AnalysisError("agent_tool_limit")
             calls.heartbeat()
             try:
-                result = tools.call(decision)
+                if decision.action == "search_bank_materials":
+                    result = researcher.run(decision)
+                    if result.get("status") == "limited":
+                        force_finish = True
+                else:
+                    result = tools.invoke(decision, agent_role="analyst")
             except AnalysisError as exc:
                 result = {"error": exc.code}
                 force_finish = True
-            tools.steps.append({"action": decision.action, "arguments": decision.model_dump(exclude={"action"}), "result": result})
             observations.append(result)
             continue
         draft, errors = materialize_draft(tools.resolve_draft(decision.draft), tools.registry)
         if draft is not None:
             errors += verify_draft(draft, tools.registry)
+            if tools.bank_claim_allowlist is not None and any(
+                    c.kind == "bank_view" and any(i not in tools.bank_claim_allowlist for i in c.evidence_ids)
+                    for c in draft.claims):
+                errors.append("bank_claim_outside_research_handoff")
         if not errors:
-            review = calls.ask(f"semantic_review_{index}", SemanticReview, REVIEW,
-                               {"question": question, "role": tools.scope.role, "as_of": tools.scope.as_of,
-                                "draft": tools.expose(draft.model_dump()), "evidence": tools.prompt_evidence()})
+            review = verifier.review(draft, question=question, round_index=index, repaired=repaired)
             errors = [f"{c.id}:semantic_support_missing" for c in draft.claims if c.id not in review.supported_claim_ids]
             errors += [f"action_{i}:semantic_support_missing" for i, _ in enumerate(draft.next_steps) if i not in review.supported_action_indexes]
             errors += review.issues
-        tools.steps.append({"action": "verify_card", "issues": errors, "repair": repaired})
+        tools.steps.append({"agent_role": "verifier", "action": "verify_card", "issues": errors, "repair": repaired})
         if not errors:
             return draft.model_dump(), {"status": "passed_with_conditions", "issues": [],
                                         "method": "deterministic_provenance_and_llm_entailment"}

@@ -57,6 +57,30 @@ def test_applicable_case_requires_ready_inference_and_its_product_basis():
     assert "expected_personal_product_basis_missing" in check_case(row, source)
 
 
+def test_foreign_event_cannot_pass_with_a_domestic_credit_reason_or_personal_inference():
+    source, row = artifact()
+    source.update(forbidden_relevance_codes=["credit_rate_channel"], forbid_personal_inference=True)
+    row["card"]["status"] = "insufficient_evidence"
+    row["card"]["relevance_reasons"] = [{"code": "credit_rate_channel"}]
+    issues = check_case(row, source)
+    assert {"forbidden_relevance_reason", "unexpected_personal_inference"} <= set(issues)
+
+
+def test_context_event_requires_its_actual_relevance_reason():
+    source, row = artifact()
+    source["expected_relevance_codes"] = ["national_fx_context"]
+    assert "expected_relevance_reason_missing" in check_case(row, source)
+    row["card"]["relevance_reasons"] = [{"code": "national_fx_context"}]
+    assert "expected_relevance_reason_missing" not in check_case(row, source)
+
+
+def test_multitopic_cases_are_explicitly_synthetic_and_have_negative_personalization_controls():
+    cases = read_cases(ROOT / "backend/fixtures/llm_multitopic_cases.json")
+    assert len(cases["sources"]) * len(cases["companies"]) * len(cases["roles"]) == 24
+    assert all(s["provenance"].startswith("synthetic_") and not s.get("source_url") for s in cases["sources"])
+    assert all(s["forbid_personal_inference"] for s in cases["sources"] if s["expected_fact_attributes"]["geography"] == "US")
+
+
 def test_contract_checks_catch_exact_text_with_wrong_evidence_kind_and_scope():
     source, row = artifact()
     row["evidence"]["fact"]["kind"] = "company_feature"

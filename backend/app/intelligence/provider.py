@@ -29,6 +29,15 @@ def hashed(value):
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
+def call_role(purpose):
+    """Server-owned audit metadata, never a role supplied by model output."""
+    for prefix, role in (("bank_research_", "bank_researcher"), ("agent_", "analyst"),
+                         ("semantic_review_", "verifier"), ("extraction", "extractor")):
+        if purpose.startswith(prefix):
+            return role
+    return "diagnostic"
+
+
 def parse_json_object(content):
     # Some permitted models wrap an otherwise strict JSON response in one fence.
     # Accept the wrapper, never extract an object from arbitrary surrounding prose.
@@ -69,6 +78,28 @@ def strict_schema(value):
         result["required"] = list(result["properties"])
         result["additionalProperties"] = False
     return result
+
+
+def request_payload(model, system, data, schema):
+    """One wire representation for dispatch and specialist context sizing."""
+    instruction = "\nReturn only a JSON object conforming to this schema:\n" + canonical(schema)
+    if model.response_mode == "json_schema":
+        instruction = "\nReturn only a JSON object conforming to the supplied response schema."
+    messages = [{"role": "system", "content": system + instruction},
+                {"role": "user", "content": canonical({"untrusted_data": data})}]
+    payload = {"model": model.id, "messages": messages, "max_tokens": model.output_limit, "stream": False}
+    if model.response_mode == "json_schema":
+        payload["response_format"] = {"type": "json_schema", "json_schema": {
+            "name": schema.get("title", "Response"), "strict": True, "schema": strict_schema(schema)}}
+    elif model.response_mode == "json_object":
+        payload["response_format"] = {"type": "json_object"}
+    if model.reasoning_enabled is not None:
+        payload["reasoning"] = {"enabled": model.reasoning_enabled}
+    return payload
+
+
+def input_bytes(model, system, data, schema):
+    return len(canonical(request_payload(model, system, data, schema)).encode()) + 256
 
 
 def reserve(factory, settings, call_id, run_id, model, purpose, request_hash):
@@ -174,22 +205,10 @@ class Provider:
         if model_id not in self.settings.models:
             raise AnalysisError("model_not_allowed")
         model = self.settings.models[model_id]
-        instruction = "\nReturn only a JSON object conforming to this schema:\n" + canonical(schema)
-        if model.response_mode == "json_schema":
-            instruction = "\nReturn only a JSON object conforming to the supplied response schema."
-        messages = [{"role": "system", "content": system + instruction},
-                    {"role": "user", "content": canonical({"untrusted_data": data})}]
-        payload = {"model": model_id, "messages": messages, "max_tokens": model.output_limit, "stream": False}
-        if model.response_mode == "json_schema":
-            payload["response_format"] = {"type": "json_schema", "json_schema": {
-                "name": schema.get("title", "Response"), "strict": True, "schema": strict_schema(schema)}}
-        elif model.response_mode == "json_object":
-            payload["response_format"] = {"type": "json_object"}
-        # Include the native schema in the conservative UTF-8 input bound.
+        payload = request_payload(model, system, data, schema)
+        # Include every configured wire field and native schema in the UTF-8 bound.
         if len(canonical(payload).encode()) + 256 > model.input_limit:
             raise AnalysisError("context_too_large")
-        if model.reasoning_enabled is not None:
-            payload["reasoning"] = {"enabled": model.reasoning_enabled}
         request_hash = hashed(payload)
         call_id = "llm_" + hashed([run_id, purpose])
         cached = reserve(self.factory, self.settings, call_id, run_id, model, purpose, request_hash)
