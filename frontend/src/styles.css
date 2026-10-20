@@ -25,3 +25,12 @@
 .source-button-hint { font-size: 10px; font-weight: 600; color: #8d8d98; margin-left: auto; }
 .source-button.active .source-button-hint { color: #ce2532; }
 .source-panel { scroll-margin-top: 18px; }
+
+/* Operational UI: bounded event history and recovered jobs. */
+.event-toolbar{padding:0 22px 16px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px}
+.event-toolbar label{font-size:11px;font-weight:750;color:#666874}
+.event-toolbar input{min-width:170px;flex:1 1 220px;border:1px solid #e3e4eb;background:#fbfbfc;border-radius:8px;padding:11px 12px;font-size:12px;color:#22242b;outline-offset:2px}
+.event-toolbar input:focus{border-color:#e52b3b}
+.event-counter{color:#848591;font-size:10px}
+.event-pagination{display:flex;justify-content:center;padding:14px 16px 24px}
+.job-source-title{font-size:11px;color:#6e707b;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;display:block}

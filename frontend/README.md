@@ -68,3 +68,15 @@ Direct dependencies are pinned. A complete transitive `package-lock.json` should
 - The event list shows only the selected company; job IDs can be fetched only by their issuing demo session.
 - User-provided news text is displayed as React text (not HTML). URLs are hyperlinks only; no server-side fetch or verification.
 - This is a prototype for a local machine. Do not expose Docker's demo API to the Internet with sensitive datasets.
+
+## Operational UI (no AI)
+
+The dashboard now requests recent ingestion jobs using `GET /api/v1/jobs?limit=20`,
+scoped to the *exact demo session*. A page reload in the same session restores
+jobs from PostgreSQL. A new login creates a new session and cannot view the
+previous session's jobs; that company's events remain accessible.
+
+The Events tab retrieves 20 records at a time using the bounded `offset`
+parameter of `GET /api/v1/companies/{id}/events`. Its search box searches only
+currently loaded titles, not the full database. Use **Показать ещё события** to
+load older pages. See `docs/qa-news-ui.md` for the local manual test checklist.

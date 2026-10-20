@@ -197,6 +197,34 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         db.commit()
         return view_job(job)
 
+    @app.get("/api/v1/jobs")
+    def list_session_jobs(
+        limit: int = Query(default=20, ge=1, le=50),
+        demo: DemoSession = Depends(current_session),
+        db: Session = Depends(get_db),
+    ):
+        """Recent ingestion jobs belonging to this exact demo session.
+
+        Deliberately does not broaden the existing per-session job ACL. The UI
+        can recover history after reloading even if browser-side job IDs vanish.
+        """
+        rows = db.execute(
+            select(Job, SourceDocument.title)
+            .join(SourceDocument, Job.source_id == SourceDocument.id)
+            .where(
+                Job.owner_session_hash == demo.token_hash,
+                Job.company_id == demo.company_id,
+                SourceDocument.company_id == demo.company_id,
+                Job.operation == "publication_ingest",
+            )
+            .order_by(Job.created_at.desc(), Job.id.desc())
+            .limit(limit)
+        ).all()
+        return {"items": [
+            {**view_job(job).model_dump(), "created_at": job.created_at, "source_title": title}
+            for job, title in rows
+        ]}
+
     @app.get("/api/v1/jobs/{job_id}", response_model=JobView)
     def job_status(job_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):
         job = db.get(Job, job_id)
@@ -208,6 +236,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
     def company_events(
         company_id: str,
         limit: int = Query(default=30, ge=1, le=50),
+        offset: int = Query(default=0, ge=0, le=100_000),
         demo: DemoSession = Depends(current_session),
         db: Session = Depends(get_db),
     ):
@@ -220,6 +249,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
             .where(Event.company_id == demo.company_id,
                    SourceDocument.company_id == demo.company_id)
             .order_by(SourceDocument.received_at.desc(), Event.id.desc())
+            .offset(offset)
             .limit(limit)
         ).all()
         return {"items": [serialize_event(event, source) for event, source in rows]}

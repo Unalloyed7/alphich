@@ -43,7 +43,10 @@ export const api = {
     request<DemoSession>('/demo-session', { method: 'POST', body: JSON.stringify({ company_id, role }) }),
   companies: (token: string) => request<{ items: CompanySummary[] }>('/companies', {}, token),
   profile: (companyId: string, token: string) => request<CompanyProfile>(`/companies/${encodeURIComponent(companyId)}/profile`, {}, token),
-  events: (companyId: string, token: string) => request<{ items: Event[] }>(`/companies/${encodeURIComponent(companyId)}/events?limit=50`, {}, token),
+  events: (companyId: string, token: string, limit = 20, offset = 0) =>
+    request<{ items: Event[] }>(`/companies/${encodeURIComponent(companyId)}/events?limit=${limit}&offset=${offset}`, {}, token),
+  jobs: (token: string, limit = 20) =>
+    request<{ items: Job[] }>(`/jobs?limit=${limit}`, {}, token),
   publish: (payload: PublicationPayload, token: string, key: string) =>
     request<Job>('/publications', { method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify(payload) }, token),
   job: (jobId: string, token: string) => request<Job>(`/jobs/${encodeURIComponent(jobId)}`, {}, token),
