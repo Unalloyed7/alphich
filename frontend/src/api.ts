@@ -53,3 +53,32 @@ export const api = {
   event: (eventId: string, token: string) => request<Event>(`/events/${encodeURIComponent(eventId)}`, {}, token),
   source: (sourceId: string, token: string) => request<SourceDetail>(`/sources/${encodeURIComponent(sourceId)}`, {}, token),
 };
+
+/** Analysis operations are served by the existing intelligence router.
+ * Every call uses the same demo token as ingestion. No provider key reaches the browser. */
+export const analysisApi = {
+  status: (token: string) => request<import('./analysis').LlmStatus>('/llm/status', {}, token),
+  feed: (companyId: string, token: string) =>
+    request<import('./analysis').FeedResult>(`/companies/${encodeURIComponent(companyId)}/feed`, {}, token),
+  createInsight: (companyId: string, eventId: string, token: string) =>
+    request<Job>(`/companies/${encodeURIComponent(companyId)}/insights`, {
+      method: 'POST', headers: { 'Idempotency-Key': `insight-${crypto.randomUUID()}` },
+      body: JSON.stringify({ event_id: eventId }),
+    }, token),
+  insight: (id: string, token: string) =>
+    request<import('./analysis').Insight>(`/insights/${encodeURIComponent(id)}`, {}, token),
+  ask: (id: string, question: string, token: string) =>
+    request<Job>(`/insights/${encodeURIComponent(id)}/questions`, {
+      method: 'POST', headers: { 'Idempotency-Key': `question-${crypto.randomUUID()}` },
+      body: JSON.stringify({ question }),
+    }, token),
+  answer: (id: string, token: string) =>
+    request<import('./analysis').Answer>(`/answers/${encodeURIComponent(id)}`, {}, token),
+  evidence: (id: string, insightId: string, token: string, answerId?: string) => {
+    const query = new URLSearchParams({ insight_id: insightId });
+    if (answerId) query.set('answer_id', answerId);
+    return request<import('./analysis').Evidence>(`/evidence/${encodeURIComponent(id)}?${query}`, {}, token);
+  },
+  run: (id: string, token: string) =>
+    request<import('./analysis').AuditRun>(`/runs/${encodeURIComponent(id)}`, {}, token),
+};
