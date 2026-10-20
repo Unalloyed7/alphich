@@ -3,6 +3,8 @@ import json
 import re
 from decimal import Decimal
 
+from .schemas import CardDraft
+
 LABELS = {"okved_code": "ОКВЭД", "okved_name": "Основная деятельность", "region_registration": "Регион регистрации",
           "revenue_raw": "Выручка в исходных единицах", "fts_countries": "Страны в сведениях ФТС",
           "CL_PRODUCT_LOA_MARK": "Кредитный продукт", "CL_PRODUCT_DEP_MARK": "Депозитный продукт",
@@ -28,6 +30,50 @@ def company_evidence(profile):
 
 def numbers(text):
     return {Decimal(n.replace(",", ".")).normalize() for n in re.findall(r"(?<!\w)\d+(?:[.,]\d+)?", text)}
+
+
+def materialize_draft(draft, registry):
+    """The model selects facts by ID; only the server supplies factual text/types."""
+    issues = []
+    kinds = {"event_fact": "news_fact", "company_feature": "company_fact", "bank_claim": "bank_view"}
+    inference_ids = [i.id for i in draft.inferences]
+    if len(inference_ids) != len(set(inference_ids)):
+        issues.append("duplicate_inference_ids")
+    if len(draft.fact_evidence_ids) != len(set(draft.fact_evidence_ids)):
+        issues.append("duplicate_fact_evidence_ids")
+    factual_ids = list(draft.fact_evidence_ids)
+    for inference in draft.inferences:
+        for evidence_id in inference.evidence_ids:
+            item = registry.get(evidence_id)
+            if item and item["kind"] in kinds and evidence_id not in factual_ids:
+                factual_ids.append(evidence_id)
+    for evidence_id in factual_ids:
+        item = registry.get(evidence_id)
+        if not item or item["kind"] not in kinds:
+            issues.append("fact_reference_requires_event_company_or_reviewed_bank_claim")
+    for ref in draft.risks + draft.opportunities + [r for a in draft.next_steps for r in a.basis_inference_ids]:
+        if ref not in inference_ids:
+            issues.append("unknown_inference_id:" + ref)
+    if not factual_ids and not draft.inferences:
+        issues.append("card_requires_at_least_one_claim")
+    if len(factual_ids) + len(draft.inferences) > 12:
+        issues.append("too_many_card_claims")
+    if issues:
+        return None, sorted(set(issues))
+    claims = [{"id": f"c{index+1}", "kind": kinds[registry[ref]["kind"]], "text": registry[ref]["text"],
+               "evidence_ids": [ref], "conditions": []} for index, ref in enumerate(factual_ids)]
+    mapped = {item.id: f"c{len(claims)+index+1}" for index, item in enumerate(draft.inferences)}
+    claims += [{"id": mapped[item.id], "kind": "model_inference", "text": item.text,
+                "evidence_ids": item.evidence_ids, "conditions": item.conditions} for item in draft.inferences]
+    value = {"claims": claims, "risks": [mapped[i] for i in draft.risks],
+             "opportunities": [mapped[i] for i in draft.opportunities],
+             "next_steps": [{"text": a.text, "conditions": a.conditions,
+                             "basis_claim_ids": [mapped[i] for i in a.basis_inference_ids]} for a in draft.next_steps],
+             "missing_data": draft.missing_data}
+    try:
+        return CardDraft.model_validate(value), []
+    except ValueError:
+        return None, ["resolved_card_schema_invalid"]
 
 
 def verify_draft(draft, registry):

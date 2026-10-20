@@ -30,6 +30,14 @@ class LLMCall(Base):
     error: Mapped[str | None] = mapped_column(String(80))
 
 
+class CostReceipt(Base):
+    __tablename__ = "llm_cost_receipts"
+    call_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    amount: Mapped[str] = mapped_column(String(100))
+    rub_per_unit: Mapped[str] = mapped_column(String(100))
+    source: Mapped[str] = mapped_column(String(80))
+
+
 class AnalysisRun(Base):
     __tablename__ = "analysis_runs"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)

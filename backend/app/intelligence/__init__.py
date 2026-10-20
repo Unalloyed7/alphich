@@ -1,3 +1,3 @@
 """Application-owned, bounded LLM analysis. No provider calls at import time."""
 
-VERSION = "intelligence-v1"
+VERSION = "intelligence-v7"

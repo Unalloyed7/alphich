@@ -1,0 +1,8 @@
+[
+  {"id":"google/gemma-4-26b-a4b-it","case_model":"gemma4-26b-a4b","input_limit":32768,"output_limit":2500,"response_mode":"json_schema"},
+  {"id":"z-ai/glm-5.3-flash","case_model":"glm-5.3-flash","input_limit":32768,"output_limit":2500,"response_mode":"json_schema","reasoning_enabled":false},
+  {"id":"qwen/qwen3.6-35b-a3b","case_model":"qwen3.6-35b-a3b","input_limit":32768,"output_limit":2500,"reasoning_enabled":false,"response_mode":"json_schema"},
+  {"id":"deepseek/deepseek-v4.1-flash","case_model":"deepseek-v4.1-flash","input_limit":32768,"output_limit":2500},
+  {"id":"qwen/qwen3-vl-30b-a3b-instruct","case_model":"qwen3-vl-30b-a3b-instruct","input_limit":32768,"output_limit":2500},
+  {"id":"moonshotai/kimi-k2.6","case_model":"kimi-k2.6","input_limit":32768,"output_limit":2500}
+]

@@ -84,18 +84,16 @@ class ScriptedGateway:
             else:
                 news = next(e for e in data["evidence"] if e["kind"] == "event_fact")
                 company = next(e for e in data["evidence"] if e["kind"] == "company_feature")
-                claims = [{"id": "c1", "kind": "news_fact", "text": news["text"], "evidence_ids": [news["id"]], "conditions": []},
-                          {"id": "c2", "kind": "company_fact", "text": company["text"], "evidence_ids": [company["id"]], "conditions": []},
-                          {"id": "c3", "kind": "model_inference", "text": "Условия финансирования компании требуют проверки по договору.",
-                           "evidence_ids": [news["id"], company["id"]], "conditions": ["Суммы и условия договоров неизвестны"]}]
+                facts = [news["id"], company["id"]]
+                inferences = [{"id": "i1", "text": "Условия финансирования компании требуют проверки по договору.",
+                               "evidence_ids": [news["id"], company["id"]], "conditions": ["Суммы и условия договоров неизвестны"]}]
                 bank_claim = next((e for e in data["evidence"] if e["kind"] == "bank_claim" and e.get("position_role") == "current_in_document"), None)
                 if bank_claim:
-                    claims.append({"id": "c4", "kind": "bank_view", "text": bank_claim["text"],
-                                   "evidence_ids": [bank_claim["id"]], "conditions": []})
+                    facts.append(bank_claim["id"])
                 if self.options["fabricated_number"]:
-                    claims[2]["text"] = "Компания потеряет 999999 рублей."
-                result = {"decision": {"action": "finish", "draft": {"claims": claims, "risks": ["c3"], "opportunities": [],
-                    "next_steps": [{"text": "Уточнить применимые условия договора", "basis_claim_ids": ["c2", "c3"],
+                    inferences[0]["text"] = "Компания потеряет 999999 рублей."
+                result = {"decision": {"action": "finish", "draft": {"fact_evidence_ids": facts, "inferences": inferences, "risks": ["i1"], "opportunities": [],
+                    "next_steps": [{"text": "Уточнить применимые условия договора", "basis_inference_ids": ["i1"],
                                     "conditions": ["Если компания планирует пересмотр условий"]}], "missing_data": ["Условия договора"]}}}
         elif title == "SemanticReview":
             self.reviews += 1
@@ -103,7 +101,7 @@ class ScriptedGateway:
                       "supported_action_indexes": list(range(len(data["draft"]["next_steps"]))), "issues": []}
             if self.options["reject_semantics"] or (self.options["repair_semantics"] and self.reviews == 1):
                 result["supported_claim_ids"] = []
-                result["issues"] = ["Unsupported interpretation"]
+                result["issues"] = ["unsupported_claim"]
         else:
             raise AssertionError(title)
         if self.options["bad_schema"]:
@@ -210,7 +208,7 @@ def test_unverified_facts_produce_no_personal_inference(store, option):
 
 
 @pytest.mark.parametrize("option,error", [("timeout", "llm_timeout_outcome_unknown"), ("missing_usage", "llm_usage_missing"),
-                                          ("bad_schema", "llm_schema_invalid"), ("fabricated_number", "card_validation_failed")])
+                                          ("bad_schema", "llm_schema_invalid"), ("fabricated_number", "llm_schema_invalid")])
 def test_failed_model_calls_do_not_publish_or_retry_paid_requests(store, option, error):
     client, factory, headers, settings = store
     event_id = stored_event(client, factory, headers["DEMO_A"])
@@ -225,6 +223,7 @@ def test_failed_model_calls_do_not_publish_or_retry_paid_requests(store, option,
         budget = db.scalar(select(BudgetDay))
         if option in {"timeout", "missing_usage"}:
             assert budget.reserved_micros > 0
+            assert len(gateway.seen) == 1
         assert len(gateway.seen) <= settings.max_calls
 
 
@@ -237,6 +236,314 @@ def test_budget_limit_blocks_before_http(store):
     job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
     assert job["status"] == "failed" and job["error"] == "budget_exceeded"
     assert gateway.seen == []
+
+
+def test_gateway_receipt_reserves_remaining_budget_and_accounts_exact_cost(store):
+    _, factory, _, settings = store
+    settings = replace(settings, prices_confirmed=False, budget_mode="gateway_receipt", receipt_rub_per_unit=Decimal("1"))
+    seen = []
+    def gateway(request):
+        with factory() as db:
+            budget = db.scalar(select(BudgetDay))
+            assert budget.spent_micros + budget.reserved_micros == budget.limit_micros
+        seen.append(request)
+        return httpx.Response(200, headers={"x-litellm-response-cost": "0.1234567"}, json={
+            "choices": [{"message": {"content": '{"ok":true}'}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 5}})
+    with httpx.Client(transport=httpx.MockTransport(gateway)) as client:
+        provider = Provider(factory, settings, client)
+        for i in range(2):
+            assert provider.generate("receipt-run", f"call-{i}", settings.analysis_model, "Return JSON", {}, {}) == {"ok": True}
+    with factory() as db:
+        budget = db.scalar(select(BudgetDay))
+        assert budget.spent_micros == 246914
+        assert budget.reserved_micros == 0
+    assert len(seen) == 2
+
+
+@pytest.mark.parametrize("receipt", [None, "NaN", "-1", "inf", "1e9999", "not-a-price"])
+def test_missing_or_invalid_cost_receipt_keeps_full_reserve_and_blocks_next_call(store, receipt):
+    _, factory, _, settings = store
+    settings = replace(settings, prices_confirmed=False, budget_mode="gateway_receipt", receipt_rub_per_unit=Decimal("1"))
+    seen = []
+    def gateway(request):
+        seen.append(request)
+        return httpx.Response(200, headers={} if receipt is None else {"x-litellm-response-cost": receipt}, json={
+            "choices": [{"message": {"content": '{"ok":true}'}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 20, "completion_tokens": 5}})
+    with httpx.Client(transport=httpx.MockTransport(gateway)) as client:
+        provider = Provider(factory, settings, client)
+        with pytest.raises(AnalysisError, match="cost_unknown_reserve_retained"):
+            provider.generate("receipt-run", "unknown", settings.analysis_model, "Return JSON", {}, {})
+        with pytest.raises(AnalysisError, match="budget_exceeded"):
+            provider.generate("receipt-run", "next", settings.analysis_model, "Return JSON", {}, {})
+    with factory() as db:
+        budget = db.scalar(select(BudgetDay))
+        assert budget.spent_micros == 0 and budget.reserved_micros == settings.daily_limit_micros
+    assert len(seen) == 1
+
+
+def test_receipt_mode_allows_missing_tariffs_but_requires_explicit_currency(monkeypatch):
+    monkeypatch.setenv("LLM_BASE_URL", "https://gateway.example.invalid/v1")
+    monkeypatch.setenv("LLM_API_KEY", "test-secret")
+    monkeypatch.setenv("LLM_MODEL_CATALOG_JSON", json.dumps([{k: v for k, v in CATALOG[0].items() if "rub_per" not in k}]))
+    monkeypatch.setenv("LLM_EXTRACTION_MODEL", CATALOG[0]["id"])
+    monkeypatch.setenv("LLM_ANALYSIS_MODEL", CATALOG[0]["id"])
+    monkeypatch.setenv("LLM_PRICES_CONFIRMED", "0")
+    monkeypatch.setenv("LLM_BUDGET_MODE", "gateway_receipt")
+    monkeypatch.delenv("LLM_RECEIPT_RUB_PER_UNIT", raising=False)
+    with pytest.raises(AnalysisError, match="llm_not_configured"):
+        Settings.from_env().require_ready()
+    monkeypatch.setenv("LLM_RECEIPT_RUB_PER_UNIT", "1")
+    Settings.from_env().require_ready()
+
+
+def test_read_only_gateway_status_redacts_key_and_excludes_unapproved_models(store):
+    from app.intelligence.gateway import inspect_gateway
+    _, _, _, settings = store
+    paths = []
+    def gateway(request):
+        paths.append(request.url.path)
+        if request.url.path == "/v1/models":
+            return httpx.Response(200, json={"data": [{"id": settings.analysis_model}, {"id": "deepseek-cost-test"}]})
+        return httpx.Response(200, json={"key": settings.api_key, "info": {"key": settings.api_key,
+            "spend": 1, "max_budget": 500, "budget_duration": "1d", "metadata": {"secret": settings.api_key}}})
+    with httpx.Client(transport=httpx.MockTransport(gateway)) as client:
+        result = inspect_gateway(settings, client)
+    assert result["allowed_models_available"] == [settings.analysis_model]
+    assert settings.api_key not in json.dumps(result)
+    assert paths == ["/v1/models", "/key/info"]
+
+
+def test_evaluation_runs_api_workers_question_and_writes_local_report(store, tmp_path, monkeypatch):
+    from app.intelligence.evaluation import evaluate
+    _, _, _, settings = store
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'evaluation.db'}")
+    cases = {"version": "test-v1", "scope": "test", "companies": ["LLM_DEMO_LOAN", "LLM_DEMO_DEPOSIT", "LLM_DEMO_UNKNOWN"],
+             "roles": ["cfo"], "sources": [{"id": "test-case", "title": "Тестовое решение регулятора", "text": BODY,
+             "provenance": "synthetic_test", "minimum_facts": 1, "expected_topics": ["policy_rate"],
+             "question": "Какие данные договора нужно уточнить?"}]}
+    path = tmp_path / "cases.json"
+    path.write_text(json.dumps(cases))
+    gateway = ScriptedGateway()
+    with httpx.Client(transport=httpx.MockTransport(gateway)) as http:
+        result = evaluate(settings, path, root / "backend/fixtures/llm_companies.csv", 1,
+                          "data/processed/evaluation.json", True,
+                          runtime_factory=lambda f, s: Runtime(f, s, Provider(f, s, http)))
+    assert result["completed_cases"] == 1 and result["failed_cases"] == 0
+    report = json.loads(Path(result["report"]).read_text())
+    row = report["results"][0]
+    assert row["answer"]["as_of"] == row["card"]["as_of"]
+    assert row["evidence"] and row["run"]["llm_calls"]
+    assert settings.api_key not in json.dumps(report)
+    assert "X-Demo-Session" not in json.dumps(report)
+    assert not report["semantic_quality_independently_reviewed"]
+
+
+def test_gateway_receipt_reservation_is_exclusive_across_workers(store):
+    from concurrent.futures import ThreadPoolExecutor
+    _, factory, _, settings = store
+    settings = replace(settings, budget_mode="gateway_receipt", receipt_rub_per_unit=Decimal("1"))
+    def attempt(index):
+        try:
+            reserve(factory, settings, f"exclusive-{index}", f"run-{index}",
+                    settings.models[settings.analysis_model], "receipt-call", f"hash-{index}")
+            return "reserved"
+        except AnalysisError as exc:
+            return exc.code
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(attempt, range(2)))
+    assert sorted(results) == ["budget_exceeded", "reserved"]
+    with factory() as db:
+        budget = db.scalar(select(BudgetDay))
+        assert budget.reserved_micros == budget.limit_micros
+
+
+def test_explicit_new_budget_allocation_preserves_unknown_reservation(store):
+    _, factory, _, settings = store
+    settings = replace(settings, daily_limit_micros=50_000_000, budget_mode="gateway_receipt", receipt_rub_per_unit=Decimal("1"))
+    model = settings.models[settings.analysis_model]
+    reserve(factory, settings, "unknown-first", "run-first", model, "first", "first-hash")
+    with factory.begin() as db:
+        budget = db.scalar(select(BudgetDay))
+        budget.limit_micros = 100_000_000  # Deliberate operator allocation, never done by a worker.
+    reserve(factory, replace(settings, daily_limit_micros=100_000_000), "new-second", "run-second", model, "second", "second-hash")
+    with factory() as db:
+        assert db.get(LLMCall, "unknown-first").reserved_micros == 50_000_000
+        assert db.get(LLMCall, "new-second").reserved_micros == 50_000_000
+        assert db.scalar(select(BudgetDay)).reserved_micros == 100_000_000
+
+
+@pytest.mark.parametrize("content", ['{"ok":true}', '```json\n{"ok":true}\n```', '```\n{"ok":true}\n```'])
+def test_json_wrapper_is_supported_without_relaxing_schema(content):
+    from app.intelligence.provider import parse_json_object
+    assert parse_json_object(content) == {"ok": True}
+
+
+@pytest.mark.parametrize("content", ['Here is JSON: {"ok":true}', '```json\n{"ok":true}\n```\nextra', '[{"ok":true}]'])
+def test_json_embedded_in_prose_or_wrong_root_is_rejected(content):
+    from app.intelligence.provider import parse_json_object
+    with pytest.raises(AnalysisError, match="llm_invalid_json"):
+        parse_json_object(content)
+
+
+def test_unknown_extraction_cannot_be_retried_by_changing_generation_options(store):
+    client, factory, headers, settings = store
+    event_id = stored_event(client, factory, headers["DEMO_A"])
+    first = queued_insight(client, headers["DEMO_A"], event_id).json()
+    worker, gateway = runtime(factory, settings, ScriptedGateway(timeout=True))
+    process_next(factory, worker)
+    assert client.get("/api/v1/jobs/" + first["id"], headers=headers["DEMO_A"]).json()["status"] == "failed"
+    changed = replace(settings, models={k: replace(m, reasoning_enabled=False) for k, m in settings.models.items()})
+    second = queued_insight(client, headers["DEMO_A"], event_id, key="changed-options-001").json()
+    worker, second_gateway = runtime(factory, changed)
+    process_next(factory, worker)
+    job = client.get("/api/v1/jobs/" + second["id"], headers=headers["DEMO_A"]).json()
+    assert job["status"] == "failed" and job["error"] == "extraction_outcome_unknown"
+    assert second_gateway.seen == []
+
+
+@pytest.mark.parametrize("mode", ["json_object", "json_schema"])
+def test_native_structured_output_wire_format_and_strict_schema(store, mode):
+    from app.intelligence.schemas import ExtractionDraft
+    _, factory, _, settings = store
+    settings = replace(settings, models={k: replace(m, response_mode=mode) for k, m in settings.models.items()})
+    def gateway(request):
+        body = json.loads(request.content)
+        assert body["response_format"]["type"] == mode
+        if mode == "json_schema":
+            schema = body["response_format"]["json_schema"]
+            assert schema["strict"] is True
+            assert set(schema["schema"]["$defs"]["Attributes"]["required"]) == set(schema["schema"]["$defs"]["Attributes"]["properties"])
+            assert '"default"' not in json.dumps(schema)
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"facts":[]}'}, "finish_reason": "stop"}],
+                                        "usage": {"prompt_tokens": 100, "completion_tokens": 10}})
+    with httpx.Client(transport=httpx.MockTransport(gateway)) as client:
+        result = Provider(factory, settings, client).generate("native-run", "native-schema", settings.analysis_model,
+            "Extract facts", {"text": BODY}, ExtractionDraft.model_json_schema())
+    assert ExtractionDraft.model_validate(result).facts == []
+
+
+def test_one_schema_repair_is_bounded_and_cannot_execute_invalid_tool(store):
+    client, factory, headers, settings = store
+    event_id = stored_event(client, factory, headers["DEMO_A"])
+    job = queued_insight(client, headers["DEMO_A"], event_id).json()
+    scripted = ScriptedGateway()
+    def gateway(request):
+        response = scripted(request)
+        data = response.json()
+        content = json.loads(data["choices"][0]["message"]["content"])
+        if scripted.seen[-1][0] == "Decision" and scripted.decisions == 1:
+            content["decision"]["draft"]["inferences"][0]["id"] = "c1"
+            data["choices"][0]["message"]["content"] = json.dumps(content)
+        return httpx.Response(200, json=data)
+    worker, _ = runtime(factory, settings, gateway)
+    process_next(factory, worker)
+    result = client.get("/api/v1/jobs/" + job["id"], headers=headers["DEMO_A"]).json()
+    assert result["status"] == "succeeded", result
+    card = client.get("/api/v1/insights/" + result["result_id"], headers=headers["DEMO_A"]).json()
+    run = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
+    assert len(run["llm_calls"]) == 5
+    assert sum(s["action"] == "verify_card_schema" for s in run["steps"]) == 1
+
+
+def test_materialized_facts_use_only_server_text_and_map_inference_ids():
+    from app.intelligence.schemas import ReferencedDraft
+    from app.intelligence.evidence import materialize_draft
+    evidence = {"news": {"kind": "event_fact", "text": "Исходная новость без пересказа."},
+                "company": {"kind": "company_feature", "text": "Кредитный продукт: да."},
+                "bank": {"kind": "bank_claim", "text": "Дословная позиция из проверенного обзора.", "position_role": "current_in_document"}}
+    draft = ReferencedDraft.model_validate({"fact_evidence_ids": ["bank"],
+        "inferences": [{"id": "i1", "text": "Условия договора требуют уточнения.", "evidence_ids": ["news", "company"],
+                        "conditions": ["Если есть действующие обязательства"]}], "risks": ["i1"],
+        "next_steps": [{"text": "Уточнить условия договора", "basis_inference_ids": ["i1"], "conditions": ["При наличии договора"]}]})
+    card, issues = materialize_draft(draft, evidence)
+    assert issues == []
+    assert [c.text for c in card.claims[:3]] == [evidence[i]["text"] for i in ("bank", "news", "company")]
+    assert card.risks == ["c4"] and card.next_steps[0].basis_claim_ids == ["c4"]
+    assert verify_draft(card, evidence) == []
+
+
+def test_rate_decision_topic_is_canonicalized_before_separate_review():
+    from types import SimpleNamespace
+    from app.intelligence.schemas import ExtractionDraft, ExtractionReview
+    source = {"id": "source-test", "version": 1, "title": "Решение регулятора", "text": BODY,
+              "received_at": "2026-10-01T00:00:00+00:00"}
+    class Candidates:
+        provider = SimpleNamespace(settings=SimpleNamespace(extraction_model="fixture-model", analysis_model="fixture-verifier"))
+        def ask(self, purpose, schema, system, data, **kwargs):
+            if schema is ExtractionDraft:
+                return ExtractionDraft.model_validate({"facts": [{"quote": BODY.split('. ')[0]+'.',
+                    "attributes": {"kind": "rate_decision", "geography": "RU", "topics": ["inflation", "regulation"]}}]})
+            assert schema is ExtractionReview
+            assert data["candidates"][0]["attributes"]["topics"] == ["policy_rate"]
+            return ExtractionReview(accepted_indexes=[0], issues=[])
+    facts, _, _ = extract(source, Candidates())
+    assert facts[0]["attributes"]["topics"] == ["policy_rate"]
+
+
+def test_extraction_repairs_schema_once_then_independently_reviews_quotes(store):
+    _, factory, _, settings = store
+    scripted = ScriptedGateway()
+    extraction_count = 0
+    def gateway(request):
+        nonlocal extraction_count
+        response = scripted(request)
+        if scripted.seen[-1][0] == "ExtractionDraft":
+            extraction_count += 1
+            if extraction_count == 1:
+                body = response.json()
+                data = json.loads(body["choices"][0]["message"]["content"])
+                data["facts"][0]["attributes"]["forecast_horizon"] = "не указано"
+                body["choices"][0]["message"]["content"] = json.dumps(data, ensure_ascii=False)
+                return httpx.Response(200, json=body)
+            assert scripted.seen[-1][1]["text"] == BODY
+            assert "forecast_horizon" in scripted.seen[-1][1]["validation_issues"][0]
+        return response
+    calls = Calls(Provider(factory, settings, httpx.Client(transport=httpx.MockTransport(gateway))), "repair-extraction")
+    facts, _, _ = extract({"id": "repair-source", "version": 1, "title": "Решение регулятора", "text": BODY,
+                          "received_at": "2026-10-01T00:00:00+00:00"}, calls)
+    assert len(facts) == 1 and facts[0]["attributes"]["forecast_horizon"] is None
+    assert [title for title, _ in scripted.seen] == ["ExtractionDraft", "ExtractionDraft", "ExtractionReview"]
+    with factory() as db:
+        assert {c.purpose for c in db.scalars(select(LLMCall))} == {"extraction", "extraction_repair", "extraction_review"}
+        assert db.scalar(select(BudgetDay)).reserved_micros == 0
+
+
+def test_noneconomic_candidate_is_dropped_before_paid_review():
+    from types import SimpleNamespace
+    from app.intelligence.schemas import ExtractionDraft
+    source = {"id": "greeting-source", "version": 1, "title": "Поздравление", "text": "Поздравляем команду с праздником!",
+              "received_at": "2026-10-01T00:00:00+00:00"}
+    class Candidates:
+        provider = SimpleNamespace(settings=SimpleNamespace(extraction_model="fixture-model", analysis_model="fixture-verifier"))
+        def ask(self, purpose, schema, system, data, **kwargs):
+            assert purpose == "extraction" and schema is ExtractionDraft
+            return ExtractionDraft.model_validate({"facts": [{"quote": source["text"], "attributes": {"topics": ["culture"]}}]})
+    facts, coverage, _ = extract(source, Candidates())
+    assert facts == [] and coverage["complete"]
+
+
+@pytest.mark.parametrize("quote,text,expected", [
+    ("Банк России сохранил ставку.", "Банк России сохранил ставку.", "RU"),
+    ("ФРС сохранила ставку.", "ФРС сохранила ставку.", "US"),
+    ("Решение по ставке принято.", "Текст по-русски без названия регулятора.", None),
+    ("Решение по ставке принято.", "Банк России и ФРС объявили свои решения.", None),
+])
+def test_rate_jurisdiction_requires_unambiguous_explicit_regulator(quote, text, expected):
+    from app.intelligence.extraction import named_rate_jurisdiction
+    assert named_rate_jurisdiction(quote, text) == expected
+
+
+@pytest.mark.parametrize("fact_id", ["missing", "raw-pdf"])
+def test_unreviewed_or_unknown_fact_reference_is_not_materialized(fact_id):
+    from app.intelligence.schemas import ReferencedDraft
+    from app.intelligence.evidence import materialize_draft
+    draft = ReferencedDraft.model_validate({"fact_evidence_ids": [fact_id], "inferences": []})
+    card, issues = materialize_draft(draft, {"raw-pdf": {"kind": "document_chunk", "text": "OCR without span review"}})
+    assert card is None and issues == ["fact_reference_requires_event_company_or_reviewed_bank_claim"]
 
 
 def test_idempotency_company_role_and_unconfigured_boundaries(store, monkeypatch):

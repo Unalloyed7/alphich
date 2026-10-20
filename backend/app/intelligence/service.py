@@ -14,7 +14,7 @@ from .agent import Tools, analyze
 from .extraction import EXTRACTION_VERSION, extract
 from .provider import Calls, Provider, hashed
 from .settings import AnalysisError
-from .storage import AnalysisLease, AnalysisRun, Answer, Extraction, Insight
+from .storage import AnalysisLease, AnalysisRun, Answer, Extraction, Insight, LLMCall
 
 
 def company_profile(company, role):
@@ -83,6 +83,11 @@ class Runtime:
         bank = self.bank()
         return {"runtime": VERSION, "extraction": EXTRACTION_VERSION,
                 "models": [self.settings.extraction_model, self.settings.analysis_model],
+                "generation": {key: [m.input_limit, m.output_limit, m.reasoning_enabled, m.response_mode]
+                               for key, m in self.settings.models.items()
+                               if key in {self.settings.extraction_model, self.settings.analysis_model}},
+                "budget_mode": self.settings.budget_mode,
+                "receipt_rub_per_unit": str(self.settings.receipt_rub_per_unit) if self.settings.receipt_rub_per_unit is not None else None,
                 "bank_index": bank[0].manifest["version"] if bank else None,
                 "allowed_bank_ids": sorted(bank[1]) if bank else [],
                 "embedding_space": bank[0].manifest.get("embedding_space_id") if bank else None,
@@ -92,8 +97,16 @@ class Runtime:
         with self.factory() as db:
             event = db.get(Event, event_id)
             source = db.get(SourceDocument, event.source_id)
-            identity = [source.id, source.version, source.content_hash, EXTRACTION_VERSION, self.settings.extraction_model]
+            model = self.settings.models[self.settings.extraction_model]
+            verifier = self.settings.models[self.settings.analysis_model]
+            identity = [source.id, source.version, source.content_hash, EXTRACTION_VERSION, self.settings.extraction_model,
+                        model.input_limit, model.output_limit, model.reasoning_enabled, model.response_mode,
+                        verifier.id, verifier.input_limit, verifier.output_limit, verifier.reasoning_enabled, verifier.response_mode]
             key = "extraction_" + hashed(identity)
+            unresolved = db.scalar(select(LLMCall.id).join(Extraction, Extraction.run_id == LLMCall.run_id).where(
+                Extraction.source_id == source.id, Extraction.status == "failed", LLMCall.cost_micros.is_(None)).limit(1))
+            if unresolved:
+                raise AnalysisError("extraction_outcome_unknown")
             existing = db.get(Extraction, key)
             if existing and existing.status == "completed":
                 return key
@@ -173,6 +186,13 @@ class Runtime:
                     parent = db.get(Insight, task.parent_insight_id)
                     if parent is None or parent.company_id != job.company_id or parent.role != task.role:
                         raise AnalysisError("parent_insight_unavailable")
+                    # Enqueue-time authorization can become stale before this
+                    # worker runs. Saved bank evidence must pass the current
+                    # policy before entering tools or any model prompt.
+                    if self.settings.allowed_bank_ids is not None and any(
+                            evidence.get("document_id") and evidence["document_id"] not in self.settings.allowed_bank_ids
+                            for evidence in parent.evidence.values()):
+                        raise AnalysisError("evidence_outside_scope")
                     snapshot, registry = parent.snapshot, parent.evidence
                 event, selection, related = snapshot["event"], snapshot["selection"], snapshot["related_events"]
                 bank = self.bank() if snapshot["versions"] == self.versions() else None

@@ -4,8 +4,9 @@ This is a **working backend foundation**, not the entire news-analysis product.
 Current endpoints implement database health, bounded demo sessions, accessible company list,
 profile/evidence-ready feature extraction, and real queued news ingestion with a separate worker.
 The separate [LLM runtime](../docs/llm.md) implements extraction, scoped RAG, an agent,
-verified insights, questions and budget accounting. Organizer credentials are not available yet;
-integration tests use scripted gateway responses. RSS collection remains a separate task.
+verified insights, questions and budget accounting. Organizer gateway access is verified and a real
+personalized card with bank evidence has been produced. Automated tests use scripted responses;
+explicit live evaluation uses the real gateway. RSS collection remains a separate task.
 See [NEWS_INGESTION.md](NEWS_INGESTION.md) for the raw ingestion routes and protocol.
 
 ## Run with Docker Compose
@@ -84,4 +85,4 @@ text to the same company. Raw events have `facts=[]` until an explicit LLM analy
 
 ## LLM анализ
 
-В `app/intelligence/` добавлены отдельный worker, API анализа и вопросов, проверки и общий бюджет. Настройки шлюза, список маршрутов, ограничения и проверка запуска — в [docs/llm.md](../docs/llm.md). По умолчанию генерация отключена до получения реальных model ID, ключа и подтверждённых тарифов. API загрузки публикаций сохраняет прежний контракт.
+В `app/intelligence/` добавлены отдельный worker, API анализа и вопросов, проверки и общий бюджет. Настройки шлюза, список маршрутов, ограничения и проверка запуска — в [docs/llm.md](../docs/llm.md). Генерация требует реальных model ID, ключа и настроенного учёта бюджета: подтверждённых тарифов либо квитанций шлюза с явно заданной единицей стоимости. API загрузки публикаций сохраняет прежний контракт.

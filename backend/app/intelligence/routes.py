@@ -15,7 +15,7 @@ from .provider import hashed
 from .schemas import InsightRequest, QuestionRequest
 from .service import company_profile, normalized_event
 from .settings import AnalysisError, Settings
-from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, Insight, LLMCall
+from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, CostReceipt, Insight, LLMCall
 
 
 def register_routes(app, get_db, current_session, factory):
@@ -85,6 +85,8 @@ def register_routes(app, get_db, current_session, factory):
         day = datetime.now(timezone.utc).date().isoformat()
         budget = db.get(BudgetDay, day)
         return {"configured": ready, "protocol": "chat_completions_http", "prices_confirmed": settings.prices_confirmed,
+                "budget_mode": settings.budget_mode,
+                "receipt_rub_per_unit": str(settings.receipt_rub_per_unit) if settings.receipt_rub_per_unit is not None else None,
                 "daily_limit_rub": str(min(settings.daily_limit_micros, budget.limit_micros if budget else settings.daily_limit_micros) / 1_000_000), "budget_day_utc": day,
                 "spent_rub": str((budget.spent_micros if budget else 0) / 1_000_000),
                 "reserved_rub": str((budget.reserved_micros if budget else 0) / 1_000_000),
@@ -134,11 +136,13 @@ def register_routes(app, get_db, current_session, factory):
         if settings.allowed_bank_ids is not None and not set(run.versions.get("allowed_bank_ids", [])) <= settings.allowed_bank_ids:
             raise HTTPException(403, "Run contains documents outside current access policy")
         calls = db.scalars(select(LLMCall).where(LLMCall.run_id == run_id)).all()
+        receipts = {r.call_id: r for r in db.scalars(select(CostReceipt).where(CostReceipt.call_id.in_([c.id for c in calls])))}
         return {"id": run.id, "company_id": run.company_id, "role": run.role, "as_of": run.as_of, "status": run.status,
                 "steps": run.steps, "versions": run.versions, "verification": run.verification,
                 "llm_calls": [{"id": c.id, "model": c.model, "purpose": c.purpose, "status": c.status,
                                "input_tokens": c.input_tokens, "output_tokens": c.output_tokens,
                                "cost_rub": str(c.cost_micros / 1_000_000) if c.cost_micros is not None else None,
+                               "cost_source": receipts[c.id].source if c.id in receipts else "configured_token_prices",
                                "reserved_rub": str(c.reserved_micros / 1_000_000), "error": c.error} for c in calls]}
 
     @app.get("/api/v1/evidence/{evidence_id}")

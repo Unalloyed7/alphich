@@ -1,0 +1,4 @@
+SYNTHETIC_U;MAINOKVED_CODE;MAINOKVED_NAME;REVENUE_COMPANY;REGION;CL_PRODUCT_LOA_MARK;CL_PRODUCT_DEP_MARK;FTS_FLAG;FTS_COUNTRY_NAME
+LLM_DEMO_LOAN;28;Учебный производитель оборудования;;Учебный регион;1;0;0;
+LLM_DEMO_DEPOSIT;62;Учебная ИТ-компания;;Учебный регион;0;1;0;
+LLM_DEMO_UNKNOWN;47;Учебная торговая компания;;Учебный регион;;;;
