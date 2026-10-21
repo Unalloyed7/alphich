@@ -240,7 +240,7 @@ function EventDrawer({ session, event, insightStatus, onInsightReady, source, lo
           {source && source.id === activeSourceId && <section className="source-reader">
             <div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div>
             <p className="source-full-text">{source.text}</p>
-            <div className="source-footer"><span><Icon name="alert" size={15}/> Ссылка не верифицирована</span>{source.url && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть внешний адрес</a>}</div>
+            <div className="source-footer"><span><Icon name="alert" size={15}/> {source.url_verified ? 'Текст загружен по ссылке' : 'Ссылка не верифицирована'}</span>{source.url && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть внешний адрес</a>}</div>
           </section>}
         </div>}
         <EventInsight session={session} eventId={event.id} onInsightReady={onInsightReady}/>

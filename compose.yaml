@@ -90,5 +90,21 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:5173:80"
+  rss-collector:
+    profiles: ["news"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-m", "app.rss"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
+      DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-U_9250,U_99802,U_44792}
+      RSS_COMPANY_IDS: ${RSS_COMPANY_IDS:-}
 volumes:
   pgdata:

@@ -22,6 +22,7 @@ from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
                       digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
 from app.intelligence.routes import register_routes
 from app.intelligence.service import event_payload
+from app import rss as _rss  # Register additive collector tables in the shared metadata.
 
 
 class DemoSessionRequest(BaseModel):
@@ -272,13 +273,15 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         source = db.get(SourceDocument, source_id)
         if source is None or source.company_id != demo.company_id:
             raise HTTPException(404, "Source not found")
-        return {"id": source.id, "company_id": source.company_id, "title": source.title,
-                "text": source.body, "url": source.source_url, "url_verified": False,
+        collected = source.kind == "rss_article" and source.fetched_at is not None
+        return {"id": source.id, "company_id": source.company_id, "title": source.title, "kind": source.kind,
+                "text": source.body, "url": source.source_url, "url_verified": collected,
                 "published_at": source.published_at, "received_at": source.received_at,
                 "fetched_at": source.fetched_at,
                 "content_hash": source.content_hash, "version": source.version,
                 "extraction_status": source.extraction_status, "completeness": source.completeness,
-                "note": "User-submitted text. URL is not fetched or independently verified."}
+                "note": ("Article text extracted from a fetched RSS link. Fetching does not verify factual accuracy."
+                         if collected else "User-submitted text. URL is not fetched or independently verified.")}
 
     register_routes(app, get_db, current_session, session_factory)
     return app

@@ -6,7 +6,8 @@ profile/evidence-ready feature extraction, and real queued news ingestion with a
 The separate [LLM runtime](../docs/llm.md) implements extraction, scoped RAG, an agent,
 verified insights, questions and budget accounting. Organizer gateway access is verified and a real
 personalized card with bank evidence has been produced. Automated tests use scripted responses;
-explicit live evaluation uses the real gateway. RSS collection remains a separate task.
+explicit live evaluation uses the real gateway. The optional `news` Compose profile runs
+scheduled RSS/Atom collection, article extraction and durable ingestion without LLM calls.
 See [NEWS_INGESTION.md](NEWS_INGESTION.md) for the raw ingestion routes and protocol.
 
 ## Run with Docker Compose
@@ -82,6 +83,18 @@ Follow **[NEWS_INGESTION.md](NEWS_INGESTION.md)** for complete curl examples and
 security limitations. `POST /publications` returns **202**; poll `GET /jobs/{id}`
 and then fetch `GET /events/{id}`. `GET /sources/{id}` returns the original pasted
 text to the same company. Raw events have `facts=[]` until an explicit LLM analysis task completes extraction.
+
+To collect the seven configured CBR and industry news feeds every 15 minutes, run from the repository root:
+
+```sh
+docker compose --profile news up -d --build
+```
+
+Import the configured demo companies first. The collector fetches each unique URL once and queues
+company-scoped copies through the existing worker. Interfax is restricted to `/business/`;
+the other new feeds cover construction, IT, agriculture and electrical equipment. `RSS_COMPANY_IDS` optionally narrows
+`DEMO_COMPANY_IDS`; it never expands access. See the RSS section in `NEWS_INGESTION.md` for state,
+retries, custom sources, provenance and extraction limits.
 
 ## LLM анализ
 

@@ -13,6 +13,8 @@ final hackathon submission.
 | Psycopg | PostgreSQL client | LGPL-3.0 with linking exception — https://www.psycopg.org/psycopg3/docs/ |
 | Uvicorn | ASGI server | BSD-3-Clause — https://github.com/encode/uvicorn |
 | HTTPX | API tests | BSD-3-Clause — https://github.com/encode/httpx |
+| Trafilatura | Local main-text extraction from downloaded HTML | Apache-2.0 — https://github.com/adbar/trafilatura |
+| defusedxml | Bounded RSS/Atom XML parsing with DTD/entities blocked | PSF — https://github.com/tiran/defusedxml |
 | Pytest | Unit/integration tests | MIT — https://github.com/pytest-dev/pytest |
 | PostgreSQL | Persistent database | PostgreSQL License — https://www.postgresql.org/about/licence/ |
 | Python | Runtime | PSF License — https://docs.python.org/3/license.html |

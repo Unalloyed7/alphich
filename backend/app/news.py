@@ -1,9 +1,10 @@
-"""Auditable ingestion of user-submitted publications.
+"""Auditable ingestion of user-submitted and collected RSS publications.
 
 This module deliberately DOES NOT extract news facts or call an LLM. Its job is
 persisting input faithfully, grouping exact duplicates, and creating an event
-that downstream extraction/analysis can enrich. Documents belong to the demo
-company that submitted them; user-provided URLs are references, not downloads.
+that downstream extraction/analysis can enrich. Documents belong to their
+recipient company; user-provided URLs are references, not downloads. The separate
+RSS collector can fetch operator-configured sources and enqueue company copies.
 """
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ class SourceDocument(Base):
     source_url: Mapped[str | None] = mapped_column(String(2048))
     published_at: Mapped[str | None] = mapped_column(String(40))
     received_at: Mapped[str] = mapped_column(String(40), nullable=False)
-    fetched_at: Mapped[str | None] = mapped_column(String(40))  # Null for pasted text; URL never fetched.
+    fetched_at: Mapped[str | None] = mapped_column(String(40))  # Null for pasted text; collector records actual fetch time.
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     extraction_status: Mapped[str] = mapped_column(String(48), nullable=False, default="raw_only")
     completeness: Mapped[str] = mapped_column(String(48), nullable=False, default="user_supplied_text")
@@ -191,7 +192,7 @@ def serialize_event(event: Event, source: SourceDocument) -> dict:
         "source_ids": [event.source_id],
         "sources": [{
             "id": source.id, "kind": source.kind, "title": source.title,
-            "url": source.source_url, "url_verified": False,
+            "url": source.source_url, "url_verified": source.kind == "rss_article" and source.fetched_at is not None,
             "published_at": source.published_at, "received_at": source.received_at,
             "fetched_at": source.fetched_at,
             "content_hash": source.content_hash, "extraction_status": source.extraction_status,

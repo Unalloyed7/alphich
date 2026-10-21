@@ -5,4 +5,6 @@ SQLAlchemy==2.0.50
 psycopg[binary]==3.2.13
 uvicorn==0.48.0
 httpx==0.28.1
+defusedxml==0.7.1
+trafilatura==2.3.1
 pytest==9.0.2

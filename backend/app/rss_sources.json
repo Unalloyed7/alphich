@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "feeds": [
+    {
+      "id": "cbr-press",
+      "url": "https://www.cbr.ru/rss/RssPress",
+      "article_hosts": ["www.cbr.ru", "cbr.ru"],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "cbr-events",
+      "url": "https://www.cbr.ru/rss/eventrss",
+      "article_hosts": ["www.cbr.ru", "cbr.ru"],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "interfax-business",
+      "url": "https://www.interfax.ru/rss",
+      "article_hosts": ["www.interfax.ru", "interfax.ru"],
+      "article_path_prefixes": ["/business/"],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "stroygaz",
+      "url": "https://stroygaz.ru/rss/",
+      "article_hosts": ["stroygaz.ru", "www.stroygaz.ru"],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "cnews",
+      "url": "https://www.cnews.ru/inc/rss/news.xml",
+      "article_hosts": ["www.cnews.ru", "cnews.ru"],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "agroinvestor",
+      "url": "https://www.agroinvestor.ru/feed/public-agronews.xml",
+      "article_hosts": ["www.agroinvestor.ru", "agroinvestor.ru"],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "elec",
+      "url": "https://www.elec.ru/news/feed.xml",
+      "article_hosts": ["www.elec.ru", "elec.ru"],
+      "poll_seconds": 900,
+      "max_items": 10
+    }
+  ]
+}

@@ -5,6 +5,12 @@
 `analysis-worker` (инсайты и вопросы) и `frontend`. Оба worker и API используют один `DATABASE_URL`
 и общие таблицы `llm_budget_days`/`llm_calls`, которыми управляет готовый provider.
 
+Опциональный профиль `news` добавляет шестой сервис `rss-collector`: `docker compose --profile news up -d --build`.
+Он читает настроенные RSS, скачивает статьи и ставит задания обычному ingestion worker без вызова LLM.
+Его запуск и границы описаны в [руководстве RSS](../backend/NEWS_INGESTION.md#автоматический-сбор-rss).
+Основной проверочный скрипт проверяет пять базовых сервисов; работу RSS проверяют отдельно по журналу,
+новым событиям и `python -m app.rss --status` внутри сервиса.
+
 ## Первый запуск на Mac с Docker Desktop
 
 Из **корня** репозитория:
