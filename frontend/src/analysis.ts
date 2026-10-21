@@ -28,7 +28,7 @@ export interface Insight {
   headline: string;
   as_of: string;
   claims: Claim[];
-  relevance_reasons: Array<{ reason?: string; feature_id?: string; [key: string]: unknown }>;
+  relevance_reasons: Array<{ explanation?: string; reason?: string; label?: string; code?: string; feature_ids?: string[]; [key: string]: unknown }>;
   bank_view: { status: string; claim_ids: string[]; reason?: string | null };
   risks: string[];
   opportunities: string[];

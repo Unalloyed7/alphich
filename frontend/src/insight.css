@@ -35,3 +35,8 @@
 @media(max-width:650px){.insight-feed{padding:16px}.insight-feed-item{flex-direction:column}.insight-panel{font-size:12px}}
 
 .status-analyzed{background:#e8f6ee;color:#27724b}
+
+/* Status of a persisted insight is distinct from extraction of the raw event. */
+.status-insight{background:#e6f5ea;color:#20754d}
+.status-insufficient{background:#fff2df;color:#945b12}
+.insight-evidence-region{scroll-margin-top:20px}

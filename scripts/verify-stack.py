@@ -184,7 +184,8 @@ def run(args: argparse.Namespace) -> None:
 
     code, configured = request(base, 'GET', '/llm/status', token=token)
     expect(code, 200, 'Shared LLM budget / readiness API', configured)
-    print(f'  Configured={configured.get("configured")}, prices_confirmed={configured.get("prices_confirmed")}, '
+    print(f'  Configured={configured.get("configured")}, budget_mode={configured.get("budget_mode")}, '
+          f'prices_confirmed={configured.get("prices_confirmed")}, '
           f'bank_index_present={configured.get("bank_index_present")}, spent_RUB={configured.get("spent_rub")}', flush=True)
     code, feed = request(base, 'GET', f'/companies/{args.company}/feed', token=token, timeout=60)
     expect(code, 200, 'Personalized feed API (read-only)', feed)
@@ -195,8 +196,11 @@ def run(args: argparse.Namespace) -> None:
     if not args.live_analysis:
         print('SKIP paid analysis & questions. Use --live-analysis to opt in.', flush=True)
         return
-    if not configured.get('configured') or not configured.get('prices_confirmed'):
-        raise CheckFailed('Live analysis requested but authorized model gateway/prices are not configured')
+    # `configured` is authoritative: token_prices requires confirmed prices,
+    # while gateway_receipt uses validated receipts and does NOT require
+    # prices_confirmed=true. The API already validates its chosen budget mode.
+    if configured.get('configured') is not True:
+        raise CheckFailed('Live analysis requested but authorized model gateway/budget is not configured')
     if not configured.get('bank_index_present'):
         raise CheckFailed('Bank index is missing; build/attach it before paid analysis')
 

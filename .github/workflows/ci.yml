@@ -1,0 +1,89 @@
+name: CI — offline integration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contracts:
+    name: Backend tests and OpenAPI contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: backend:backend/src:knowledge/src
+      DATABASE_URL: sqlite:////tmp/alphich-ci-contracts.db
+      DEMO_COMPANY_IDS: DEMO_A,DEMO_B
+      LLM_BASE_URL: ''
+      LLM_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            knowledge/requirements-rag.lock
+      - name: Install backend and retrieval dependencies (no model downloads)
+        run: python -m pip install -r backend/requirements.txt -r knowledge/requirements-rag.lock
+      - name: Backend and OpenAPI contract tests
+        run: python -m pytest -q backend/tests
+      - name: Safe smoke runner tests (simulated HTTP, no paid calls)
+        run: python -m unittest discover -s scripts/tests -v
+
+  frontend:
+    name: React build and type-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: TypeScript and production build
+        working-directory: frontend
+        run: npm run build
+      - name: Frontend presentation and HTTP contract checks (mocked; no LLM)
+        run: node --experimental-transform-types --test scripts/tests/test_insight_presentation.mjs
+
+  docker-smoke:
+    name: Five-service Docker smoke (no LLM requests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEMO_COMPANY_IDS: DEMO_A,DEMO_B
+      POSTGRES_PASSWORD: ci_local_only
+      LLM_BASE_URL: ''
+      LLM_API_KEY: ''
+      LLM_EXTRACTION_MODEL: ''
+      LLM_ANALYSIS_MODEL: ''
+      LLM_MODEL_CATALOG_JSON: '[]'
+      LLM_PRICES_CONFIRMED: '0'
+      LLM_BUDGET_MODE: gateway_receipt
+      LLM_RECEIPT_RUB_PER_UNIT: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
+      - name: Build and start all five services
+        run: docker compose up -d --build
+      - name: Full unpaid API smoke (imports synthetic fixtures if necessary)
+        run: python3 scripts/verify-stack.py --import-fixtures
+      - name: Diagnostics after failure
+        if: failure()
+        run: |
+          docker compose ps || true
+          docker compose logs --no-color --tail=70 api worker analysis-worker frontend postgres || true
+      - name: Tear down ephemeral CI containers (preserve volumes)
+        if: always()
+        run: docker compose down --remove-orphans || true

@@ -53,10 +53,10 @@ python3 scripts/verify-stack.py --start --import-fixtures
 
 Убедитесь, что команда подтвердила:
 
-1. `LLM_BASE_URL`, `LLM_API_KEY`, реальные разрешённые ID моделей и проверенные цены в локальном `.env`;
-2. `LLM_PRICES_CONFIRMED=1` и достаточный остаток дневного бюджета;
-3. корпус и индекс находятся в `data/processed/bank-index-v1`, модели E5 — в `data/models/e5-base`;
-4. `GET /api/v1/llm/status` возвращает `configured: true` и `bank_index_present: true`.
+1. `LLM_BASE_URL`, `LLM_API_KEY`, реальные разрешённые ID моделей и настройки режима бюджета в локальном `.env`;
+2. `LLM_BUDGET_MODE=gateway_receipt` с подтверждённой командой единицей `LLM_RECEIPT_RUB_PER_UNIT`, **либо** `token_prices` с `LLM_PRICES_CONFIRMED=1` и тарифами; достаточный остаток общего бюджета;
+3. корпус и индекс находятся в `data/processed/bank-index-v1`, модель E5 — в `data/models/e5-base`;
+4. `GET /api/v1/llm/status` возвращает `configured: true` и `bank_index_present: true`. Поле `prices_confirmed=false` **допустимо** в режиме `gateway_receipt`.
 
 Только после подтверждения ответственного за общий ключ:
 
@@ -69,7 +69,7 @@ python3 scripts/verify-stack.py --live-analysis --ask-question --analysis-timeou
 Команда с `--live-analysis` ставит реальную задачу через `POST /companies/{id}/insights`,
 ждёт `analysis-worker`, получает `/insights/{id}`, `/runs/{id}` и `/evidence/{id}`.
 `--ask-question` дополнительно ставит `POST /insights/{id}/questions` и читает `/answers/{id}`.
-Без установленного шлюза/цен/индекса скрипт завершится с ошибкой **до** платного запроса.
+Без серверного `configured=true` или без банковского индекса скрипт завершится с ошибкой **до** платного запроса.
 Результат может быть `insufficient_evidence`: проверка показывает правдивые ограничения, а не
 подменяет реальную модель подготовленной карточкой. Фактическое содержимое AI-ответа требует
 ручной оценки соответствия источникам.
@@ -117,3 +117,39 @@ docker compose ps
 docker compose logs --tail=100 analysis-worker
 docker compose logs --tail=100 worker
 ```
+
+## Проверка обновлённого контура после слияния LLM/RAG (коммит 5216ae5)
+
+```bash
+git switch main && git pull --ff-only origin main
+# Настройте существующий .env по docs/llm.md, сохраните актуальный пароль БД.
+# Для gateway_receipt цены токенов не требуются, но коэффициент квитанции обязателен.
+# Скопируйте готовые артефакты команды в data/processed/bank-index-v1
+# и data/models/e5-base; оба каталога игнорируются Git.
+docker compose up -d --build --force-recreate api analysis-worker
+python3 scripts/verify-stack.py --import-fixtures  # только бесплатные операции
+# Прочитать готовность модели/индекса и расход без вывода секретов:
+docker compose run --rm api python -m app.intelligence.cli status
+```
+
+При переносе индекса от коллег сохраняйте файлы и `manifest.json` целиком, не совмещайте
+снимки разных версий. Если готового индекса нет, выполняйте подготовку по `docs/knowledge-base.md`
+и `docs/rag.md`; она включает оригинальные PDF, OCR и проверенные тезисы. Файлы модели
+скачиваются по закреплённому `knowledge/embedding-model.json` через команду `fetch-encoder`.
+Существующий каталог индекса нельзя перезаписывать командой `index` — новый строится
+в отдельной директории и подменяется только после проверки.
+
+Получение `configured=true` из `/llm/status` означает успешную серверную проверку активного
+режима бюджета. Для live-анализа нужен также доступный индекс и **явное разрешение**
+владельца общего лимита. При `gateway_receipt` поле `prices_confirmed=false` не является
+признаком отказа. Smoke по умолчанию не делает платных вызовов; для полной проверки
+новости, карточки, доказательств и вопроса используйте `--live-analysis --ask-question`
+только после согласования.
+
+## CI (без денег и секретов)
+
+`.github/workflows/ci.yml` выполняет Python-тесты backend и проверку OpenAPI контрактов,
+сборку React/TypeScript, автономные тесты smoke-сценария и запуск пяти контейнеров с
+проверкой ingestion → event → source → feed. В CI модельный ключ пустой, индекс и веса
+не требуются, флаги `--live-analysis`/`--ask-question` не используются. При сбое
+CI показывает диагностические логи сервисов, но не конфигурацию `.env`.

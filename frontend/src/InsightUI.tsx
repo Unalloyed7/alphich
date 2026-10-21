@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { analysisApi, api } from './api';
 import type { Job, DemoSession } from './types';
 import type { Answer, AuditRun, Claim, Evidence, FeedItem, FeedResult, Insight, LlmStatus } from './analysis';
+import { claimReferenceTexts, relevanceDescription } from './insightPresentation';
 import './insight.css';
 
 function message(error: unknown): string {
@@ -41,7 +42,7 @@ function Claims({ value, onEvidence }: { value: Insight | Answer; onEvidence: (i
 }
 
 /** Event-scoped analysis panel. Uses ONLY pre-existing server analysis endpoints. */
-export function EventInsight({ session, eventId }: { session: DemoSession; eventId: string }) {
+export function EventInsight({ session, eventId, onInsightReady }: { session: DemoSession; eventId: string; onInsightReady: (eventId: string, status: string) => void }) {
   const [status, setStatus] = useState<LlmStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -51,6 +52,9 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
   const [questionJob, setQuestionJob] = useState<Job | null>(null);
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const evidenceRef = useRef<HTMLDivElement>(null);
+  const evidenceRequest = useRef(0);
   const [run, setRun] = useState<AuditRun | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +68,10 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
       const id = feed.items.find(item => item.event_id === eventId)?.insight?.id;
       if (!id) return;
       const item = await analysisApi.insight(id, session.token);
-      if (active) setInsight(item);
+      if (active) { setInsight(item); onInsightReady(eventId, item.status); }
     }).catch(() => { /* Feed is optional if ranking isn't available. */ });
     return () => { active = false; };
-  }, [session.company_id, session.token, eventId]);
+  }, [session.company_id, session.token, eventId, onInsightReady]);
 
   const poll = useCallback((current: Job, setter: (j: Job) => void, load: (id: string) => Promise<void>) => {
     let canceled = false;
@@ -86,8 +90,8 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
 
   useEffect(() => {
     if (!job || (job.status !== 'queued' && job.status !== 'running')) return;
-    return poll(job, setJob, async id => { setInsight(await analysisApi.insight(id, session.token)); void analysisApi.status(session.token).then(setStatus).catch(() => { }); });
-  }, [job?.id, job?.status, poll, session.token]);
+    return poll(job, setJob, async id => { const card = await analysisApi.insight(id, session.token); setInsight(card); onInsightReady(eventId, card.status); void analysisApi.status(session.token).then(setStatus).catch(() => { }); });
+  }, [job?.id, job?.status, poll, session.token, onInsightReady]);
 
   useEffect(() => {
     if (!questionJob || (questionJob.status !== 'queued' && questionJob.status !== 'running')) return;
@@ -99,7 +103,7 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
     try {
       const next = await analysisApi.createInsight(session.company_id, eventId, session.token);
       setJob(next);
-      if (next.status === 'succeeded' && next.result_id) setInsight(await analysisApi.insight(next.result_id, session.token));
+      if (next.status === 'succeeded' && next.result_id) { const card = await analysisApi.insight(next.result_id, session.token); setInsight(card); onInsightReady(eventId, card.status); }
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
 
@@ -116,10 +120,23 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
 
   const showEvidence = async (id: string, answerId?: string) => {
     if (!insight) return;
-    setEvidence(null); setEvidenceError(null);
-    try { setEvidence(await analysisApi.evidence(id, insight.id, session.token, answerId)); }
-    catch (e) { setEvidenceError(message(e)); }
+    const requestId = ++evidenceRequest.current;
+    setEvidence(null); setEvidenceError(null); setEvidenceLoading(true);
+    try {
+      const result = await analysisApi.evidence(id, insight.id, session.token, answerId);
+      if (requestId === evidenceRequest.current) setEvidence(result);
+    } catch (e) {
+      if (requestId === evidenceRequest.current) setEvidenceError(message(e));
+    } finally {
+      if (requestId === evidenceRequest.current) setEvidenceLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (evidenceLoading || evidence || evidenceError) {
+      evidenceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [evidenceLoading, evidence, evidenceError]);
 
   const showRun = async (id: string) => {
     setRun(null); setError(null);
@@ -139,10 +156,10 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
     {insight && <div className="insight-result">
       <h4>{insight.headline}</h4><p className="insight-muted">Статус: {insight.status}. Анализ на {dateLabel(insight.as_of)}. Проверка: {insight.verification?.status}.</p>
       <p><strong>Позиция банка:</strong> {insight.bank_view.status === 'found' ? 'Найдена в источниках' : insight.bank_view.status === 'historical_only' ? 'Только исторические материалы' : insight.bank_view.status === 'conflicting' ? 'Обнаружен конфликт источников' : 'Подтверждённая позиция отсутствует'}</p>
-      {insight.relevance_reasons?.length > 0 && <div><h5>Почему актуально</h5>{insight.relevance_reasons.map((reason, index) => <p key={index}>{reason.reason ?? String(reason.feature_id ?? 'Признак указан в аналитике')}</p>)}</div>}
+      {insight.relevance_reasons?.length > 0 && <div><h5>Почему актуально</h5>{insight.relevance_reasons.map((reason, index) => <p key={index}>{relevanceDescription(reason) ?? 'Описание основания не передано сервером'}</p>)}</div>}
       <h5>Выводы и доказательства</h5><Claims value={insight} onEvidence={(id) => void showEvidence(id)} />
-      {insight.risks.length > 0 && <div><h5>Риски (ссылки на тезисы)</h5><p>{insight.risks.join(' · ')}</p></div>}
-      {insight.opportunities.length > 0 && <div><h5>Возможности (ссылки на тезисы)</h5><p>{insight.opportunities.join(' · ')}</p></div>}
+      {insight.risks.length > 0 && <div><h5>Риски</h5>{claimReferenceTexts(insight.risks, insight.claims).map((text, index) => <p key={index}>{text}</p>)}</div>}
+      {insight.opportunities.length > 0 && <div><h5>Возможности</h5>{claimReferenceTexts(insight.opportunities, insight.claims).map((text, index) => <p key={index}>{text}</p>)}</div>}
       {insight.next_steps.length > 0 && <div><h5>Следующие шаги</h5>{insight.next_steps.map((step, idx) => <p key={idx}>{step.text}{step.conditions?.length ? ` · При условиях: ${step.conditions.join('; ')}` : ''}</p>)}</div>}
       {insight.missing_data?.length > 0 && <p className="insight-muted">Не хватает данных: {insight.missing_data.join('; ')}</p>}
       {(insight.verification?.issues ?? []).length > 0 && <p className="insight-muted">Проверка: {(insight.verification?.issues ?? []).join('; ')}</p>}
@@ -154,10 +171,13 @@ export function EventInsight({ session, eventId }: { session: DemoSession; event
       {questionJob && <p className="insight-job">Вопрос: {questionJob.status} · {questionJob.stage} {questionJob.error ?? ''}</p>}
       {answer && <div className="insight-answer"><h5>Ответ: {answer.question}</h5><Claims value={answer} onEvidence={(id, answerId) => void showEvidence(id, answerId)} /></div>}
     </div>}
+    {(evidenceLoading || evidenceError || evidence) && <div ref={evidenceRef} className="insight-evidence-region">
+    {evidenceLoading && <p className="insight-muted" role="status">Загружаем подтверждающий фрагмент…</p>}
     {evidenceError && <p className="insight-error" role="alert">Доказательство: {evidenceError}</p>}
     {evidence && <div className="insight-evidence" aria-live="polite"><h5>Подтверждающий фрагмент</h5><p>{evidence.text ?? 'Текст недоступен в этом типе доказательства.'}</p>
       <p className="insight-muted">{[evidence.title, evidence.kind, evidence.document_id, evidence.page != null ? `стр. ${evidence.page}` : null, evidence.published_at].filter(Boolean).join(' · ')}</p>
       {typeof evidence.url === 'string' && /^https:\/\//.test(evidence.url) && <a href={evidence.url} target="_blank" rel="noopener noreferrer">Открыть документ</a>}</div>}
+    </div>}
     {run && <div className="insight-trace"><h5>Проверяемый журнал · {run.status}</h5>
       <p>Этапов: {run.steps?.length ?? 0}; вызовов модели: {run.llm_calls?.length ?? 0}</p>
       {(run.steps ?? []).map((step, idx) => <p key={idx}>{idx + 1}. {step.action ?? 'Шаг'} · {JSON.stringify(step).slice(0, 300)}</p>)}
@@ -183,7 +203,7 @@ export function InsightFeed({ session, onEvent }: { session: DemoSession; onEven
     {!loading && feed?.items.length === 0 && <p className="insight-muted">Пока нет отобранных событий. Сначала добавь публикацию и дождись worker.</p>}
     {feed?.items.map((item: FeedItem) => <article key={`${item.event_id}:${item.event_version}`} className="insight-feed-item">
       <div><strong>{item.insight?.headline || item.event_id}</strong><p className="insight-muted">{item.relevance_tier || 'Контекст'} · приоритет {item.priority ?? 'не определён'} · {item.insight?.status || 'Без карточки'}</p>
-        {(item.reasons ?? item.relevance_reasons ?? []).slice(0, 3).map((reason, index) => <p key={index}>{reason.reason ?? reason.label ?? (reason as { explanation?: string }).explanation ?? 'Основание отбора'}</p>)}
+        {(item.reasons ?? item.relevance_reasons ?? []).slice(0, 3).map((reason, index) => <p key={index}>{relevanceDescription(reason) ?? 'Описание основания не передано сервером'}</p>)}
       </div><button type="button" className="insight-link" onClick={() => onEvent(item.event_id)}>Открыть событие →</button>
     </article>)}
     {feed?.limitations?.length ? <p className="insight-muted">Ограничения: {feed.limitations.join(', ')}</p> : null}

@@ -44,13 +44,35 @@ class SmokeTests(unittest.TestCase):
         if path == '/companies/DEMO_A/events?limit=20&offset=0':
             return 200, {'items': [{'id': 'event_test'}]}
         if path == '/jobs?limit=20': return 200, {'items': [{'id': 'job_test'}]}
-        if path == '/llm/status': return 200, {'configured': False, 'prices_confirmed': False,
-                'bank_index_present': False, 'spent_rub': '0'}
+        if path == '/llm/status': return 200, self.llm_status
         if path == '/companies/DEMO_A/feed': return 200, {'items': []}
+        # Scripted responses exercise the live-mode control flow WITHOUT
+        # contacting a model or charging the shared team budget.
+        if path == '/companies/DEMO_A/insights' and method == 'POST':
+            return 202, {'id': 'job_insight', 'status': 'queued'}
+        if path == '/jobs/job_insight':
+            return 200, {'id': 'job_insight', 'status': 'succeeded', 'result_id': 'insight_test'}
+        if path == '/insights/insight_test':
+            return 200, {'id': 'insight_test', 'company_id': 'DEMO_A',
+                         'event_id': 'event_test', 'status': 'ready_with_conditions',
+                         'run_id': 'run_test',
+                         'claims': [{'evidence_ids': ['ev_test']}]}
+        if path == '/evidence/ev_test?insight_id=insight_test':
+            return 200, {'id': 'ev_test', 'text': 'Synthetic evidence'}
+        if path == '/runs/run_test': return 200, {'status': 'succeeded', 'steps': []}
+        if path == '/insights/insight_test/questions' and method == 'POST':
+            return 202, {'id': 'job_question', 'status': 'queued'}
+        if path == '/jobs/job_question':
+            return 200, {'id': 'job_question', 'status': 'succeeded', 'result_id': 'answer_test'}
+        if path == '/answers/answer_test':
+            return 200, {'id': 'answer_test', 'insight_id': 'insight_test', 'claims': []}
         raise AssertionError(f'Unexpected API call: {method} {path}')
 
     def setUp(self):
         self.calls = []
+        self.llm_status = {'configured': False, 'prices_confirmed': False,
+                           'budget_mode': 'token_prices', 'bank_index_present': False,
+                           'spent_rub': '0'}
         self.last_title = 'recorded in create request'
         self.last_text = 'recorded in create request'
         original = self.fake_request
@@ -81,6 +103,46 @@ class SmokeTests(unittest.TestCase):
             with self.assertRaisesRegex(smoke.CheckFailed, 'not configured'):
                 smoke.run(self.args(live_analysis=True))
         self.assertFalse(any('/insights' in path for _, path in self.calls))
+
+    def test_gateway_receipt_ready_without_confirmed_token_prices(self):
+        """A receipt-configured server may correctly report prices_confirmed=false."""
+        self.llm_status.update(configured=True, prices_confirmed=False,
+                               budget_mode='gateway_receipt', bank_index_present=True)
+        with (patch.object(smoke, 'compose', return_value='postgres\napi\nworker\nanalysis-worker\nfrontend'),
+              patch.object(smoke, 'wait_api'),
+              patch.object(smoke, 'urlopen', return_value=Response()),
+              patch.object(smoke, 'request', side_effect=self.record),
+              redirect_stdout(io.StringIO())):
+            smoke.run(self.args(live_analysis=True, ask_question=True))
+        self.assertIn(('POST', '/companies/DEMO_A/insights'), self.calls)
+        self.assertIn(('GET', '/evidence/ev_test?insight_id=insight_test'), self.calls)
+        self.assertIn(('GET', '/runs/run_test'), self.calls)
+        self.assertIn(('POST', '/insights/insight_test/questions'), self.calls)
+        self.assertIn(('GET', '/answers/answer_test'), self.calls)
+
+    def test_ready_requires_server_configured_not_legacy_price_flag(self):
+        self.llm_status.update(configured=False, prices_confirmed=True,
+                               bank_index_present=True)
+        with (patch.object(smoke, 'compose', return_value='postgres\napi\nworker\nanalysis-worker\nfrontend'),
+              patch.object(smoke, 'wait_api'),
+              patch.object(smoke, 'urlopen', return_value=Response()),
+              patch.object(smoke, 'request', side_effect=self.record),
+              redirect_stdout(io.StringIO())):
+            with self.assertRaisesRegex(smoke.CheckFailed, 'not configured'):
+                smoke.run(self.args(live_analysis=True))
+        self.assertNotIn(('POST', '/companies/DEMO_A/insights'), self.calls)
+
+    def test_live_requires_bank_index_even_if_server_ready(self):
+        self.llm_status.update(configured=True, prices_confirmed=False,
+                               budget_mode='gateway_receipt', bank_index_present=False)
+        with (patch.object(smoke, 'compose', return_value='postgres\napi\nworker\nanalysis-worker\nfrontend'),
+              patch.object(smoke, 'wait_api'),
+              patch.object(smoke, 'urlopen', return_value=Response()),
+              patch.object(smoke, 'request', side_effect=self.record),
+              redirect_stdout(io.StringIO())):
+            with self.assertRaisesRegex(smoke.CheckFailed, 'Bank index is missing'):
+                smoke.run(self.args(live_analysis=True))
+        self.assertNotIn(('POST', '/companies/DEMO_A/insights'), self.calls)
 
     def test_missing_containers_are_fatal(self):
         with patch.object(smoke, 'compose', return_value='api\npostgres'):
