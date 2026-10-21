@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { api, analysisApi, ApiError } from './api';
 import { EventInsight, InsightFeed } from './InsightUI';
+import { mergeRecentEvents } from './recentEvents';
 import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
 
 type Screen = 'dashboard' | 'publish' | 'events' | 'insights' | 'profile';
 type IconName = 'grid' | 'plus' | 'list' | 'briefcase' | 'chevron' | 'arrow' | 'refresh' | 'check' | 'clock' | 'link' | 'file' | 'alert' | 'close' | 'send' | 'logout' | 'activity' | 'copy' | 'search';
 const SESSION_STORAGE_KEY = 'alphich.demo-session.v1';
 const EVENTS_PAGE_SIZE = 20;
+const RSS_EVENT_REFRESH_MS = 15_000;
 
 function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -297,6 +299,11 @@ function App() {
     try {
       const next = await api.newSession(company, role);
       latestSourceRequest.current += 1;
+      activeSessionToken.current = next.token;
+      // Clear previous tenant/role data before rendering the new session.
+      setProfile(null); setCompanies([]); setEvents([]); setEventsHasMore(false);
+      setInsightsByEvent({}); setJobIds([]); setJobs({}); setJobsError(null);
+      setSelectedEvent(null); setSource(null); setSourceError(null); setError(null);
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
       setSession(next); setScreen('dashboard'); setRelogin(false);
     } catch (e) { setSessionError(safeError(e)); } finally { setSessionBusy(false); }
@@ -312,6 +319,31 @@ function App() {
     } catch (e) { if (activeSessionToken.current === current.token) setError(safeError(e)); }
     finally { if (activeSessionToken.current === current.token) setEventsLoading(false); }
   }, [safeError]);
+
+  // RSS ingestion jobs belong to the system, not this browser session. Poll the
+  // company events independently of /jobs, merging recent rows into older pages.
+  useEffect(() => {
+    if (!session) return;
+    let active = true;
+    let inFlight = false;
+    const refresh = async () => {
+      if (!active || inFlight || document.visibilityState === 'hidden') return;
+      inFlight = true;
+      try {
+        const result = await api.events(session.company_id, session.token, EVENTS_PAGE_SIZE, 0);
+        if (active && activeSessionToken.current === session.token) {
+          setEvents(previous => mergeRecentEvents(previous, result.items));
+        }
+      } catch (e) {
+        if (active && activeSessionToken.current === session.token && e instanceof ApiError && e.status === 401) logOut();
+        // A transient polling error must not discard the last good event list.
+      } finally { inFlight = false; }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const interval = window.setInterval(() => { void refresh(); }, RSS_EVENT_REFRESH_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { active = false; window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
+  }, [session, logOut]);
 
   const loadMoreEvents = useCallback(async () => {
     if (!session || eventsMoreLoading || eventsLoading || !eventsHasMore) return;
@@ -453,7 +485,7 @@ function App() {
         </>}
         {screen === 'publish' && <><div className="page-title"><div className="eyebrow">NEWS INGESTION / P0</div><h1>Новая публикация<span>.</span></h1><p>Проверь полный путь от отправки текста до события в базе данных.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>FastAPI сохраняет источник и создаёт задачу. Worker забирает её из PostgreSQL и создаёт событие. Статус можно отслеживать здесь.</p><span>Время обработки обычно небольшое, но зависит от состояния worker.</span></div></div></div></>}
         {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
-        {screen === 'insights' && <InsightFeed session={session} onEvent={id => void openEventId(id)}/>}
+        {screen === 'insights' && <InsightFeed key={session.token} session={session} onEvent={id => void openEventId(id)}/>}
         {screen === 'profile' && <><div className="page-title"><div className="eyebrow">COMPANY CONTEXT / P0</div><h1>Контекст компании<span>.</span></h1><p>Признаки, на которых в дальнейшем будет основана персонализированная аналитика.</p></div><Profile profile={profile}/></>}
         <footer className="app-footer"><span>© ALPHICH / HACKATHON PROTOTYPE</span><span>Профили обезличены · Источники требуют проверки</span></footer>
       </div>
