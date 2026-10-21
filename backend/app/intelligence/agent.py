@@ -17,6 +17,8 @@ bank_researcher передаёт разрешённые bank_claim_ids и gaps; 
 После finish verifier проверяет карточку и может вернуть замечания на одно исправление.
 Корневой business_focus — заданная сервером гипотеза для анализа; используй этот канал и его источники.
 Он не доказывает экспозицию: неизвестные предпосылки остаются условиями, а не фактами о компании.
+При business_focus дай только один вывод по этой гипотезе. Для его company evidence используй только
+inference_basis.company_ids. Причины первоначального отбора новости не доказывают экспозицию.
 
 Факты выбирай по fact_evidence_ids типов event_fact/company_feature/bank_claim: сервер копирует их текст.
 Не добавляй text, kind, claims или basis_claim_ids для фактов; document_chunk — не факт карточки.
@@ -175,11 +177,13 @@ class Tools:
         return {"evidence": [self.registry[i] for i in ids[:5]],
                 "limitations": ["neighbor_data_not_imported"] if action.action == "get_payment_neighbors" and not ids else []}
 
-    def prompt_evidence(self, *, kinds=None):
+    def prompt_evidence(self, *, kinds=None, exclude_ids=()):
         # Restrict only prompt excerpts; original immutable evidence remains intact.
         result, used = [], 0
         priority = {"event_fact": 0, "company_feature": 1, "bank_claim": 2, "document_chunk": 3}
         for item in sorted(self.registry.values(), key=lambda x: (priority.get(x["kind"], 4), x["id"])):
+            if item["id"] in exclude_ids:
+                continue
             if kinds is not None and item["kind"] not in kinds:
                 continue
             if (item["kind"] == "bank_claim" and self.bank_claim_allowlist is not None
@@ -207,7 +211,13 @@ def analyze(tools, calls, question=None):
     researcher = BankResearchAgent(tools, calls, question)
     verifier = VerificationAgent(tools, calls, REVIEW)
     observations, errors = [], []
-    for question_spec in tools.selection.get("bank_questions", [])[:2]:
+    initial_focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
+    questions = list(tools.selection.get("bank_questions", [])[:2])
+    if initial_focus:
+        questions = [{**q, "query": "Какую траекторию ключевой ставки прогнозирует банк?"} if q.get("metric") == "policy_rate"
+                     else {**q, "query": "Как высокая ставка влияет на инвестиционный спрос заказчиков и запуск строительных проектов?",
+                           "metric": None, "horizon": None} for q in questions]
+    for question_spec in questions:
         calls.heartbeat()
         result = tools.invoke(SearchBank(action="search_bank_materials",
                                         **{k: question_spec[k] for k in ("query", "metric", "horizon")}),
@@ -215,7 +225,6 @@ def analyze(tools, calls, question=None):
         tools.steps[-1]["request_context"] = question_spec
         observations.append(result)
     observations.append(researcher.reuse_current() if question else researcher.run())
-    initial_focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
     if initial_focus:
         tools.steps.append({"agent_role": "coordinator", "action": "select_business_focus", "result": initial_focus})
     system = SYSTEM + BUSINESS_RULES
@@ -228,22 +237,24 @@ def analyze(tools, calls, question=None):
 """
     repaired, force_finish = False, False
     for index in range(calls.provider.settings.max_tools + 2):
+        focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
+        excluded = focus["not_inference_basis_ids"] if focus else ()
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
                 "event": {k: tools.event.get(k) for k in ("id", "title", "published_at")},
                 "question": question, "relevance_reasons": tools.expose(tools.selection.get("reasons", [])),
                 "business_relevance": tools.expose({k: tools.selection.get(k) for k in (
                     "relevance_grade", "relevance_selected", "relevance_assessment", "grading_version")}),
-                "evidence": tools.prompt_evidence(), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
+                "evidence": tools.prompt_evidence(exclude_ids=excluded), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
                 "remaining_calls": calls.provider.settings.max_calls - calls.count}
-        focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
         if focus:
-            data["business_focus"] = tools.expose(focus)
+            data["business_focus"] = tools.expose({k: v for k, v in focus.items() if k != "not_inference_basis_ids"})
         if errors:
             data["repair_instruction"] = ("Заново обоснуй экономический переход и бизнес-последствие по business_focus, "
                 "если он задан. Не маскируй отвергнутый вывод синонимами или оговорками. "
                 "Пауза ставки не устанавливает траекторию стоимости обслуживания; признак продукта и ОКВЭД не доказывают долг.")
         data["inference_basis"] = {"news_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "event_fact"]),
-                                   "company_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "company_feature"])}
+                                   "company_ids": tools.expose(focus["company_ids"] if focus else
+                                       [i for i, e in tools.registry.items() if e["kind"] == "company_feature"])}
         must_finish = (force_finish or calls.provider.settings.max_calls - calls.count <= 2 or
                        tools.tool_count >= calls.provider.settings.max_tools)
         try:
@@ -286,7 +297,8 @@ def analyze(tools, calls, question=None):
             errors = [f"{c.id}:semantic_support_missing" for c in draft.claims if c.id not in review.supported_claim_ids]
             errors += [f"action_{i}:semantic_support_missing" for i, _ in enumerate(draft.next_steps) if i not in review.supported_action_indexes]
             errors += review.issues
-        tools.steps.append({"agent_role": "verifier", "action": "verify_card", "issues": errors, "repair": repaired})
+        tools.steps.append({"agent_role": "verifier", "action": "verify_card", "issues": errors, "repair": repaired,
+                            "candidate": draft.model_dump() if draft is not None else None, "candidate_stage": "pre_publication"})
         if not errors:
             return draft.model_dump(), {"status": "passed_with_conditions", "issues": [],
                                         "method": "deterministic_provenance_and_llm_entailment"}

@@ -42,6 +42,7 @@ def business_focus(registry, *, question=None, event_id=None):
     industry += [key for key, e in registry.items() if e.get("kind") == "company_feature"
                  and e.get("name") == "okved_name"]
     return {"channel": "customer_investment_demand", "news_ids": news, "company_ids": industry,
+            "max_inferences": 1,
             "hypothesis": "Если запуск проектов заказчиков зависит от кредита, длительная высокая ставка может откладывать запуск и поступления строительной компании.",
             "unknowns": ["Зависимость проектов заказчиков от кредитов", "Состав заказчиков и сроки запуска", "Условия и сроки оплаты"],
             "decision": "Надёжность плана заказов и поступлений; проверить финансирование и сроки запуска крупных заявок.",
@@ -54,6 +55,8 @@ def focus_issues(draft, registry, *, question=None, event_id=None):
     if not focus:
         return []
     issues = []
+    if sum(claim.kind == "model_inference" for claim in draft.claims) > focus["max_inferences"]:
+        issues.append("business_focus_requires_one_primary_inference")
     for claim in draft.claims:
         if claim.kind != "model_inference":
             continue

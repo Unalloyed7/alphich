@@ -109,3 +109,11 @@ def test_demand_hypothesis_requires_industry_basis_and_does_not_use_credit_flag_
                                               'c1:credit_flag_does_not_establish_company_financing'}
     card.claims[0].evidence_ids = ['news', 'industry', 'forecast']
     assert focus_issues(card, context) == []
+
+
+def test_focused_card_cannot_add_competing_extra_inferences(evidence):
+    context = construction_context(evidence)
+    card = draft('Если заказчики зависят от кредитов, дорогие кредиты могут откладывать запуск проектов.')
+    card.claims[0].evidence_ids = ['news', 'industry']
+    card.claims.append(card.claims[0].model_copy(update={'id': 'c2'}))
+    assert focus_issues(card, context) == ['business_focus_requires_one_primary_inference']

@@ -186,7 +186,10 @@ class VerificationAgent:
             data["business_relevance"] = self.tools.expose(relevance)
         focus = business_focus(self.tools.registry, question=question, event_id=self.tools.event["id"])
         if focus:
-            data["business_focus"] = self.tools.expose(focus)
+            data["business_focus"] = self.tools.expose({k: v for k, v in focus.items() if k != "not_inference_basis_ids"})
+            referenced = {ref for claim in draft.claims for ref in claim.evidence_ids}
+            excluded = set(focus["not_inference_basis_ids"]) - referenced
+            data["evidence"] = self.tools.prompt_evidence(exclude_ids=excluded)
         purpose = f"semantic_review_{round_index}"
         schema = VerificationDecision if inspection_allowed else FinalVerificationDecision
         decision = self.calls.ask(purpose, schema, self.system, self._fit_context(data, schema)).decision

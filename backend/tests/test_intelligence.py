@@ -784,11 +784,20 @@ def test_rate_construction_business_focus_reaches_author_and_independent_reviewe
     assert author['business_focus']['channel'] == 'customer_investment_demand'
     assert author['business_focus']['company_ids']
     assert author['business_focus']['unknowns']
+    assert author['business_focus']['max_inferences'] == 1
+    assert author['inference_basis']['company_ids'] == author['business_focus']['company_ids']
+    assert not any('Кредитный продукт' in e['text'] for e in author['evidence'])
+    assert not any('Кредитный продукт' in e['text'] for e in reviewer['evidence'])
     card = client.get('/api/v1/insights/' + job['result_id'], headers=headers['DEMO_A']).json()
     run = client.get('/api/v1/runs/' + card['run_id'], headers=headers['DEMO_A']).json()
     focus_step = next(s for s in run['steps'] if s['action'] == 'select_business_focus')
     assert focus_step['result']['channel'] == 'customer_investment_demand'
     assert all(i.startswith('feature_') for i in focus_step['result']['company_ids'])
+    initial_searches = [s for s in run['steps'] if s.get('origin') == 'initial_context']
+    assert all('пересмотра кредитной ставки' not in s['arguments']['query'] for s in initial_searches)
+    check = next(s for s in run['steps'] if s['action'] == 'verify_card')
+    assert check['candidate_stage'] == 'pre_publication'
+    assert check['candidate']['claims'] == card['claims']
 
 
 @pytest.mark.parametrize("issue", ["missing_business_mechanism", "unsupported_transmission", "off_focus_inference"])
