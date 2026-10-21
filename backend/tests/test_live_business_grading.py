@@ -112,6 +112,26 @@ def test_memory_market_forecast_is_4_for_computer_wholesaler_only():
     assert rated(raw, profile("46.51"))["relevance_grade"] <= 3
 
 
+def test_distinct_grade_five_requirements_are_not_hidden_by_topic_diversity():
+    rows = []
+    for index, subject in enumerate(['учёт отчётность', 'безопасность шифрование', 'лицензия разрешение',
+                                     'документация подписи', 'испытания качество', 'архивирование хранение']):
+        raw = event(topics=['regulation'], event_status='in_force', business_effect='operating_requirement',
+                    applicability='whole_industry', effective_from='2026-09-01')
+        identity = 'requirement_' + str(index)
+        text = 'Обязательное требование: ' + subject + '.'
+        raw.update(id=identity, title=text)
+        raw['sources'][0].update(id='source_' + identity, text=text, url='https://example.org/' + identity)
+        raw['facts'][0].update(id='fact_' + identity, source_id='source_' + identity, text=text,
+                               source_span={'start': 0, 'end': len(text)})
+        rows.append(raw)
+    scope = SelectionScope('S_SOFTWARE', AS_OF, frozenset(r['id'] for r in rows))
+    result = NewsSelector(rows).select(profile(), scope, mode='lexical', limit=10, min_grade=4)
+    assert len(result['items']) == len(rows)
+    assert all(item['relevance_grade'] == 5 for item in result['items'])
+    assert result['trace']['diversity_skipped_event_ids'] == []
+
+
 def test_okved_subgroup_includes_the_next_digit_without_false_neighbor_match():
     assert industry_matches("49.41", "49.4")
     assert industry_matches("49.41.2", "49.4")

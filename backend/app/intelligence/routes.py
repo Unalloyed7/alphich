@@ -39,7 +39,7 @@ def register_routes(app, get_db, current_session, factory):
                 e.get("document_id") and e["document_id"] not in settings.allowed_bank_ids for e in evidence.values()):
             raise HTTPException(403, "Analysis contains documents outside current access policy")
 
-    def enqueue(db, demo, event, source, payload, key, profile, parent=None, question=None):
+    def enqueue(db, demo, event, source, payload, key, profile, parent=None, question=None, *, facts_only=False):
         settings = config()
         try:
             settings.require_ready()
@@ -47,7 +47,7 @@ def register_routes(app, get_db, current_session, factory):
             raise HTTPException(503, "llm_not_configured") from None
         if not key or not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", key):
             raise HTTPException(400, "A valid Idempotency-Key is required")
-        operation = "insight_question" if parent else "insight_analysis"
+        operation = "news_fact_extraction" if facts_only else "insight_question" if parent else "insight_analysis"
         request_hash = hashed(payload)
         old = db.scalar(select(Job).where(Job.owner_session_hash == demo.token_hash, Job.operation == operation,
                                          Job.idempotency_key == key))
@@ -58,7 +58,8 @@ def register_routes(app, get_db, current_session, factory):
         now = int(time.time())
         job = Job(id=new_id("job"), owner_session_hash=demo.token_hash, company_id=demo.company_id,
                   operation=operation, idempotency_key=key, request_hash=request_hash, source_id=source.id,
-                  status="queued", stage="waiting_analysis", result_type="answer" if parent else "insight",
+                  status="queued", stage="waiting_facts" if facts_only else "waiting_analysis",
+                  result_type="event" if facts_only else "answer" if parent else "insight",
                   result_id=None, attempt_count=0, created_at=now, available_at=now)
         as_of = parent.payload["as_of"] if parent else payload.get("as_of") or datetime.now(timezone.utc).isoformat()
         task = AnalysisTask(job_id=job.id, event_id=event.id, role=demo.role, as_of=as_of, profile=profile,
@@ -128,6 +129,18 @@ def register_routes(app, get_db, current_session, factory):
         if not event or not source or not company or event.company_id != company_id or source.company_id != company_id:
             raise HTTPException(404, "Event not found")
         return enqueue(db, demo, event, source, payload.model_dump(mode="json"), idempotency_key, company_profile(company, demo.role))
+
+    @app.post("/api/v1/events/{event_id}/extract-facts", status_code=202, response_model=JobView)
+    def extract_event_facts(event_id: str, idempotency_key: str | None = Header(None),
+                            demo=Depends(current_session), db=Depends(get_db)):
+        """Billable extraction only; reuse the worker/cache/budget, never create a personal card."""
+        event = db.get(Event, event_id)
+        source = db.get(SourceDocument, event.source_id) if event else None
+        company = db.get(Company, demo.company_id)
+        if not event or not source or not company or event.company_id != demo.company_id or source.company_id != demo.company_id:
+            raise HTTPException(404, "Event not found")
+        return enqueue(db, demo, event, source, {"event_id": event_id}, idempotency_key,
+                       company_profile(company, demo.role), facts_only=True)
 
     @app.get("/api/v1/insights/{insight_id}")
     def insight_detail(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
@@ -210,7 +223,7 @@ def register_routes(app, get_db, current_session, factory):
         cached = CachedNewsEncoder(factory, encoder, company_id) if encoder is not None else None
         result = NewsSelector(events, cached).select(company_profile(company, demo.role),
             SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role),
-            mode="hybrid" if cached else "lexical", min_grade=MIN_SELECTED_GRADE)
+            mode="hybrid" if cached else "lexical", limit=10, min_grade=MIN_SELECTED_GRADE)
         recent = db.scalars(select(Insight).where(Insight.company_id == company_id, Insight.role == demo.role)
                             .order_by(Insight.created_at.desc(), Insight.id.desc()).limit(100)).all()
         for item in result["items"]:

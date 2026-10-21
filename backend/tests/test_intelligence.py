@@ -21,7 +21,7 @@ from app.intelligence.provider import Calls, Provider, reserve
 from app.intelligence.schemas import CardDraft, Decision
 from app.intelligence.service import Runtime
 from app.intelligence.settings import AnalysisError, Model, Settings
-from app.intelligence.storage import AnalysisRun, BudgetDay, Extraction, Insight, LLMCall
+from app.intelligence.storage import AnalysisRun, AnalysisTask, BudgetDay, Extraction, Insight, LLMCall
 from app.intelligence.worker import process_next
 
 
@@ -180,6 +180,36 @@ def stored_event(client, factory, headers, *, text=BODY, title="Тестовое
 def queued_insight(client, headers, event_id, key="analysis-test-001", **extra):
     return client.post("/api/v1/companies/DEMO_A/insights", headers={**headers, "Idempotency-Key": key},
                        json={"event_id": event_id, **extra})
+
+
+def test_fact_only_route_is_scoped_idempotent_and_does_not_generate_personal_card(store):
+    client, factory, headers, settings = store
+    event_id = stored_event(client, factory, headers['DEMO_A'])
+    path = '/api/v1/events/' + event_id + '/extract-facts'
+    assert client.post(path).status_code == 401
+    assert client.post(path, headers={**headers['DEMO_B'], 'Idempotency-Key': 'facts-route-test-001'}).status_code == 404
+    assert client.post(path, headers=headers['DEMO_A']).status_code == 400
+    own = {**headers['DEMO_A'], 'Idempotency-Key': 'facts-route-test-001'}
+    response = client.post(path, headers=own)
+    assert response.status_code == 202, response.text
+    assert response.json()['result_type'] == 'event'
+    assert client.post(path, headers=own).json()['id'] == response.json()['id']
+    engine, gateway = runtime(factory, settings)
+    assert process_next(factory, engine)
+    job = client.get('/api/v1/jobs/' + response.json()['id'], headers=headers['DEMO_A']).json()
+    assert job['status'] == 'succeeded' and job['result_id'] == event_id
+    assert [title for title, _ in gateway.seen] == ['ExtractionDraft', 'ExtractionReview']
+    event = client.get('/api/v1/events/' + event_id, headers=headers['DEMO_A']).json()
+    assert event['facts']
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(Insight)) == 0
+        assert db.scalar(select(func.count()).select_from(AnalysisTask)) == 1
+        assert db.scalar(select(BudgetDay)).spent_micros > 0
+    # A different operation may use the same idempotency key, and reuses facts.
+    full = queued_insight(client, headers['DEMO_A'], event_id, key='facts-route-test-001').json()
+    assert full['id'] != job['id']
+    assert process_next(factory, engine)
+    assert sum(title == 'ExtractionDraft' for title, _ in gateway.seen) == 1
 
 
 def test_full_api_extraction_agent_extra_search_evidence_and_budget(store):

@@ -213,7 +213,8 @@ class NewsSelector:
                 continue
             if len(selected) >= limit:
                 break
-            if topic_counts[item["primary_topic"]] >= max_per_topic and not item["major_event"]:
+            if (topic_counts[item["primary_topic"]] >= max_per_topic and not item["major_event"]
+                    and item["relevance_grade"] < 5):
                 skipped.append(item["event_id"])
                 continue
             topic_counts[item["primary_topic"]] += 1
