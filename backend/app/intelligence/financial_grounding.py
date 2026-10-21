@@ -53,6 +53,15 @@ def business_focus(registry, *, question=None, event_id=None, event_title=None):
     if driver is None or not industry:
         return None
     news = [key for key, e in facts.items() if driver in e.get('attributes', {}).get('topics', [])]
+    if event_title and not re.search(r'прогноз|ожидан|ожида', event_title, re.I):
+        news = [key for key in news if facts[key].get('attributes', {}).get('kind') != 'forecast'
+                and facts[key].get('attributes', {}).get('event_status') != 'forecast']
+    title_words = ' '.join(re.findall(r'\w+', (event_title or '').casefold()))
+    if len(title_words.split()) >= 4:
+        exact = [key for key in news if title_words in
+                 ' '.join(re.findall(r'\w+', facts[key].get('text', '').casefold()))]
+        if exact:
+            news = exact
     prefix = str(registry[industry[0]]['value']).split('.')[0]
     industry += [key for key, e in registry.items() if e.get("kind") == "company_feature"
                  and e.get("name") == "okved_name"]

@@ -134,6 +134,8 @@ def test_inflation_headline_cannot_be_replaced_with_historical_rate_background(e
     context = construction_context(evidence)
     context['inflation'] = {'kind': 'event_fact', 'text': 'Годовая инфляция замедлилась до 7,15%.',
                             'attributes': {'topics': ['inflation']}}
+    context['old_inflation_forecast'] = {'kind': 'event_fact', 'text': 'ЦБ подтвердил прогноз инфляции на год 6–7%.',
+                                       'attributes': {'topics': ['inflation'], 'kind': 'forecast'}}
     title = 'Инфляция в России замедлилась до 7,15%'
     focus = business_focus(context, event_title=title)
     assert focus['driver'] == 'inflation' and focus['news_ids'] == ['inflation']
