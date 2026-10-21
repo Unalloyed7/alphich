@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import time
 
-from sqlalchemy import JSON, Integer, String, UniqueConstraint, select, update
+from sqlalchemy import JSON, Integer, String, UniqueConstraint, and_, or_, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -125,6 +125,31 @@ def collect_tick(factory, *, feeds=None, poll=None, now=None):
     return True
 
 
+def configured_article_ids(db):
+    """A cached article must still belong to a currently configured feed and URL scope."""
+    from app.rss import RssArticle, RssFeedArticle, hashed as feed_hash, load_config
+    from app.rss_fetch import CollectionError, public_url
+    feeds = {(f.id, feed_hash(f.url)): f for f in load_config()}
+    if not feeds:
+        return set()
+    rows = db.execute(select(RssArticle.id, RssArticle.url, RssArticle.final_url,
+        RssFeedArticle.feed_id, RssFeedArticle.feed_url_hash).join(RssFeedArticle,
+            RssFeedArticle.article_id == RssArticle.id).where(or_(*[
+                and_(RssFeedArticle.feed_id == fid, RssFeedArticle.feed_url_hash == url_hash)
+                for fid, url_hash in feeds])))
+    allowed = set()
+    for article_id, original, final, feed_id, url_hash in rows:
+        feed = feeds[(feed_id, url_hash)]
+        try:
+            public_url(original, feed.hosts)
+            public_url(final, feed.hosts)
+        except CollectionError:
+            continue
+        if feed.accepts_path(original) and feed.accepts_path(final):
+            allowed.add(article_id)
+    return allowed
+
+
 def candidate_pool(db, run):
     from alphich_kb.personalization.inputs import SelectionScope
     from alphich_kb.personalization.profiles import normalize_company
@@ -138,9 +163,11 @@ def candidate_pool(db, run):
             SourceDocument.published_at <= run.as_of, SourceDocument.received_at <= run.as_of)
         .order_by(SourceDocument.received_at.desc(), Event.id).limit(300)))
     profile, candidates = normalize_company(run.profile), []
+    allowed_articles = configured_article_ids(db)
     scope = SelectionScope(run.company_id, run.as_of, frozenset(e.id for e, _ in rows), run.role)
     for event, source in rows:
-        if _public_snapshot(db, source) is None:
+        public = _public_snapshot(db, source)
+        if public is None or public['article_id'] not in allowed_articles:
             continue
         item = normalized_event(db, event, source)
         if scope.excludes(item):
@@ -186,6 +213,7 @@ def analyze_tick(factory, settings, *, now=None):
     from alphich_kb.personalization.rules import match_reasons
     from .service import normalized_event
     from . import VERSION
+    from app.rss_fetch import CollectionError
     now = int(time.time()) if now is None else now
     day = datetime.fromtimestamp(now, timezone.utc).date().isoformat()
     with factory.begin() as db:
@@ -242,7 +270,11 @@ def analyze_tick(factory, settings, *, now=None):
             if unfinished:
                 return True
             run.as_of = datetime.fromtimestamp(now, timezone.utc).isoformat()
-            run.items, run.stats = candidate_pool(db, run)
+            try:
+                run.items, run.stats = candidate_pool(db, run)
+            except CollectionError:
+                finish(run, 'failed', 'invalid_rss_config')
+                return True
             items = [dict(i) for i in run.items]
             run.status, run.stage = 'analyzing', 'checking_candidates'
         if sum(i['state'] == 'completed' for i in items) >= run.target:
@@ -259,6 +291,16 @@ def analyze_tick(factory, settings, *, now=None):
         source = db.get(SourceDocument, event.source_id) if event else None
         if not source or source.company_id != run.company_id or event.company_id != run.company_id:
             current.update(state='failed', error='event_unavailable')
+            write_items(run, items)
+            return True
+        public = _public_snapshot(db, source)
+        try:
+            allowed_articles = configured_article_ids(db)
+        except CollectionError:
+            finish(run, 'failed', 'invalid_rss_config')
+            return True
+        if public is None or public['article_id'] not in allowed_articles:
+            current.update(state='failed', error='source_no_longer_configured')
             write_items(run, items)
             return True
         extraction_key = 'extraction_' + hashed([source.id, source.version, source.content_hash, _configuration(settings)])

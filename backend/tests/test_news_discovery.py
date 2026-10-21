@@ -6,11 +6,28 @@ import pytest
 from sqlalchemy import func, select
 
 from app.news import Job
+from app.rss import FeedConfig, RssFeedArticle, hashed as feed_hash
 from app.intelligence.discovery import DiscoveryRun, analyze_tick, collect_tick
 from app.intelligence.storage import AnalysisTask, BudgetDay, Insight, LLMCall
 from app.intelligence.worker import process_next
 from test_intelligence import store, runtime, ScriptedGateway
-from test_news_automation import copies
+from test_news_automation import copies as public_copies
+
+
+FEED = FeedConfig(id='fixture', url='https://example.org/feed/', article_hosts=['example.org'])
+
+
+@pytest.fixture(autouse=True)
+def current_feed_config(monkeypatch):
+    monkeypatch.setattr('app.rss.load_config', lambda: [FEED])
+
+
+def copies(store):
+    ids = public_copies(store)
+    with store[1].begin() as db:
+        db.add(RssFeedArticle(article_id='a' * 64, feed_id=FEED.id,
+            feed_url_hash=feed_hash(FEED.url), seen_at=int(time.time())))
+    return ids
 
 
 def start(store, *, company='DEMO_A', key='discovery-unit-001', target=1, min_grade=4):
@@ -115,6 +132,43 @@ def test_only_five_does_not_promote_a_four_or_pay_for_personal_analysis(store):
     assert [name for name, _ in gateway.seen] == ['ExtractionDraft', 'ExtractionReview']
     with factory() as db:
         assert db.scalar(select(func.count()).select_from(Insight)) == 0
+
+
+@pytest.mark.parametrize('change', [
+    {'id': 'replacement'}, {'url': 'https://example.org/new-feed/'},
+    {'article_hosts': ['other.example.org']}, {'article_path_prefixes': ['/business/']},
+])
+def test_removed_feed_or_changed_source_scope_never_starts_paid_work(store, monkeypatch, change):
+    _, factory, _, settings = store
+    copies(store)
+    monkeypatch.setattr('app.rss.load_config', lambda: [FEED.model_copy(update=change)])
+    ident = start(store).json()['id']
+    collect_tick(factory, feeds=[])
+    engine, gateway = runtime(factory, settings)
+    drain(store, engine)
+    value = detail(store, ident).json()
+    assert value['stop_reason'] == 'sources_exhausted' and value['stats']['preselected'] == 0
+    assert gateway.seen == []
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(Job).where(
+            Job.operation.in_(['news_fact_extraction', 'automatic_insight']))) == 0
+
+
+def test_revoked_source_is_checked_again_before_a_preselected_item_is_queued(store, monkeypatch):
+    from datetime import datetime, timezone
+    _, factory, _, settings = store
+    ids = copies(store)
+    ident = start(store).json()['id']
+    with factory.begin() as db:
+        run = db.get(DiscoveryRun, ident)
+        run.status, run.as_of = 'analyzing', datetime.now(timezone.utc).isoformat()
+        run.items = [{'event_id': ids[0], 'title': 'Previously selected', 'state': 'pending', 'grade': None}]
+    monkeypatch.setattr('app.rss.load_config', lambda: [FEED.model_copy(update={'id': 'replacement'})])
+    analyze_tick(factory, settings)
+    value = detail(store, ident).json()
+    assert value['items'][0]['error'] == 'source_no_longer_configured'
+    engine, gateway = runtime(factory, settings)
+    assert not process_next(factory, engine) and gateway.seen == []
 
 
 def test_stop_cancels_unstarted_paid_job_and_does_not_generate_anything(store):
