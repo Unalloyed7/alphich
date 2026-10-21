@@ -1,4 +1,4 @@
-name: Deploy Cloud.ru (manual)
+name: Deploy Cloud.ru (manual or after CI)
 
 on:
   workflow_dispatch:
@@ -7,6 +7,9 @@ on:
         description: 'Type deploy to publish the current, CI-passed main commit'
         required: true
         type: string
+  workflow_run:
+    workflows: ['CI — offline integration']
+    types: [completed]
 
 permissions:
   actions: read
@@ -18,23 +21,45 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main' && inputs.confirm == 'deploy'
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main' &&
+       inputs.confirm == 'deploy') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
     steps:
-      - name: Confirm successful CI for this exact main commit
+      - name: Confirm current main commit and successful CI
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          successes="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}&per_page=30" \
-            --jq '[.workflow_runs[] | select(.event == "push" and .head_branch == "main" and .conclusion == "success")] | length')"
-          if [[ "$successes" -lt 1 ]]; then
-            echo 'The exact commit does not have successful main-branch CI. Deployment blocked.' >&2
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid commit SHA' >&2; exit 1; }
+          current_main="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$TARGET_SHA" != "$current_main" ]]; then
+            if [[ "$GITHUB_EVENT_NAME" == 'workflow_run' ]]; then
+              echo "SKIP_STALE_CI: main moved from $TARGET_SHA to $current_main"
+              echo 'DEPLOY_CURRENT=false' >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo 'Manual deployment targeted an outdated main commit; start a new run.' >&2
             exit 1
           fi
-      - name: Deploy over SSH using a restricted deploy key
+          successes="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${TARGET_SHA}&per_page=30" \
+            --jq '[.workflow_runs[] | select(.event == "push" and .head_branch == "main" and .conclusion == "success")] | length')"
+          if [[ "$successes" -lt 1 ]]; then
+            echo 'Current main SHA has no successful push CI; deployment blocked.' >&2
+            exit 1
+          fi
+          echo "CI_OK: $TARGET_SHA"
+      - name: Deploy current commit over restricted SSH
+        if: env.DEPLOY_CURRENT != 'false'
         env:
           DEPLOY_KEY: ${{ secrets.CLOUDRU_DEPLOY_KEY }}
           KNOWN_HOSTS: ${{ secrets.CLOUDRU_KNOWN_HOSTS }}
@@ -53,4 +78,4 @@ jobs:
           ssh -i ~/.ssh/cloudru_deploy_key \
             -o IdentitiesOnly=yes -o BatchMode=yes \
             -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
-            alphich@89.232.176.172 "deploy ${GITHUB_SHA}"
+            alphich@89.232.176.172 "deploy ${TARGET_SHA}"
