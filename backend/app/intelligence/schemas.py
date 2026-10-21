@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Strict(BaseModel):
@@ -22,17 +22,19 @@ class Attributes(Strict):
     countries: list[str] = Field(default_factory=list, max_length=5)
     regions: list[str] = Field(default_factory=list, max_length=5)
     geography: str | None = Field(default=None, max_length=12,
-        description="Jurisdiction of the event, ISO code: RU for Bank of Russia rate decisions, US for Federal Reserve; null if unknown")
+        description="Event market/jurisdiction: RU for Bank of Russia, US for Fed, GLOBAL for explicitly global markets; null if unknown")
     kind: Literal["report", "rate_decision", "forecast", "regulatory_change"] = "report"
     forecast_horizon: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$",
         description="Forecast horizon as YYYY-MM-DD, or null when unspecified; never descriptive text")
     geographic_scope: Literal["unknown", "national", "global_market", "regional", "local"] = "unknown"
     market_scope: Literal["unknown", "single_case", "sector_wide"] = "unknown"
     impact_scale: Literal["unknown", "limited", "material"] = "unknown"
+    product_scope: Literal["unknown", "broad_core", "niche"] = "unknown"
     event_status: Literal["unknown", "reported", "proposal", "forecast", "in_force", "announcement"] = "unknown"
     business_effect: Literal["unknown", "core_market", "operating_requirement", "financing"] = "unknown"
     applicability: Literal["unknown", "whole_industry", "conditional"] = "unknown"
     effective_from: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    reference_period_end: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
     @field_validator("industry_codes")
     @classmethod
@@ -42,7 +44,7 @@ class Attributes(Strict):
             raise ValueError("Use OKVED prefixes, not invented taxonomy codes")
         return values
 
-    @field_validator("forecast_horizon", "effective_from", mode="before")
+    @field_validator("forecast_horizon", "effective_from", "reference_period_end", mode="before")
     @classmethod
     def horizon(cls, value):
         if isinstance(value, str) and not value.strip():
@@ -53,8 +55,17 @@ class Attributes(Strict):
 
 
 class FactCandidate(Strict):
-    quote: str = Field(min_length=6, max_length=1600)
+    quote: str = Field(default="", max_length=1600,
+        description="Legacy exact quote; omitted/ignored when a server quote_id is selected")
+    quote_id: str | None = Field(default=None, pattern=r"^q[1-9][0-9]{0,2}$",
+        description="ID from server quote_units; server copies exact original text and coordinates")
     attributes: Attributes
+
+    @model_validator(mode="after")
+    def quote_or_id(self):
+        if self.quote_id is None and len(self.quote) < 6:
+            raise ValueError("Select a quote_id or supply an exact quote")
+        return self
 
 
 class ExtractionDraft(Strict):

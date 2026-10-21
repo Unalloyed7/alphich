@@ -63,6 +63,15 @@ class BankResearchAgent:
         self.last = result
         return result
 
+    def reuse_current(self):
+        """A follow-up can start with its already-authorized frozen evidence.
+
+        The analyst can still delegate a new search when the question needs it.
+        This is a server handoff, not a pretend model call.
+        """
+        ids = sorted(eligible_claims(self.tools.registry, self.tools.bank_day))[:6]
+        return self._handoff(ids, [] if ids else ["no_applicable_evidence"], status="reused_authorized_evidence")
+
     def run(self, request=None):
         # No paid search planning against an absent index. A parent's authorized
         # immutable bank evidence can still be examined when its index changed.

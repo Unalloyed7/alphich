@@ -64,6 +64,7 @@ class Settings:
     model_dir: str = "/data/models/e5-base"
     model_manifest: str = "/srv/knowledge/embedding-model.json"
     allowed_bank_ids: frozenset[str] | None = None
+    news_feed_limit: int = 2000
 
     @classmethod
     def from_env(cls):
@@ -91,6 +92,7 @@ class Settings:
                          bank_index=os.getenv("BANK_INDEX_DIR", "/data/processed/bank-index-v1"),
                          model_dir=os.getenv("E5_MODEL_DIR", "/data/models/e5-base"),
                          model_manifest=os.getenv("E5_MODEL_MANIFEST", "/srv/knowledge/embedding-model.json"),
+                         news_feed_limit=int(os.getenv("NEWS_FEED_MAX_EVENTS", "2000")),
                          allowed_bank_ids=None if os.getenv("BANK_ALLOWED_DOCUMENT_IDS", "*") == "*" else
                          frozenset(v.strip() for v in os.getenv("BANK_ALLOWED_DOCUMENT_IDS", "").split(",") if v.strip()))
             result.validate()
@@ -99,6 +101,8 @@ class Settings:
             raise AnalysisError("invalid_llm_configuration") from None
 
     def validate(self):
+        if not 1 <= self.news_feed_limit <= 5000:
+            raise ValueError("invalid_news_pool_limit")
         if self.budget_mode not in {"token_prices", "gateway_receipt"}:
             raise ValueError("invalid_budget_mode")
         if self.receipt_rub_per_unit is not None and (not self.receipt_rub_per_unit.is_finite() or not 0 < self.receipt_rub_per_unit <= 1_000_000):

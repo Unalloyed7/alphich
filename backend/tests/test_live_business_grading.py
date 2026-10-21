@@ -35,6 +35,7 @@ def event(**overrides):
     attrs = {"topics": ["sector"], "industry_codes": ["62"], "geography": "RU",
         "kind": "report", "geographic_scope": "national", "market_scope": "sector_wide",
         "impact_scale": "material",
+        "product_scope": "broad_core",
         "event_status": "reported", "business_effect": "core_market", **overrides}
     return {"id": "news", "version": 1, "company_id": None, "title": "Изменение условий рынка",
         "available_at": "2026-10-20T10:00:00+00:00", "published_at": "2026-10-20T09:00:00+00:00",
@@ -191,3 +192,14 @@ def test_forecast_cannot_become_grade_5_through_contradictory_status():
     result = rated(event(kind="forecast", event_status="in_force", business_effect="operating_requirement",
                          applicability="whole_industry"))
     assert result["relevance_grade"] <= 3
+
+
+def test_fresh_publication_does_not_make_last_years_observations_current():
+    assert rated(event(reference_period_end="2025-12-31"))["relevance_grade"] <= 3
+    assert rated(event(reference_period_end="2026-09-30"))["relevance_grade"] == 4
+
+
+def test_niche_server_product_does_not_establish_wholesalers_catalogue():
+    result = rated(event(industry_codes=["46.51"], product_scope="niche"), profile("46.51"))
+    assert result["relevance_grade"] == 3
+    assert "company_product_subsegment_not_confirmed" in result["relevance_assessment"]["limitations"]

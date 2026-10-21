@@ -16,6 +16,13 @@ x-llm-environment: &llm-environment
   E5_MODEL_MANIFEST: /srv/knowledge/embedding-model.json
   BANK_ALLOWED_DOCUMENT_IDS: ${BANK_ALLOWED_DOCUMENT_IDS-*}
   COMPANY_CONTEXT_DIR: ${COMPANY_CONTEXT_DIR:-}
+  NEWS_FEED_MAX_EVENTS: ${NEWS_FEED_MAX_EVENTS:-2000}
+  AI_AUTOMATION_ENABLED: ${AI_AUTOMATION_ENABLED:-0}
+  AI_AUTOMATION_COMPANY_IDS: ${AI_AUTOMATION_COMPANY_IDS:-}
+  AI_AUTOMATION_ROLES: ${AI_AUTOMATION_ROLES:-cfo}
+  AI_AUTOMATION_MAX_EXTRACTIONS: ${AI_AUTOMATION_MAX_EXTRACTIONS:-20}
+  AI_AUTOMATION_MAX_CARDS: ${AI_AUTOMATION_MAX_CARDS:-10}
+  AI_AUTOMATION_SCAN_LIMIT: ${AI_AUTOMATION_SCAN_LIMIT:-1000}
 
 services:
   postgres:
@@ -46,6 +53,7 @@ services:
     volumes:
       - ./data/raw:/data/raw:ro
       - ./data/processed:/data/processed:ro
+      - ./data/models:/data/models:ro
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -80,6 +88,7 @@ services:
     environment:
       <<: *llm-environment
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
+      DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-U_9250,U_99802,U_44792}
     volumes:
       - ./data/processed:/data/processed:ro
       - ./data/models:/data/models:ro

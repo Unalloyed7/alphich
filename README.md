@@ -29,6 +29,7 @@ PYTHONPATH=backend/src python3 -m unittest discover -s backend/tests -p test_dat
 ## Проектирование
 
 - [LLM: настройка шлюза, анализ, диалог, бюджет и API для интерфейса](docs/llm.md)
+- [Автоматический AI-конвейер: включение, постоянный E5-индекс и локальный прогон](docs/ai-pipeline.md)
 - [Локальная генерация: ресурсы сервера, GPU/CPU, недельная цена и сравнение с API](docs/local-inference.md)
 - [Отбор новостей: запуск, примеры пяти компаний и подключение в worker](docs/news-selection.md)
 - [RAG: запуск E5, поиск, контекст LLM и подключение к бэкенду](docs/rag.md)

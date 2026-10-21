@@ -19,6 +19,8 @@ TOPIC_PATTERNS = {
 # Raw mentions nominate extraction only. Generic infrastructure includes IT
 # cabling and cannot by itself establish civil-engineering relevance.
 RAW_SECTOR_PATTERNS = {
+    "41": r"строительств\w*|ипотек\w*|жиль[яеёю]\w*|жилищн\w*|новострой\w*|застройщик\w*",
+    "46.51": r"компьютер\w*|ноутбук\w*|комплектующ\w*|\bDRAM\b|\bNAND\b|memory\s+(?:market|pric\w*)|notebook\w*|\bPC\s+market",
     "42": r"инженерн\w*\s+сооружен\w*|транспортн\w*\s+инфраструктур\w*|"
           r"строительств\w*[^.!?]{0,80}(?:дорог|мост|тоннел|магистрал)|реконструкц\w*|благоустройств\w*|реставрац\w*",
     "62": r"программн\w*\s+обеспечен\w*|программист\w*|разработчик\w*\s+по\b|"

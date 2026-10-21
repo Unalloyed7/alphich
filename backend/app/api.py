@@ -203,7 +203,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
     @app.get("/api/v1/jobs")
     def list_session_jobs(
         limit: int = Query(default=20, ge=1, le=50),
-        operation: str = Query(default="publication_ingest", pattern="^(publication_ingest|insight_analysis|insight_question)$"),
+        operation: str = Query(default="publication_ingest", pattern="^(publication_ingest|insight_analysis|insight_question|news_fact_extraction|automatic_insight)$"),
         demo: DemoSession = Depends(current_session),
         db: Session = Depends(get_db),
     ):

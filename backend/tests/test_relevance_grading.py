@@ -75,3 +75,13 @@ def test_evaluator_uses_4_as_relevance_cutoff_and_preserves_legacy_scale(tmp_pat
     assert result["below_selection_threshold"]==len(result["items"])
     data["selection_threshold"]=2; labels.write_text(json.dumps(data))
     with pytest.raises(ValueError,match="only_4_and_5"): evaluate_corpus(profiles,events,labels)
+
+
+def test_positive_extension_has_new_sources_and_explicit_difficult_negatives():
+    extension=json.loads((FIXTURES/"real_news_selection_labels.v3.json").read_text())
+    previous=json.loads((FIXTURES/"real_news_selection_labels.v2.json").read_text())
+    assert len(extension["sources"])==12 and len(extension["labels"])==36
+    assert extension["positive_pairs"]==6
+    assert not {s["url"] for s in extension["sources"]}&{s["url"] for s in previous["sources"]}
+    for row in extension["labels"]:
+        assert validate_assessment(row["grade"],row["assessment"])==row["selected"]

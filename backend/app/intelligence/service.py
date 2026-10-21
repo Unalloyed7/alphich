@@ -69,12 +69,9 @@ class Runtime:
             if not Path(self.settings.bank_index).is_dir():
                 self._bank_loaded = True
                 return None
-            from alphich_kb.embeddings import E5Encoder, EncoderUnavailable
             from alphich_kb.retriever import BankRetriever
-            try:
-                self.encoder = E5Encoder(self.settings.model_dir, self.settings.model_manifest)
-            except EncoderUnavailable:
-                self.encoder = None
+            from .news_index import encoder_for
+            self.encoder = encoder_for(self.settings)
             retriever = BankRetriever(self.settings.bank_index, self.encoder)
             allowed = frozenset(retriever.documents) if self.settings.allowed_bank_ids is None else self.settings.allowed_bank_ids
             self._bank = (retriever, allowed)
@@ -100,6 +97,33 @@ class Runtime:
     def extract_event(self, event_id, calls):
         from .article_cache import extract_for_event
         return extract_for_event(self, event_id, calls)
+
+    def process_facts(self, task, job, heartbeat):
+        """Shared extraction only: no researcher, analyst, verifier or card."""
+        from alphich_kb.personalization.inputs import SelectionScope
+        self.settings.require_ready()
+        run_id = "run_" + hashed(job.id)[:32]
+        with self.factory.begin() as db:
+            event = db.get(Event, task.event_id)
+            source = db.get(SourceDocument, event.source_id) if event else None
+            if not event or not source or source.company_id != job.company_id or event.company_id != job.company_id:
+                raise AnalysisError("event_outside_scope")
+            scope = SelectionScope(job.company_id, task.as_of, frozenset({event.id}), task.role)
+            if scope.excludes(normalized_event(db, event, source)):
+                raise AnalysisError("event_unavailable_as_of")
+            if db.get(AnalysisRun, run_id) is None:
+                db.add(AnalysisRun(id=run_id, company_id=job.company_id, role=task.role, as_of=task.as_of,
+                    status="running", steps=[], versions=self.versions(), created_at=int(time.time())))
+        try:
+            calls = Calls(self.provider, run_id, heartbeat)
+            extraction_id = self.extract_event(task.event_id, calls)
+            self.save_run(run_id, "succeeded", [{"action": "extract_public_article", "extraction_id": extraction_id,
+                "personal_card_generated": False}], {"status": "facts_only"})
+            return "event", task.event_id
+        except Exception as exc:
+            self.save_run(run_id, "failed", [], {"status": "failed", "issues": [
+                exc.code if isinstance(exc, AnalysisError) else "extraction_failed"]})
+            raise
 
     def process(self, task, job, heartbeat):
         from alphich_kb.personalization.inputs import SelectionScope
@@ -172,8 +196,14 @@ class Runtime:
                         SourceDocument.received_at <= scope.as_of,
                         or_(SourceDocument.published_at.is_(None), SourceDocument.published_at <= scope.as_of))
                         .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(60)).all()]
-                selected = NewsSelector([event], self.encoder).select(task.profile, scope)
+                from .news_index import CachedNewsEncoder
+                news_encoder = CachedNewsEncoder(self.factory, self.encoder, job.company_id) if self.encoder is not None else None
+                selected = NewsSelector([event], news_encoder).select(task.profile, scope)
                 selection = next((item for item in selected["items"] if item["event_id"] == task.event_id), {})
+                if job.operation == "automatic_insight" and not selection.get("relevance_selected", False):
+                    self.save_run(run_id, "skipped", [{"action": "grade_rechecked", "personal_card_generated": False}],
+                        {"status": "below_selection_threshold"})
+                    return "event", task.event_id
                 tool_scope = SelectionScope(job.company_id, task.as_of, frozenset([event["id"], *[e["id"] for e in related]]), task.role)
                 tools = Tools(task.profile, event, selection, tool_scope, self.bank(), related)
                 snapshot = {"profile": task.profile, "event": event, "selection": selection,

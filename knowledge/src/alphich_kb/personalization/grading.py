@@ -5,7 +5,7 @@ The runtime uses the same caps as the editorial annotation validator.
 """
 from .inputs import industry_matches, instant, words
 
-VERSION = "business-relevance-v2-0-to-5"
+VERSION = "business-relevance-v3-product-period"
 MIN_SELECTED_GRADE = 4
 GRADE_DEFINITIONS = {
     "0": "Связь с деятельностью компании не установлена",
@@ -113,6 +113,12 @@ def grade_event(company, event, scope, reasons):
         if status == "forecast" and horizon and horizon < instant(scope.as_of).date().isoformat():
             timely = False
             limits.append("forecast_horizon_expired")
+        reference = attrs.get("reference_period_end")
+        if reference and status == "reported":
+            period_age = (instant(scope.as_of).date() - instant(reference + "T00:00:00Z").date()).days
+            if period_age > 90 or period_age < 0:
+                timely = False
+                limits.append("observation_period_old_or_in_future")
         if not timely:
             limits.append("publication_date_missing_or_revalidation_needed")
         if attrs.get("event_status", "unknown") == "unknown":
@@ -123,6 +129,9 @@ def grade_event(company, event, scope, reasons):
         if effect == "operating_requirement" and attrs.get("applicability") != "whole_industry":
             materiality = "unknown"
             limits.append("requirement_company_applicability_not_confirmed")
+        if sector and effect == "core_market" and attrs.get("product_scope") != "broad_core":
+            materiality = "unknown"
+            limits.append("company_product_subsegment_not_confirmed")
         if source["synthetic"]:
             timely = False
             limits.append("synthetic_source_not_for_live_feed")

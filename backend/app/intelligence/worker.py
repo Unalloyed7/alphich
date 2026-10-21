@@ -12,6 +12,7 @@ from app.news import Job
 from .service import Runtime
 from .settings import AnalysisError, Settings
 from .storage import AnalysisTask
+from . import automation as _automation, news_index as _news_index  # Additive tables for standalone workers.
 
 LOG = logging.getLogger(__name__)
 LEASE_SECONDS = 600
@@ -19,7 +20,7 @@ LEASE_SECONDS = 600
 
 def claim(factory, now=None):
     now = int(time.time()) if now is None else now
-    operations = ("insight_analysis", "insight_question")
+    operations = ("insight_analysis", "insight_question", "news_fact_extraction", "automatic_insight")
     with factory.begin() as db:
         db.execute(update(Job).where(Job.operation.in_(operations), Job.status == "running",
             Job.attempt_count >= 3, Job.lease_expires_at <= now).values(
@@ -57,7 +58,8 @@ def process_next(factory, runtime, now=None):
                 raise AnalysisError("analysis_task_missing")
             db.expunge(job)
             db.expunge(task)
-        result_type, result_id = runtime.process(task, job, heartbeat)
+        result_type, result_id = (runtime.process_facts(task, job, heartbeat) if job.operation == "news_fact_extraction"
+                                  else runtime.process(task, job, heartbeat))
         heartbeat()
         with factory.begin() as db:
             db.execute(update(Job).where(Job.id == job_id, Job.status == "running", Job.attempt_count == attempt).values(
@@ -85,9 +87,19 @@ def main():
     engine, factory = make_session_factory()
     Base.metadata.create_all(engine)
     runtime = Runtime(factory, Settings.from_env())
+    from .automation import AutomationConfig, dispatch_once
+    from .news_index import encoder_for, sync_index, target_ids
+    automation = AutomationConfig.from_env()
+    next_dispatch = next_index = 0
     try:
         while True:
+            if time.monotonic() >= next_dispatch:
+                dispatch_once(factory, runtime.settings, automation)
+                next_dispatch = time.monotonic() + 10
             processed = process_next(factory, runtime)
+            if not processed and time.monotonic() >= next_index and target_ids():
+                sync_index(factory, encoder_for(runtime.settings), target_ids(), limit=1)
+                next_index = time.monotonic() + 10
             if args.once:
                 break
             if not processed:

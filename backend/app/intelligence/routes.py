@@ -17,6 +17,8 @@ from .schemas import InsightRequest, QuestionRequest
 from .service import company_profile, normalized_event
 from .settings import AnalysisError, Settings
 from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, CostReceipt, Insight, LLMCall
+from . import news_index as _news_index  # Register additive persistent index tables at startup.
+from .automation import AutomationRecord, AutomationConfig
 
 
 def register_routes(app, get_db, current_session, factory):
@@ -94,6 +96,17 @@ def register_routes(app, get_db, current_session, factory):
                 "reserved_rub": str((budget.reserved_micros if budget else 0) / 1_000_000),
                 "extraction_model": settings.extraction_model or None, "analysis_model": settings.analysis_model or None,
                 "bank_index_present": __import__("pathlib").Path(settings.bank_index).is_dir()}
+
+    @app.get("/api/v1/companies/{company_id}/automation")
+    def automation_status(company_id: str, demo=Depends(current_session), db=Depends(get_db)):
+        if company_id != demo.company_id:
+            raise HTTPException(403, "Session does not grant access to this company")
+        rows = db.scalars(select(AutomationRecord).where(AutomationRecord.company_id == company_id,
+            AutomationRecord.role == demo.role).order_by(AutomationRecord.updated_at.desc(), AutomationRecord.id).limit(50)).all()
+        return {"enabled": AutomationConfig.from_env().enabled, "company_id": company_id, "role": demo.role,
+            "items": [{"event_id": row.event_id, "status": row.status, "grade": row.grade,
+                "as_of": row.as_of, "error": row.error, "assessment": row.assessment,
+                "extraction_job_id": row.extraction_job_id, "analysis_job_id": row.analysis_job_id} for row in rows]}
 
     @app.post("/api/v1/companies/{company_id}/insights", status_code=202, response_model=JobView)
     def create_insight(company_id: str, payload: InsightRequest, idempotency_key: str | None = Header(None),
@@ -174,15 +187,19 @@ def register_routes(app, get_db, current_session, factory):
         company = db.get(Company, company_id)
         if company is None:
             raise HTTPException(404, "Company not found")
+        settings = config()
         rows = db.execute(select(Event, SourceDocument).join(SourceDocument, Event.source_id == SourceDocument.id).where(
             Event.company_id == company_id, SourceDocument.company_id == company_id,
             SourceDocument.received_at <= when.isoformat(),
             or_(SourceDocument.published_at.is_(None), SourceDocument.published_at <= when.isoformat()))
-            .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(100)).all()
+            .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(settings.news_feed_limit)).all()
         events = [normalized_event(db, e, s) for e, s in rows]
-        result = NewsSelector(events).select(company_profile(company, demo.role),
+        from .news_index import CachedNewsEncoder, encoder_for
+        encoder = encoder_for(settings)
+        cached = CachedNewsEncoder(factory, encoder, company_id) if encoder is not None else None
+        result = NewsSelector(events, cached).select(company_profile(company, demo.role),
             SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role),
-            mode="lexical", min_grade=MIN_SELECTED_GRADE)
+            mode="hybrid" if cached else "lexical", min_grade=MIN_SELECTED_GRADE)
         recent = db.scalars(select(Insight).where(Insight.company_id == company_id, Insight.role == demo.role)
                             .order_by(Insight.created_at.desc(), Insight.id.desc()).limit(100)).all()
         for item in result["items"]:
@@ -196,5 +213,11 @@ def register_routes(app, get_db, current_session, factory):
                 except HTTPException:
                     continue
                 item["insight"] = {k: match.payload[k] for k in ("id", "status", "as_of", "headline", "bank_view")}
-        result["limitations"] = ["bounded_latest_100_stored_events", "lexical_api_feed_dense_available_in_analysis_worker"]
+        result["limitations"] = ["bounded_candidate_pool", "machine_relevance_not_human_review"]
+        if not cached or result["mode"] == "lexical_fallback":
+            result["limitations"].append("news_dense_index_unavailable_or_pending")
+        result["candidate_pool_limit"] = settings.news_feed_limit
+        result["news_index"] = {"available": bool(cached and result["mode"] == "hybrid"),
+            "space_id": encoder.space_id if encoder else None, "passage_cache_hits": cached.hits if cached else 0,
+            "passage_cache_misses": cached.misses if cached else 0, "builds_on_read": False}
         return result

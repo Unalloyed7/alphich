@@ -1,0 +1,934 @@
+{
+  "version": "real-news-selection-labels-v3-positive-extension",
+  "annotation_method": "agent_authored_before_live_v15_output_review",
+  "independently_reviewed": false,
+  "scope": "Open development controls; adds primary market reports and difficult period/product/geography negatives. Not an independent blind benchmark.",
+  "as_of": "2026-10-21T15:03:30.663796+00:00",
+  "company_ids": [
+    "U_201985",
+    "U_182712",
+    "U_235727"
+  ],
+  "roles": [
+    "cfo"
+  ],
+  "grade_scale": {
+    "min": 0,
+    "max": 5
+  },
+  "selection_threshold": 4,
+  "events_sha256": "fd7e7c3e765ed1643a673572621dc3568020c8520d2174f8ee60bad919e8c022",
+  "grade_definitions": {
+    "0": "Связь с деятельностью компании не установлена",
+    "1": "Слабое тематическое совпадение или локальное событие вне подтверждённой географии",
+    "2": "Смежная тема либо небольшой единичный кейс без существенного масштаба для компании",
+    "3": "Профильная тема, но масштаб, применимость или география ещё требуют подтверждения",
+    "4": "Существенный фактор для подтверждённой деятельности и применимого рынка компании",
+    "5": "Прямая подтверждённая обязанность или критическое событие для компании с конкретным действием"
+  },
+  "positive_pairs": 6,
+  "sources": [
+    {
+      "event_id": "v3_10c7f12ca7da0e47d9c1",
+      "title": "Банк России принял решение сохранить ключевую ставку на уровне 14,00% годовых",
+      "url": "https://www.cbr.ru/press/pr/?file=11092026_133000key.htm",
+      "grades": {
+        "U_201985": 4,
+        "U_182712": 4,
+        "U_235727": 4
+      },
+      "rationale": {
+        "U_201985": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+        "U_182712": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+        "U_235727": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны."
+      }
+    },
+    {
+      "event_id": "v3_963008bf7e6087c8b700",
+      "title": "Rising Costs Threaten Notebook Demand in 2027, Raising Risks of Shipment Declines and Price Increases, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20261008-13264.html",
+      "grades": {
+        "U_201985": 1,
+        "U_182712": 4,
+        "U_235727": 1
+      },
+      "rationale": {
+        "U_201985": "Издержки ноутбуков не установлены как существенная экспозиция застройщика.",
+        "U_182712": "Прогноз затрат и спроса на широком мировом рынке ноутбуков затрагивает основные товары компьютерного оптовика; финансовый эффект зависит от ассортимента и договоров.",
+        "U_235727": "Компьютерные расходы не подтверждены как существенная часть затрат перевозчика."
+      }
+    },
+    {
+      "event_id": "v3_4feaa6ab263ba69fdbca",
+      "title": "DRAM Module Revenue Surges 59% YoY in 2025 as Crowding-Out Effect Constrains Chip Supply and Drives Prices Higher, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20260922-13249.html",
+      "grades": {
+        "U_201985": 0,
+        "U_182712": 3,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Связь с основной деятельностью не установлена.",
+        "U_182712": "Свежая публикация анализирует рынок DRAM за 2025 год; прошлогодний рост выручки нельзя выдавать за текущее изменение закупочной цены.",
+        "U_235727": "Связь с перевозками не установлена."
+      }
+    },
+    {
+      "event_id": "v3_86a9223d1b0c802a2f94",
+      "title": "DRAM Industry Revenue Rises 59.5% QoQ in 2Q26 as Supply Expansion Continues to Lag Demand Growth, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20260907-13219.html",
+      "grades": {
+        "U_201985": 0,
+        "U_182712": 4,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Поставка компьютеров не подтверждена как основной рынок застройщика.",
+        "U_182712": "Помимо отчёта за прошлый квартал, источник описывает ограничения предложения и планы мощностей в 2026–2027 годах; это фактор основного мирового рынка памяти.",
+        "U_235727": "Профиль не подтверждает существенную экспозицию к ценам DRAM."
+      }
+    },
+    {
+      "event_id": "v3_53e51a99a744d8e6bef9",
+      "title": "Stronger North American Demand to Keep Enterprise SSD Prices on an Upward Trend in 4Q26, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20260921-13246.html",
+      "grades": {
+        "U_201985": 0,
+        "U_182712": 3,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Связь с жилищным строительством не установлена.",
+        "U_182712": "Прогноз касается enterprise SSD для облачных провайдеров; серверный ассортимент и такие клиенты у оптовика не подтверждены.",
+        "U_235727": "Связь с основными перевозками не установлена."
+      }
+    },
+    {
+      "event_id": "v3_8c2e4857d0498996d73e",
+      "title": "Japanese and Korean MLCC Makers Cut Consumer Supply to Focus on AI, Chinese Suppliers Enter Global Brand Qualification, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20260924-13252.html",
+      "grades": {
+        "U_201985": 0,
+        "U_182712": 2,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Прямой канал не установлен.",
+        "U_182712": "MLCC — специализированные компоненты производства электроники; совпадение с компьютерной темой не доказывает торговлю конденсаторами.",
+        "U_235727": "Прямой канал не установлен."
+      }
+    },
+    {
+      "event_id": "v3_25790fa94978ae48c0f2",
+      "title": "NOR Flash Price Trends Diverge in 2H26, with High-Capacity Products Poised for 90–110% Increases, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20260914-13235.html",
+      "grades": {
+        "U_201985": 0,
+        "U_182712": 2,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Прямой канал не установлен.",
+        "U_182712": "Высокоёмкая NOR Flash — узкая категория; наличие такой номенклатуры в оптовых продажах не подтверждено.",
+        "U_235727": "Прямой канал не установлен."
+      }
+    },
+    {
+      "event_id": "v3_f6be93deb07dbda31f47",
+      "title": "HBM Supply Constraints Persist, 2027 Price Outlook Revised Upward with Blended ASP Forecast to Rise 121% YoY, Says TrendForce",
+      "url": "https://www.trendforce.com/presscenter/news/20260929-13255.html",
+      "grades": {
+        "U_201985": 0,
+        "U_182712": 3,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Прямой канал не установлен.",
+        "U_182712": "Цены HBM для GPU/ASIC нельзя переносить на весь ассортимент компьютеров. Конкуренция за мощности даёт контекст, но конкретная экспозиция не подтверждена.",
+        "U_235727": "Прямой канал не установлен."
+      }
+    },
+    {
+      "event_id": "v3_aa343d6983085833cd2f",
+      "title": "Сентябрь стал рекордным месяцем по выдаче льготной ипотеки",
+      "url": "https://stroygaz.ru/news/hypothec/sentyabr-stal-rekordnym-mesyatsem-po-vydache-lgotnoy-ipoteki/",
+      "grades": {
+        "U_201985": 4,
+        "U_182712": 0,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Общероссийский масштаб льготной ипотеки и крупное изменение выдач относятся к финансированию жилищного спроса, основного рынка застройщика; собственные продажи неизвестны.",
+        "U_182712": "Ипотечные выдачи не являются подтверждённым основным каналом спроса компьютерного оптовика.",
+        "U_235727": "Связь с основными перевозками не установлена."
+      }
+    },
+    {
+      "event_id": "v3_f3800db10408118112d4",
+      "title": "Спрос на ипотеку увеличился во всех крупных городах страны",
+      "url": "https://stroygaz.ru/news/hypothec/spros-na-ipoteku-uvelichilsya-vo-vsekh-krupnykh-gorodakh-strany/",
+      "grades": {
+        "U_201985": 3,
+        "U_182712": 0,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Выборка охватывает 20 городов, а проектная география компании неизвестна. Московская регистрация не доказывает продажи в этих городах.",
+        "U_182712": "Связь с деятельностью не установлена.",
+        "U_235727": "Связь с деятельностью не установлена."
+      }
+    },
+    {
+      "event_id": "v3_d513148653e5a4614c47",
+      "title": "Цена «квадрата» в элитных новостройках Петербурга превысила отметку в 1 миллион",
+      "url": "https://stroygaz.ru/news/dwelling/tsena-kvadrata-v-elitnykh-novostroykakh-peterburga-prevysila-otmetku-v-1-million/",
+      "grades": {
+        "U_201985": 2,
+        "U_182712": 0,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Локальный элитный сегмент Петербурга; регион проектов и работа компании в элитном сегменте не подтверждены.",
+        "U_182712": "Связь с деятельностью не установлена.",
+        "U_235727": "Связь с деятельностью не установлена."
+      }
+    },
+    {
+      "event_id": "v3_74fab064332da6936293",
+      "title": "Продажи московских новостроек в ипотеку в сентябре снизились почти на треть",
+      "url": "https://stroygaz.ru/news/regulation/prodazhi-moskovskikh-novostroek-v-ipoteku-v-sentyabre-snizilis-pochti-na-tret/",
+      "grades": {
+        "U_201985": 3,
+        "U_182712": 0,
+        "U_235727": 0
+      },
+      "rationale": {
+        "U_201985": "Московские ДДУ профильны, но регистрацию нельзя считать подтверждённым портфелем московских проектов; важно также различать месячный рост и годовое снижение.",
+        "U_182712": "Связь с деятельностью не установлена.",
+        "U_235727": "Связь с деятельностью не установлена."
+      }
+    }
+  ],
+  "labels": [
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_10c7f12ca7da0e47d9c1",
+      "grade": 4,
+      "selected": true,
+      "rationale": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "national",
+        "materiality": "material",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+        "company_feature_ids": [
+          "feature:U_201985:products:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Широкий основной рынок/финансовые условия"
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_10c7f12ca7da0e47d9c1",
+      "grade": 4,
+      "selected": true,
+      "rationale": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "national",
+        "materiality": "material",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+        "company_feature_ids": [
+          "feature:U_182712:products:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Широкий основной рынок/финансовые условия"
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_10c7f12ca7da0e47d9c1",
+      "grade": 4,
+      "selected": true,
+      "rationale": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "national",
+        "materiality": "material",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Общероссийское решение о ключевой ставке относится к условиям подтверждённого лизингового продукта; договорные суммы и пересмотр ставки неизвестны.",
+        "company_feature_ids": [
+          "feature:U_235727:products:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Широкий основной рынок/финансовые условия"
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_963008bf7e6087c8b700",
+      "grade": 1,
+      "selected": false,
+      "rationale": "Издержки ноутбуков не установлены как существенная экспозиция застройщика.",
+      "assessment": {
+        "industry_fit": "adjacent",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Издержки ноутбуков не установлены как существенная экспозиция застройщика.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_963008bf7e6087c8b700",
+      "grade": 4,
+      "selected": true,
+      "rationale": "Прогноз затрат и спроса на широком мировом рынке ноутбуков затрагивает основные товары компьютерного оптовика; финансовый эффект зависит от ассортимента и договоров.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "global_market",
+        "materiality": "material",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Прогноз затрат и спроса на широком мировом рынке ноутбуков затрагивает основные товары компьютерного оптовика; финансовый эффект зависит от ассортимента и договоров.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Широкий основной рынок/финансовые условия"
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_963008bf7e6087c8b700",
+      "grade": 1,
+      "selected": false,
+      "rationale": "Компьютерные расходы не подтверждены как существенная часть затрат перевозчика.",
+      "assessment": {
+        "industry_fit": "adjacent",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Компьютерные расходы не подтверждены как существенная часть затрат перевозчика.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_4feaa6ab263ba69fdbca",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с основной деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": false,
+        "business_channel": "Связь с основной деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_4feaa6ab263ba69fdbca",
+      "grade": 3,
+      "selected": false,
+      "rationale": "Свежая публикация анализирует рынок DRAM за 2025 год; прошлогодний рост выручки нельзя выдавать за текущее изменение закупочной цены.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": false,
+        "business_channel": "Свежая публикация анализирует рынок DRAM за 2025 год; прошлогодний рост выручки нельзя выдавать за текущее изменение закупочной цены.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_4feaa6ab263ba69fdbca",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с перевозками не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": false,
+        "business_channel": "Связь с перевозками не установлена.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_86a9223d1b0c802a2f94",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Поставка компьютеров не подтверждена как основной рынок застройщика.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Поставка компьютеров не подтверждена как основной рынок застройщика.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_86a9223d1b0c802a2f94",
+      "grade": 4,
+      "selected": true,
+      "rationale": "Помимо отчёта за прошлый квартал, источник описывает ограничения предложения и планы мощностей в 2026–2027 годах; это фактор основного мирового рынка памяти.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "global_market",
+        "materiality": "material",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Помимо отчёта за прошлый квартал, источник описывает ограничения предложения и планы мощностей в 2026–2027 годах; это фактор основного мирового рынка памяти.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Широкий основной рынок/финансовые условия"
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_86a9223d1b0c802a2f94",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Профиль не подтверждает существенную экспозицию к ценам DRAM.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Профиль не подтверждает существенную экспозицию к ценам DRAM.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_53e51a99a744d8e6bef9",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с жилищным строительством не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с жилищным строительством не установлена.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_53e51a99a744d8e6bef9",
+      "grade": 3,
+      "selected": false,
+      "rationale": "Прогноз касается enterprise SSD для облачных провайдеров; серверный ассортимент и такие клиенты у оптовика не подтверждены.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Прогноз касается enterprise SSD для облачных провайдеров; серверный ассортимент и такие клиенты у оптовика не подтверждены.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_53e51a99a744d8e6bef9",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с основными перевозками не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с основными перевозками не установлена.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_8c2e4857d0498996d73e",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Прямой канал не установлен.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Прямой канал не установлен.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_8c2e4857d0498996d73e",
+      "grade": 2,
+      "selected": false,
+      "rationale": "MLCC — специализированные компоненты производства электроники; совпадение с компьютерной темой не доказывает торговлю конденсаторами.",
+      "assessment": {
+        "industry_fit": "adjacent",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "MLCC — специализированные компоненты производства электроники; совпадение с компьютерной темой не доказывает торговлю конденсаторами.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_8c2e4857d0498996d73e",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Прямой канал не установлен.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Прямой канал не установлен.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_25790fa94978ae48c0f2",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Прямой канал не установлен.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Прямой канал не установлен.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_25790fa94978ae48c0f2",
+      "grade": 2,
+      "selected": false,
+      "rationale": "Высокоёмкая NOR Flash — узкая категория; наличие такой номенклатуры в оптовых продажах не подтверждено.",
+      "assessment": {
+        "industry_fit": "adjacent",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Высокоёмкая NOR Flash — узкая категория; наличие такой номенклатуры в оптовых продажах не подтверждено.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_25790fa94978ae48c0f2",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Прямой канал не установлен.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Прямой канал не установлен.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_f6be93deb07dbda31f47",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Прямой канал не установлен.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Прямой канал не установлен.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_f6be93deb07dbda31f47",
+      "grade": 3,
+      "selected": false,
+      "rationale": "Цены HBM для GPU/ASIC нельзя переносить на весь ассортимент компьютеров. Конкуренция за мощности даёт контекст, но конкретная экспозиция не подтверждена.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Цены HBM для GPU/ASIC нельзя переносить на весь ассортимент компьютеров. Конкуренция за мощности даёт контекст, но конкретная экспозиция не подтверждена.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_f6be93deb07dbda31f47",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Прямой канал не установлен.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "global_market",
+        "materiality": "unknown",
+        "event_status": "forecast",
+        "timeliness_confirmed": true,
+        "business_channel": "Прямой канал не установлен.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_aa343d6983085833cd2f",
+      "grade": 4,
+      "selected": true,
+      "rationale": "Общероссийский масштаб льготной ипотеки и крупное изменение выдач относятся к финансированию жилищного спроса, основного рынка застройщика; собственные продажи неизвестны.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "national",
+        "materiality": "material",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Общероссийский масштаб льготной ипотеки и крупное изменение выдач относятся к финансированию жилищного спроса, основного рынка застройщика; собственные продажи неизвестны.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Широкий основной рынок/финансовые условия"
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_aa343d6983085833cd2f",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Ипотечные выдачи не являются подтверждённым основным каналом спроса компьютерного оптовика.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "national",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Ипотечные выдачи не являются подтверждённым основным каналом спроса компьютерного оптовика.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_aa343d6983085833cd2f",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с основными перевозками не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "national",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с основными перевозками не установлена.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_f3800db10408118112d4",
+      "grade": 3,
+      "selected": false,
+      "rationale": "Выборка охватывает 20 городов, а проектная география компании неизвестна. Московская регистрация не доказывает продажи в этих городах.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "registration_only",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Выборка охватывает 20 городов, а проектная география компании неизвестна. Московская регистрация не доказывает продажи в этих городах.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_f3800db10408118112d4",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "registration_only",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_f3800db10408118112d4",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "registration_only",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_d513148653e5a4614c47",
+      "grade": 2,
+      "selected": false,
+      "rationale": "Локальный элитный сегмент Петербурга; регион проектов и работа компании в элитном сегменте не подтверждены.",
+      "assessment": {
+        "industry_fit": "adjacent",
+        "geographic_fit": "unknown",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Локальный элитный сегмент Петербурга; регион проектов и работа компании в элитном сегменте не подтверждены.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_d513148653e5a4614c47",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "unknown",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_d513148653e5a4614c47",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "unknown",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_201985",
+      "event_id": "v3_74fab064332da6936293",
+      "grade": 3,
+      "selected": false,
+      "rationale": "Московские ДДУ профильны, но регистрацию нельзя считать подтверждённым портфелем московских проектов; важно также различать месячный рост и годовое снижение.",
+      "assessment": {
+        "industry_fit": "direct",
+        "geographic_fit": "registration_only",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Московские ДДУ профильны, но регистрацию нельзя считать подтверждённым портфелем московских проектов; важно также различать месячный рост и годовое снижение.",
+        "company_feature_ids": [
+          "feature:U_201985:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_182712",
+      "event_id": "v3_74fab064332da6936293",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "registration_only",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_182712:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    },
+    {
+      "company_id": "U_235727",
+      "event_id": "v3_74fab064332da6936293",
+      "grade": 0,
+      "selected": false,
+      "rationale": "Связь с деятельностью не установлена.",
+      "assessment": {
+        "industry_fit": "none",
+        "geographic_fit": "registration_only",
+        "materiality": "unknown",
+        "event_status": "reported",
+        "timeliness_confirmed": true,
+        "business_channel": "Связь с деятельностью не установлена.",
+        "company_feature_ids": [
+          "feature:U_235727:industry:cda399aa25ae745f"
+        ],
+        "location_limitation": "Регистрация не подтверждает расположение операций, проектов или маршрутов.",
+        "scale_basis": "Ограничения периода, номенклатуры или применимости требуют уточнения."
+      }
+    }
+  ]
+}

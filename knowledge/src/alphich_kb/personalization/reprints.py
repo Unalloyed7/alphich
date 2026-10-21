@@ -14,8 +14,8 @@ def _signature(event):
     directions = {key for key, pattern in {"up": r"повыс|вырос|увелич", "down": r"сниз|сократ|упал",
         "hold": r"сохрани|неизмен", "negation": r"\bне\b|\bотмен|\bзапрет|\bприостанов"}.items() if re.search(pattern, body)}
     dimensions = {digest({k:f["attributes"].get(k) for k in ("kind", "topics", "geography", "forecast_horizon",
-        "industry_codes", "regions", "geographic_scope", "market_scope", "impact_scale", "event_status",
-        "business_effect", "applicability", "effective_from")}) for f in event["facts"]}
+        "industry_codes", "regions", "geographic_scope", "market_scope", "impact_scale", "product_scope", "event_status",
+        "business_effect", "applicability", "effective_from", "reference_period_end")}) for f in event["facts"]}
     entities = set(re.findall(r'«([^»]+)»|"([^"\n]+)"', event["title"]+" "+event["text"]))
     return body, shingles, numbers, directions, dimensions, entities
 

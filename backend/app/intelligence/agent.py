@@ -240,7 +240,15 @@ def analyze(tools, calls, question=None):
                               agent_role="bank_researcher", origin="initial_context")
         tools.steps[-1]["request_context"] = question_spec
         observations.append(result)
-    observations.append(researcher.run())
+    observations.append(researcher.reuse_current() if question else researcher.run())
+    system = SYSTEM
+    if question:
+        system += """\nЭто уточняющий вопрос к готовой карточке. Ответь именно на question, без повторного полного
+разбора новости. Достаточно одного короткого inferences и одного next_steps; перечисли конкретные
+пробелы в missing_data. Каждый вывод опирается на выбранные news_ids и company_ids. Не добавляй
+новую гипотезу о ценах, долге или договоре, если выбранный факт её не поддерживает. Имеющиеся
+проверенные банковские тезисы уже переданы; дополнительный поиск нужен только по содержанию вопроса.
+"""
     repaired, force_finish = False, False
     for index in range(calls.provider.settings.max_tools + 2):
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
@@ -255,7 +263,7 @@ def analyze(tools, calls, question=None):
         must_finish = (force_finish or calls.provider.settings.max_calls - calls.count <= 2 or
                        tools.tool_count >= calls.provider.settings.max_tools)
         try:
-            decision = calls.ask(f"agent_{index}", FinalDecision if must_finish else Decision, SYSTEM,
+            decision = calls.ask(f"agent_{index}", FinalDecision if must_finish else Decision, system,
                                  {**data, "must_finish": must_finish}).decision
         except SchemaFailure as exc:
             if repaired or calls.count + 2 > calls.provider.settings.max_calls:
