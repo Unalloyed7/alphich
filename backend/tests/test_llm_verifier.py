@@ -284,8 +284,24 @@ def test_oversized_required_draft_fails_before_any_paid_call(context, scripted_c
 def test_inspection_is_reduced_when_required_draft_uses_most_input_budget(context):
     factory, settings, tools, _ = context
     settings = replace(settings, models={key: replace(value, input_limit=32768) for key, value in settings.models.items()})
+    # Size the mandatory draft against the current prompt/schema, keeping room
+    # for source identities but not a full original. Prompt wording must not
+    # accidentally turn this into the separate oversized-required-input case.
+    probe_calls = Calls(Provider(factory, settings), "size-only-no-http")
+    probe = VerificationAgent(tools, probe_calls, REVIEW)
+    skeleton = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
+                "question": None, "draft": {"claims": [
+                    {"id": f"c{i + 1}", "kind": "bank_view", "text": "Я" * 6,
+                     "evidence_ids": [tools.expose("bank-reviewed")], "conditions": []} for i in range(12)],
+                    "risks": [], "opportunities": [], "next_steps": [], "missing_data": []},
+                "evidence": [], "inspection_allowed": True, "remaining_calls": 8,
+                "context_truncated": True, "context_limitations": ["verifier_context_truncated"]}
+    overhead = input_bytes(settings.models[settings.analysis_model], probe.system, skeleton,
+                           VerificationDecision.model_json_schema())
+    text_chars = 6 + (32768 - overhead - 1200) // (12 * len("Я".encode()))
+    assert 6 < text_chars <= 1000
     draft = CardDraft.model_validate({"claims": [
-        {"id": f"c{index + 1}", "kind": "bank_view", "text": "Я" * 960,
+        {"id": f"c{index + 1}", "kind": "bank_view", "text": "Я" * text_chars,
          "evidence_ids": ["bank-reviewed"]} for index in range(12)]})
     saved = deepcopy(tools.registry)
     expected_draft = tools.expose(draft.model_dump())

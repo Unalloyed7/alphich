@@ -4,6 +4,7 @@ from __future__ import annotations
 from .provider import canonical, input_bytes
 from .schemas import FinalVerificationDecision, GetFeatures, SemanticReview, VerificationDecision
 from .settings import AnalysisError
+from .financial_grounding import BUSINESS_RULES
 
 
 SYSTEM = """Ты отдельный агент проверки Alphich, а не автор карточки. Проверь черновик по источникам.
@@ -71,7 +72,7 @@ def _bounded_inspection(result):
 class VerificationAgent:
     def __init__(self, tools, calls, system):
         self.tools, self.calls = tools, calls
-        self.system = SYSTEM + "\n" + system
+        self.system = SYSTEM + "\n" + system + BUSINESS_RULES
 
     def _fit_context(self, data, schema):
         """Keep required input whole; allocate optional source text to its real wire budget."""
