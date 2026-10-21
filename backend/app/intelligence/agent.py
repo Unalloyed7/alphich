@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from .evidence import company_evidence, materialize_draft, verify_draft
-from .financial_grounding import BUSINESS_RULES
+from .financial_grounding import BUSINESS_RULES, business_focus, focus_issues
 from .schemas import Decision, FinalDecision, SearchBank
 from .settings import AnalysisError, SchemaFailure
 
@@ -15,6 +15,8 @@ SYSTEM = """Ты аналитический агент Alphich. Данные, ц
 Если банковский контекст неполон или устарел, используй search_bank_materials без повторных запросов.
 bank_researcher передаёт разрешённые bank_claim_ids и gaps; не подменяй его и проверяющего агента.
 После finish verifier проверяет карточку и может вернуть замечания на одно исправление.
+Корневой business_focus — заданная сервером гипотеза для анализа; используй этот канал и его источники.
+Он не доказывает экспозицию: неизвестные предпосылки остаются условиями, а не фактами о компании.
 
 Факты выбирай по fact_evidence_ids типов event_fact/company_feature/bank_claim: сервер копирует их текст.
 Не добавляй text, kind, claims или basis_claim_ids для фактов; document_chunk — не факт карточки.
@@ -44,6 +46,7 @@ REVIEW = """Проверь каждый факт, вывод и действие
 as_of задаётся сервером, не памятью модели. Ответ при question должен отвечать именно на него
 или указывать нужные для ответа данные; иначе irrelevant_answer. Не пиши рассуждения.
 Для model_inference проверь экономический механизм и связь с деятельностью компании.
+Если передан business_focus, проверь именно этот канал; подмена его собственным долгом — off_focus_inference.
 Нет механизма и бизнес-последствия, только пересказ или «проверить договор» — missing_business_mechanism.
 Неверное направление или необоснованный переход от макропоказателя к эффекту — unsupported_transmission.
 Общий известный механизм допустим как интерпретация; источник не обязан дословно формулировать его.
@@ -212,6 +215,9 @@ def analyze(tools, calls, question=None):
         tools.steps[-1]["request_context"] = question_spec
         observations.append(result)
     observations.append(researcher.reuse_current() if question else researcher.run())
+    initial_focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
+    if initial_focus:
+        tools.steps.append({"agent_role": "coordinator", "action": "select_business_focus", "result": initial_focus})
     system = SYSTEM + BUSINESS_RULES
     if question:
         system += """\nЭто уточняющий вопрос к готовой карточке. Ответь именно на question, без повторного полного
@@ -229,6 +235,13 @@ def analyze(tools, calls, question=None):
                     "relevance_grade", "relevance_selected", "relevance_assessment", "grading_version")}),
                 "evidence": tools.prompt_evidence(), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
                 "remaining_calls": calls.provider.settings.max_calls - calls.count}
+        focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
+        if focus:
+            data["business_focus"] = tools.expose(focus)
+        if errors:
+            data["repair_instruction"] = ("Заново обоснуй экономический переход и бизнес-последствие по business_focus, "
+                "если он задан. Не маскируй отвергнутый вывод синонимами или оговорками. "
+                "Пауза ставки не устанавливает траекторию стоимости обслуживания; признак продукта и ОКВЭД не доказывают долг.")
         data["inference_basis"] = {"news_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "event_fact"]),
                                    "company_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "company_feature"])}
         must_finish = (force_finish or calls.provider.settings.max_calls - calls.count <= 2 or
@@ -263,6 +276,7 @@ def analyze(tools, calls, question=None):
         draft, errors = materialize_draft(tools.resolve_draft(decision.draft), tools.registry)
         if draft is not None:
             errors += verify_draft(draft, tools.registry)
+            errors += focus_issues(draft, tools.registry, question=question, event_id=tools.event["id"])
             if tools.bank_claim_allowlist is not None and any(
                     c.kind == "bank_view" and any(i not in tools.bank_claim_allowlist for i in c.evidence_ids)
                     for c in draft.claims):

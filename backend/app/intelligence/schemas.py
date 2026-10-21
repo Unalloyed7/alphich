@@ -180,7 +180,7 @@ class SemanticReview(Strict):
     supported_action_indexes: list[int] = Field(max_length=4)
     issues: list[Literal["unsupported_claim", "unsupported_action", "contradicts_evidence",
                         "unmarked_assumption", "unsupported_number", "bank_attribution_error", "irrelevant_answer",
-                        "missing_business_mechanism", "unsupported_transmission"]] = Field(
+                        "missing_business_mechanism", "unsupported_transmission", "off_focus_inference"]] = Field(
         default_factory=list, max_length=12, description="Error codes only; [] if all claims and actions pass. No explanations or reasoning.")
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from .provider import canonical, input_bytes
 from .schemas import FinalVerificationDecision, GetFeatures, SemanticReview, VerificationDecision
 from .settings import AnalysisError
-from .financial_grounding import BUSINESS_RULES
+from .financial_grounding import BUSINESS_RULES, business_focus
 
 
 SYSTEM = """Ты отдельный агент проверки Alphich, а не автор карточки. Проверь черновик по источникам.
@@ -184,6 +184,9 @@ class VerificationAgent:
                 "inspection_allowed": inspection_allowed, "remaining_calls": remaining}
         if relevance:
             data["business_relevance"] = self.tools.expose(relevance)
+        focus = business_focus(self.tools.registry, question=question, event_id=self.tools.event["id"])
+        if focus:
+            data["business_focus"] = self.tools.expose(focus)
         purpose = f"semantic_review_{round_index}"
         schema = VerificationDecision if inspection_allowed else FinalVerificationDecision
         decision = self.calls.ask(purpose, schema, self.system, self._fit_context(data, schema)).decision
