@@ -325,7 +325,7 @@ def analyze_tick(factory, settings, *, now=None):
             existing = db.scalar(select(Insight).where(Insight.company_id == run.company_id,
                 Insight.role == run.role, Insight.event_id == event.id).order_by(Insight.created_at.desc()).limit(1))
             if (existing and existing.payload.get('profile_version') == run.profile['profile_version']
-                    and existing.payload.get('event_version') == event.version
+                    and str(existing.payload.get('event_version')) == str(event.version)
                     and existing.payload.get('relevance_grade', 0) >= run.min_grade
                     and existing.snapshot.get('versions', {}).get('runtime') == VERSION
                     and (settings.allowed_bank_ids is None or all(not e.get('document_id') or

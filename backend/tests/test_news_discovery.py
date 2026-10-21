@@ -134,6 +134,25 @@ def test_only_five_does_not_promote_a_four_or_pay_for_personal_analysis(store):
         assert db.scalar(select(func.count()).select_from(Insight)) == 0
 
 
+def test_new_run_reuses_current_saved_card_without_queuing_another_paid_job(store):
+    _, factory, _, settings = store
+    copies(store)
+    first = start(store).json()['id']
+    collect_tick(factory, feeds=[])
+    engine, gateway = runtime(factory, settings)
+    drain(store, engine)
+    saved = detail(store, first).json()['items'][0]['insight_id']
+    calls = len(gateway.seen)
+    second = start(store, key='discovery-reuse-002').json()['id']
+    assert second != first
+    collect_tick(factory, feeds=[])
+    drain(store, engine)
+    value = detail(store, second).json()
+    assert value['status'] == 'completed' and value['stats']['reused'] == 1
+    assert value['items'][0]['insight_id'] == saved
+    assert float(value['cost_rub']) == 0 and len(gateway.seen) == calls
+
+
 @pytest.mark.parametrize('change', [
     {'id': 'replacement'}, {'url': 'https://example.org/new-feed/'},
     {'article_hosts': ['other.example.org']}, {'article_path_prefixes': ['/business/']},
