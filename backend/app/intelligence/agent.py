@@ -105,9 +105,13 @@ class Tools:
         context = self.business_context
         if focus:
             excluded = set(focus["not_inference_basis_ids"])
+            demand = {'customer_investment', 'customer_it_budgets', 'transport_demand', 'production_load', 'inventory_cash_cycle'}
+            costs = {'project_costs', 'delivery_economics', 'trading_margin', 'transport_costs', 'production_margin'}
+            wanted = costs if focus['driver'] in {'inflation', 'fuel', 'fx', 'labor'} else demand
             context = {**context, "observed": [o for o in context["observed"]
                        if not excluded.intersection(o["evidence_ids"])],
-                       "hypotheses": []}
+                       "hypotheses": [h for h in context['hypotheses'] if h['id'] in wanted
+                                      and not excluded.intersection(h['basis_feature_ids'])]}
         # Observed values are already present as original registry evidence.
         return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "group_policy")
                            if key in context})

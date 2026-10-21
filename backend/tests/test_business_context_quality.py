@@ -41,6 +41,17 @@ def test_dossier_rejects_another_company_feature_and_stale_version():
             business_context(p)
 
 
+def test_business_hypotheses_reach_agent_without_reintroducing_excluded_credit_exposure():
+    from app.intelligence.agent import Tools
+    from alphich_kb.personalization.inputs import SelectionScope
+    p = profile('41.20')
+    tools = Tools(p, {'id': 'event', 'facts': []}, {},
+                  SelectionScope('own', '2026-10-22T00:00:00+00:00', frozenset({'event'}), 'cfo'))
+    prompt = tools.prompt_business_context({'driver': 'policy_rate', 'not_inference_basis_ids': ['loan']})
+    assert [h['id'] for h in prompt['hypotheses']] == ['customer_investment']
+    assert not any('financing_sensitivity' == h['id'] for h in prompt['hypotheses'])
+
+
 def test_quality_does_not_call_structural_success_semantic_correctness():
     evidence = {'n': {'kind': 'event_fact', 'company_id': 'own', 'text': 'Новость.'},
                 'f': {'kind': 'company_feature', 'company_id': 'own', 'text': 'Деятельность.'}}
