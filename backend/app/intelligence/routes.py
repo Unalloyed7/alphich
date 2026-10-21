@@ -164,6 +164,7 @@ def register_routes(app, get_db, current_session, factory):
     def feed(company_id: str, as_of: datetime | None = None, demo=Depends(current_session), db=Depends(get_db)):
         from alphich_kb.personalization.inputs import SelectionScope
         from alphich_kb.personalization.selector import NewsSelector
+        from alphich_kb.personalization.grading import MIN_SELECTED_GRADE
         if company_id != demo.company_id:
             raise HTTPException(403, "Session does not grant access to this company")
         try:
@@ -180,7 +181,8 @@ def register_routes(app, get_db, current_session, factory):
             .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(100)).all()
         events = [normalized_event(db, e, s) for e, s in rows]
         result = NewsSelector(events).select(company_profile(company, demo.role),
-            SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role), mode="lexical")
+            SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role),
+            mode="lexical", min_grade=MIN_SELECTED_GRADE)
         recent = db.scalars(select(Insight).where(Insight.company_id == company_id, Insight.role == demo.role)
                             .order_by(Insight.created_at.desc(), Insight.id.desc()).limit(100)).all()
         for item in result["items"]:

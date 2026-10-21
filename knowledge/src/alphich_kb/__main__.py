@@ -74,6 +74,8 @@ def main(argv=None):
     news_parser.add_argument("--role", choices=["cfo", "ceo"], default="cfo")
     news_parser.add_argument("--mode", choices=["lexical", "dense", "hybrid"], default="hybrid")
     news_parser.add_argument("--limit", type=int, default=5)
+    news_parser.add_argument("--min-grade", type=int, choices=range(6), default=0,
+                             help="4 for the curated feed; 0 preserves the retrieval candidate pool")
     news_parser.add_argument("--allow-event", action="append")
     news_parser.add_argument("--bank-index-dir")
     news_parser.add_argument("--bank-event-id")

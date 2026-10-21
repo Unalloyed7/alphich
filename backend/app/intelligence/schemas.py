@@ -26,6 +26,13 @@ class Attributes(Strict):
     kind: Literal["report", "rate_decision", "forecast", "regulatory_change"] = "report"
     forecast_horizon: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$",
         description="Forecast horizon as YYYY-MM-DD, or null when unspecified; never descriptive text")
+    geographic_scope: Literal["unknown", "national", "global_market", "regional", "local"] = "unknown"
+    market_scope: Literal["unknown", "single_case", "sector_wide"] = "unknown"
+    impact_scale: Literal["unknown", "limited", "material"] = "unknown"
+    event_status: Literal["unknown", "reported", "proposal", "forecast", "in_force", "announcement"] = "unknown"
+    business_effect: Literal["unknown", "core_market", "operating_requirement", "financing"] = "unknown"
+    applicability: Literal["unknown", "whole_industry", "conditional"] = "unknown"
+    effective_from: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
     @field_validator("industry_codes")
     @classmethod
@@ -35,7 +42,7 @@ class Attributes(Strict):
             raise ValueError("Use OKVED prefixes, not invented taxonomy codes")
         return values
 
-    @field_validator("forecast_horizon", mode="before")
+    @field_validator("forecast_horizon", "effective_from", mode="before")
     @classmethod
     def horizon(cls, value):
         if isinstance(value, str) and not value.strip():

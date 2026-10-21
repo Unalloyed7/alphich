@@ -155,6 +155,7 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
     {error && <p className="insight-error" role="alert">{error}</p>}
     {insight && <div className="insight-result">
       <h4>{insight.headline}</h4><p className="insight-muted">Статус: {insight.status}. Анализ на {dateLabel(insight.as_of)}. Проверка: {insight.verification?.status}.</p>
+      {typeof insight.relevance_grade === 'number' && <p><strong>Значимость: {insight.relevance_grade}/5.</strong> {insight.relevance_selected ? 'Проходит отбор в ленту.' : 'Ниже порога отбора в ленту.'}</p>}
       <p><strong>Позиция банка:</strong> {insight.bank_view.status === 'found' ? 'Найдена в источниках' : insight.bank_view.status === 'historical_only' ? 'Только исторические материалы' : insight.bank_view.status === 'conflicting' ? 'Обнаружен конфликт источников' : 'Подтверждённая позиция отсутствует'}</p>
       {insight.relevance_reasons?.length > 0 && <div><h5>Почему актуально</h5>{insight.relevance_reasons.map((reason, index) => <p key={index}>{relevanceDescription(reason) ?? 'Описание основания не передано сервером'}</p>)}</div>}
       <h5>Выводы и доказательства</h5><Claims value={insight} onEvidence={(id) => void showEvidence(id)} />
@@ -212,12 +213,13 @@ export function InsightFeed({ session, onEvent }: { session: DemoSession; onEven
     return () => { feedRequest.current++; window.clearInterval(interval); document.removeEventListener('visibilitychange', refresh); };
   }, [reload]);
   return <div className="insight-feed panel">
-    <div className="section-header"><div><div className="eyebrow">КОМПАНИЯ / РОЛЬ</div><h2>Аналитическая лента</h2><p>Приоритет отражает правила отбора, а не размер финансового риска.</p></div>
+    <div className="section-header"><div><div className="eyebrow">КОМПАНИЯ / РОЛЬ</div><h2>Аналитическая лента</h2><p>События с оценкой 4–5 из 5: учитываем деятельность, географию и масштаб.</p></div>
       <button type="button" className="ghost-button" onClick={() => void reload()} disabled={loading}>{loading ? 'Загрузка…' : 'Обновить'}</button></div>
     {error && <p className="insight-error" role="alert">{error}</p>}
-    {!loading && feed?.items.length === 0 && <p className="insight-muted">Пока нет отобранных событий. Сначала добавь публикацию и дождись worker.</p>}
+    {!loading && feed?.items.length === 0 && <p className="insight-muted">Пока нет событий с подтверждённой значимостью 4–5. Загруженные публикации доступны в разделе событий; для оценки нужен разбор фактов.</p>}
     {feed?.items.map((item: FeedItem) => <article key={`${item.event_id}:${item.event_version}`} className="insight-feed-item">
-      <div><strong>{item.insight?.headline || item.event_id}</strong><p className="insight-muted">{item.relevance_tier || 'Контекст'} · приоритет {item.priority ?? 'не определён'} · {item.insight?.status || 'Без карточки'}</p>
+      <div><strong>{item.insight?.headline || item.title || item.event_id}</strong><p className="insight-muted">Значимость {item.relevance_grade ?? 'не определена'}/5 · {item.insight?.status || 'Без карточки'}</p>
+        {item.relevance_assessment?.business_channel && <p>{item.relevance_assessment.business_channel}</p>}
         {(item.reasons ?? item.relevance_reasons ?? []).slice(0, 3).map((reason, index) => <p key={index}>{relevanceDescription(reason) ?? 'Описание основания не передано сервером'}</p>)}
       </div><button type="button" className="insight-link" onClick={() => onEvent(item.event_id)}>Открыть событие →</button>
     </article>)}

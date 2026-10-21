@@ -29,6 +29,10 @@ SYSTEM += """
 Используй банковские тезисы из этого handoff. Для дополнительного поиска выбери search_bank_materials:
 координатор делегирует его поисковому агенту. Не изображай его ответ и не подменяй проверяющего агента.
 После finish отдельный verifier может запросить исходное evidence и вернуть замечания на одно исправление.
+business_relevance — серверная оценка значимости 0–5 с основаниями. Только 4 и 5 проходят в ленту.
+Ручной разбор события ниже порога не подтверждает его существенность. Не повышай оценку и не превращай
+локальный кейс, регистрацию, малый релиз либо неподтверждённый масштаб в воздействие на компанию.
+Регистрация не является местом операций; сырая выручка с неизвестной единицей не даёт расчёта эффекта.
 """
 SYSTEM += """
 Обязательные правила формата:
@@ -242,6 +246,8 @@ def analyze(tools, calls, question=None):
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
                 "event": {k: tools.event.get(k) for k in ("id", "title", "published_at")},
                 "question": question, "relevance_reasons": tools.expose(tools.selection.get("reasons", [])),
+                "business_relevance": tools.expose({k: tools.selection.get(k) for k in (
+                    "relevance_grade", "relevance_selected", "relevance_assessment", "grading_version")}),
                 "evidence": tools.prompt_evidence(), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
                 "remaining_calls": calls.provider.settings.max_calls - calls.count}
         data["inference_basis"] = {"news_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "event_fact"]),

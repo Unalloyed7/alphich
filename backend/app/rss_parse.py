@@ -102,6 +102,74 @@ def parse_feed(body: bytes, url: str) -> list[FeedItem]:
     return items
 
 
+def _listing_day(value, *, offset):
+    """Publisher-local day, conservatively available after the entire day ended.
+
+    Never manufacture a precise publication time from our download clock or
+    interpret a date from an arbitrary URL as a publisher timestamp.
+    """
+    months = {name: i for i, name in enumerate(
+        ('января февраля марта апреля мая июня июля августа сентября октября ноября декабря').split(), 1)}
+    months.update({name: i for i, name in enumerate(
+        ('january february march april may june july august september october november december').split(), 1)})
+    match = re.fullmatch(r'\s*(\d{1,2})\s+([а-яa-z]+)\s+(\d{4})\s*', value.casefold())
+    if not match or match[2] not in months:
+        return None
+    try:
+        from datetime import timedelta
+        return datetime(int(match[3]), months[match[2]], int(match[1]), 23, 59, 59,
+                        tzinfo=timezone(timedelta(hours=offset))).astimezone(timezone.utc).isoformat()
+    except ValueError:
+        return None
+
+
+def discover_items(body: bytes, url: str, format='rss') -> list[FeedItem]:
+    """Bounded discovery from three inspected publisher layouts or RSS/Atom.
+
+    Selectors are code-owned, never supplied by article text or the LLM.
+    PublicFetcher still validates every discovered URL and every redirect.
+    """
+    if format == 'rss':
+        return parse_feed(body, url)
+    if len(body) > MAX_BYTES:
+        raise CollectionError('feed_too_large')
+    from lxml import etree, html
+    try:
+        document = html.fromstring(body.decode('utf-8', errors='replace'),
+            parser=html.HTMLParser(no_network=True, recover=True))
+    except (etree.ParserError, ValueError):
+        raise CollectionError('invalid_listing_html') from None
+    cls = lambda name: f'contains(concat(" ", normalize-space(@class), " "), " {name} ")'
+    if format == 'mintrans_html':
+        nodes = document.xpath(f'//a[{cls("news-text")}][@href]')
+        title_path, date_path = '.', f'../div/span[{cls("date-span")}]'
+        path_pattern, offset = r'/press-center/news/\d+/?', 3
+    elif format == 'eec_html':
+        nodes = document.xpath(f'//a[{cls("NewsItem")}][@href]')
+        title_path, date_path = f'.//*[{cls("NewsItem__Title")}]', f'.//*[{cls("NewsItem__Date")}]'
+        path_pattern, offset = r'/news/[^/]+/', 3
+    elif format == 'trendforce_html':
+        nodes = document.xpath(f'//a[{cls("title-link")}][@href]')
+        title_path, date_path = '.', '../../h4'
+        path_pattern, offset = r'/presscenter/news/\d{8}-\d+\.html', 8
+    else:
+        raise CollectionError('unsupported_discovery_format')
+    from urllib.parse import urlsplit
+    items, seen = [], set()
+    for node in nodes[:1000]:
+        link = urljoin(url, node.get('href', ''))
+        if not re.fullmatch(path_pattern, urlsplit(link).path) or link in seen:
+            continue
+        title = ' '.join(' '.join(n.text_content() for n in node.xpath(title_path)).split())[:300]
+        date = ' '.join(' '.join(n.text_content() for n in node.xpath(date_path)).split())
+        if len(title) >= 6:
+            items.append(FeedItem(title, link, _listing_day(date, offset=offset)))
+            seen.add(link)
+    if not items:
+        raise CollectionError('listing_layout_changed_or_empty')
+    return items
+
+
 def article_text(body: bytes, url: str, content_type: str) -> str:
     if content_type.split(';', 1)[0].strip().lower() not in {'text/html', 'application/xhtml+xml'}:
         raise CollectionError('article_not_html')

@@ -15,6 +15,7 @@ from .planning import bank_questions
 from .profiles import normalize_company
 from .rules import BUSINESS, match_reasons
 from .reprints import group_reprints
+from .grading import MIN_SELECTED_GRADE, VERSION as GRADING_VERSION, grade_event
 
 
 class NewsSelector:
@@ -128,12 +129,14 @@ class NewsSelector:
                                      "rrf": score, "bounded_rank_score": score / denominator})
         return matches, actual_mode, error
 
-    def select(self, profile, scope, *, limit=5, mode="hybrid", max_per_topic=2):
+    def select(self, profile, scope, *, limit=5, mode="hybrid", max_per_topic=2, min_grade=0):
         started = time.perf_counter()
         if not isinstance(scope, SelectionScope) or not 1 <= limit <= 10 or not 1 <= max_per_topic <= 10:
             raise KnowledgeError("A server SelectionScope and limits in 1..10 are required")
         if mode not in {"lexical", "dense", "hybrid"}:
             raise KnowledgeError("Mode must be lexical, dense or hybrid")
+        if type(min_grade) is not int or not 0 <= min_grade <= 5:
+            raise KnowledgeError("min_grade must be an integer in 0..5")
         company = normalize_company(profile)
         if company["id"] != scope.company_id or company["role"] not in {None, scope.role}:
             raise KnowledgeError("Profile does not belong to the job's company/role scope")
@@ -158,9 +161,11 @@ class NewsSelector:
                                    "limitations": ["retrieval_rank_is_not_applicability", "do_not_publish_as_validated_feed"]})
                 continue
             strongest = max(reasons, key=lambda r: (r["base"], r["code"]))
+            grading = grade_event(company, event, scope, reasons)
             hypothesis = strongest["tier"] == "hypothesis"
             if hypothesis and event["facts"]:
                 review.append({"event_id": event["id"], "event_version": event["version"], "status": "needs_applicability_check",
+                               **grading,
                                "relevance_tier": "hypothesis", "reason_codes": sorted({r["code"] for r in reasons}),
                                "matched_feature_ids": sorted({i for r in reasons for i in r["feature_ids"]}),
                                "matched_fact_ids": sorted({i for r in reasons for i in r["fact_ids"]}),
@@ -176,6 +181,7 @@ class NewsSelector:
             role_bonus = 4 if (scope.role == "cfo" and finance) or (scope.role == "ceo" and any(r["code"] == "industry_scope_match" for r in reasons)) else 0
             priority = min(100, strongest["base"] + freshness + retrieval_bonus + role_bonus)
             fields = {"event_id": event["id"], "event_version": event["version"], "snapshot_hash": event["snapshot_hash"],
+                      **grading,
                       "title": event["title"], "published_at": event["published_at"], "available_at": event["available_at"],
                       "priority": round(priority, 3), "relevance_tier": strongest["tier"],
                       "status": "needs_extraction" if hypothesis and not event["facts"] else "needs_applicability_check" if hypothesis else "applicable_with_conditions",
@@ -198,9 +204,13 @@ class NewsSelector:
                       "ranking": {"structural_base": strongest["base"], "freshness_bonus": freshness,
                                   "retrieval_bonus": retrieval_bonus, "role_bonus": role_bonus, "facets": retrieval}}
             ranked.append(fields)
-        ranked.sort(key=lambda item: (-item["priority"], item["event_id"]))
+        # Candidate retrieval preserves its historical order for manual analysis;
+        # a curated feed orders by grade first and never fills gaps with <=3.
+        ranked.sort(key=lambda item: (-item["relevance_grade"] if min_grade else 0, -item["priority"], item["event_id"]))
         selected, skipped, topic_counts = [], [], Counter()
         for item in ranked:
+            if item["relevance_grade"] < min_grade:
+                continue
             if len(selected) >= limit:
                 break
             if topic_counts[item["primary_topic"]] >= max_per_topic and not item["major_event"]:
@@ -212,6 +222,8 @@ class NewsSelector:
                  "profile_input_hash": company["input_hash"], "role": scope.role, "as_of": scope.as_of,
                  "market_country_policy": scope.market_country, "method_version": VERSION, "requested_mode": mode,
                  "mode": actual_mode, "fallback_reason": fallback, "limit": limit, "max_per_topic": max_per_topic,
+                 "min_grade": min_grade, "selection_threshold": MIN_SELECTED_GRADE, "grading_version": GRADING_VERSION,
+                 "below_grade_threshold": sum(r["relevance_grade"] < min_grade for r in ranked),
                  "embedding_space_id": self.encoder.space_id if self.encoder else None,
                  "visible_snapshots": sorted(e["snapshot_hash"] for e in events), "exclusion_counts": exclusions,
                  "rejected_fact_count": sum(len(e["rejected_facts"]) for e in events),
@@ -223,5 +235,7 @@ class NewsSelector:
         trace["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 3)
         review.sort(key=lambda item: (-item["ranking"]["bounded_rank_score"], item["event_id"]))
         return {"company_id": company["id"], "role": scope.role, "items": selected, "review_queue": review[:3],
+                "grade_scale": {"min": 0, "max": 5}, "selection_threshold": MIN_SELECTED_GRADE,
+                "min_grade": min_grade,
                 "extraction_candidates": [r for r in ranked if r["status"] == "needs_extraction"][:3],
                 "facets": facets, "mode": actual_mode, "retrieval_run_id": run_id, "trace": trace}

@@ -13,6 +13,9 @@ SYSTEM = """Ты отдельный агент проверки Alphich, а не
 исходные источники вместо кратких выдержек, затем обязательно вернуть verdict. Если inspection_allowed=false,
 сразу верни verdict. Не запрашивай другие компании, даты, документы или инструменты и не создавай факты.
 Усечённая выдержка не доказывает содержание пропущенного текста; не одобряй тезис без достаточных оснований.
+business_relevance содержит серверные ограничения географии и масштаба. Регистрация не подтверждает
+операции; локальный/единичный кейс не подтверждает существенное влияние на компанию. Ручной анализ
+ниже оценки четыре не позволяет называть событие существенно влияющим без новых оснований.
 Верни только поддержанные claim ID, индексы действий с нуля и допустимые коды ошибок, без повторов.
 Не пиши и не сохраняй внутренние рассуждения или пояснения решения.
 """
@@ -148,11 +151,17 @@ class VerificationAgent:
                                             "limitations": ["inspection_context_truncated"]}
 
         referenced = {reference for claim in data["draft"]["claims"] for reference in claim["evidence_ids"]}
+        # Reserve IDs before filling text: an early long excerpt must not consume
+        # the slots needed to request the originals of later evidence records.
+        retained = []
         for item in sorted(sources, key=lambda source: source["id"] not in referenced):
-            result["evidence"].append(None)
-            index = len(result["evidence"]) - 1
-            if fit_record(item, lambda value, i=index: result["evidence"].__setitem__(i, value), False) is None:
+            result["evidence"].append(minimal(item, False))
+            if fits():
+                retained.append(item)
+            else:
                 result["evidence"].pop()
+        for index, item in enumerate(retained):
+            fit_record(item, lambda value, i=index: result["evidence"].__setitem__(i, value), False)
         if not fits():
             raise AnalysisError("context_too_large")
         return result
@@ -163,10 +172,17 @@ class VerificationAgent:
             raise AnalysisError("agent_call_limit")
         inspection_allowed = (remaining >= (2 if repaired else 4)
                               and self.tools.tool_count < self.tools.tool_limit)
+        assessment = self.tools.selection.get("relevance_assessment") or {}
+        relevance = {key: assessment[key] for key in (
+            "industry_fit", "geographic_fit", "materiality", "event_status", "limitations") if key in assessment}
+        if "relevance_grade" in self.tools.selection:
+            relevance["grade"] = self.tools.selection["relevance_grade"]
         data = {"company_id": self.tools.scope.company_id, "role": self.tools.scope.role,
                 "as_of": self.tools.scope.as_of, "question": question,
                 "draft": self.tools.expose(draft.model_dump()), "evidence": self.tools.prompt_evidence(),
                 "inspection_allowed": inspection_allowed, "remaining_calls": remaining}
+        if relevance:
+            data["business_relevance"] = self.tools.expose(relevance)
         purpose = f"semantic_review_{round_index}"
         schema = VerificationDecision if inspection_allowed else FinalVerificationDecision
         decision = self.calls.ask(purpose, schema, self.system, self._fit_context(data, schema)).decision

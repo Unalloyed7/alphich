@@ -4,50 +4,107 @@
     {
       "id": "cbr-press",
       "url": "https://www.cbr.ru/rss/RssPress",
-      "article_hosts": ["www.cbr.ru", "cbr.ru"],
+      "article_hosts": [
+        "www.cbr.ru",
+        "cbr.ru"
+      ],
       "poll_seconds": 900,
       "max_items": 10
     },
     {
       "id": "cbr-events",
       "url": "https://www.cbr.ru/rss/eventrss",
-      "article_hosts": ["www.cbr.ru", "cbr.ru"],
+      "article_hosts": [
+        "www.cbr.ru",
+        "cbr.ru"
+      ],
       "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "mintrans",
+      "url": "https://mintrans.gov.ru/press-center/news",
+      "article_hosts": [
+        "mintrans.gov.ru",
+        "www.mintrans.gov.ru"
+      ],
+      "article_path_prefixes": [
+        "/press-center/news/"
+      ],
+      "format": "mintrans_html",
+      "poll_seconds": 1800,
+      "max_items": 10
+    },
+    {
+      "id": "eec",
+      "url": "https://eec.eaeunion.org/news/",
+      "article_hosts": [
+        "eec.eaeunion.org"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "format": "eec_html",
+      "poll_seconds": 1800,
+      "max_items": 10
+    },
+    {
+      "id": "fns",
+      "url": "https://www.nalog.gov.ru/rn77/rss/",
+      "article_hosts": [
+        "www.nalog.gov.ru",
+        "nalog.gov.ru"
+      ],
+      "article_path_prefixes": [
+        "/rn77/news/activities_fts/"
+      ],
+      "poll_seconds": 1800,
+      "max_items": 10
+    },
+    {
+      "id": "trendforce",
+      "url": "https://www.trendforce.com/presscenter/news/",
+      "article_hosts": [
+        "www.trendforce.com",
+        "trendforce.com"
+      ],
+      "article_path_prefixes": [
+        "/presscenter/news/"
+      ],
+      "format": "trendforce_html",
+      "poll_seconds": 3600,
       "max_items": 10
     },
     {
       "id": "interfax-business",
       "url": "https://www.interfax.ru/rss",
-      "article_hosts": ["www.interfax.ru", "interfax.ru"],
-      "article_path_prefixes": ["/business/"],
+      "article_hosts": [
+        "www.interfax.ru",
+        "interfax.ru"
+      ],
+      "article_path_prefixes": [
+        "/business/"
+      ],
       "poll_seconds": 900,
       "max_items": 10
     },
     {
       "id": "stroygaz",
       "url": "https://stroygaz.ru/rss/",
-      "article_hosts": ["stroygaz.ru", "www.stroygaz.ru"],
-      "poll_seconds": 900,
-      "max_items": 10
-    },
-    {
-      "id": "cnews",
-      "url": "https://www.cnews.ru/inc/rss/news.xml",
-      "article_hosts": ["www.cnews.ru", "cnews.ru"],
+      "article_hosts": [
+        "stroygaz.ru",
+        "www.stroygaz.ru"
+      ],
       "poll_seconds": 900,
       "max_items": 10
     },
     {
       "id": "agroinvestor",
       "url": "https://www.agroinvestor.ru/feed/public-agronews.xml",
-      "article_hosts": ["www.agroinvestor.ru", "agroinvestor.ru"],
-      "poll_seconds": 900,
-      "max_items": 10
-    },
-    {
-      "id": "elec",
-      "url": "https://www.elec.ru/news/feed.xml",
-      "article_hosts": ["www.elec.ru", "elec.ru"],
+      "article_hosts": [
+        "www.agroinvestor.ru",
+        "agroinvestor.ru"
+      ],
       "poll_seconds": 900,
       "max_items": 10
     }

@@ -3,7 +3,7 @@ import re
 from .inputs import instant, words
 from ..common import digest
 
-REPRINT_VERSION = "reprints-v1-shingles-numeric-guard"
+REPRINT_VERSION = "reprints-v2-business-scope-guard"
 
 
 def _signature(event):
@@ -13,7 +13,9 @@ def _signature(event):
     numbers = set(re.findall(r"\d+(?:[.,]\d+)?", event["title"] + " " + event["text"]))
     directions = {key for key, pattern in {"up": r"повыс|вырос|увелич", "down": r"сниз|сократ|упал",
         "hold": r"сохрани|неизмен", "negation": r"\bне\b|\bотмен|\bзапрет|\bприостанов"}.items() if re.search(pattern, body)}
-    dimensions = {digest({k:f["attributes"].get(k) for k in ("kind","topics","geography","forecast_horizon")}) for f in event["facts"]}
+    dimensions = {digest({k:f["attributes"].get(k) for k in ("kind", "topics", "geography", "forecast_horizon",
+        "industry_codes", "regions", "geographic_scope", "market_scope", "impact_scale", "event_status",
+        "business_effect", "applicability", "effective_from")}) for f in event["facts"]}
     entities = set(re.findall(r'«([^»]+)»|"([^"\n]+)"', event["title"]+" "+event["text"]))
     return body, shingles, numbers, directions, dimensions, entities
 

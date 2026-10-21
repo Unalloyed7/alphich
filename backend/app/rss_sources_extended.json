@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "feeds": [
+    {
+      "id": "cnews",
+      "url": "https://www.cnews.ru/inc/rss/news.xml",
+      "article_hosts": [
+        "www.cnews.ru",
+        "cnews.ru"
+      ],
+      "poll_seconds": 900,
+      "max_items": 10
+    },
+    {
+      "id": "elec",
+      "url": "https://www.elec.ru/news/feed.xml",
+      "article_hosts": [
+        "www.elec.ru",
+        "elec.ru"
+      ],
+      "poll_seconds": 900,
+      "max_items": 10
+    }
+  ]
+}

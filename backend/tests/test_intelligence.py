@@ -74,7 +74,10 @@ class ScriptedGateway:
         if title == "ExtractionDraft":
             quote = "invented quote absent from source" if self.options["bad_quote"] else data["text"].split(". ")[0] + "."
             result = {"facts": [] if self.options["empty_facts"] else [{"quote": quote,
-                "attributes": {"topics": ["policy_rate"], "geography": "RU", "kind": "rate_decision"}}]}
+                "attributes": {"topics": ["policy_rate"], "geography": "RU", "kind": "rate_decision",
+                    "geographic_scope": "national", "market_scope": "sector_wide",
+                    "impact_scale": "material",
+                    "business_effect": "financing", "event_status": "reported"}}]}
         elif title == "ExtractionReview":
             result = {"accepted_indexes": [] if self.options["reject_review"] else list(range(len(data["candidates"]))), "issues": []}
         elif title in {"ResearchDecision", "FinalResearchDecision"}:
@@ -802,6 +805,9 @@ def test_old_bank_forecast_cannot_override_newer_matching_forecast():
 def test_llm_job_history_feed_and_role_isolation(store):
     client, factory, headers, settings = store
     event_id = stored_event(client, factory, headers["DEMO_A"])
+    with factory.begin() as db:
+        event = db.get(Event, event_id)
+        db.get(SourceDocument, event.source_id).published_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
     job_id = queued_insight(client, headers["DEMO_A"], event_id).json()["id"]
     engine, _ = runtime(factory, settings)
     process_next(factory, engine)
@@ -812,6 +818,7 @@ def test_llm_job_history_feed_and_role_isolation(store):
     feed = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"])
     assert feed.status_code == 200, feed.text
     item = next(i for i in feed.json()["items"] if i["event_id"] == event_id)
+    assert item["relevance_grade"] == 4 and item["relevance_selected"] is True
     assert item["insight"]["status"] == "ready_with_conditions"
     ceo = {"X-Demo-Session": client.post("/api/v1/demo-session", json={"company_id": "DEMO_A", "role": "ceo"}).json()["token"]}
     assert client.get("/api/v1/insights/" + item["insight"]["id"], headers=ceo).status_code == 404
@@ -832,7 +839,9 @@ def test_historical_feed_filters_time_before_bounded_candidate_pool(store):
             db.add(Event(id=f"event_future_{i}", company_id="DEMO_A", source_id=source_id, title=f"Later source {i}"))
     response = client.get("/api/v1/companies/DEMO_A/feed", params={"as_of": (now - timedelta(days=1)).isoformat()}, headers=headers["DEMO_A"])
     assert response.status_code == 200, response.text
-    assert [item["event_id"] for item in response.json()["items"]] == [event_id]
+    assert response.json()["items"] == []  # Raw mentions cannot enter the grade 4/5 feed.
+    assert [item["event_id"] for item in response.json()["extraction_candidates"]] == [event_id]
+    assert len(response.json()["trace"]["visible_snapshots"]) == 1
 
 
 def test_call_limit_persists_between_worker_attempts(store):

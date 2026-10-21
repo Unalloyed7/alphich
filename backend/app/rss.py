@@ -13,6 +13,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -23,7 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core import Base, Company, make_session_factory
 from app.news import Job, PublicationInput, SourceDocument, digest_input, digest_request, new_id
 from app.rss_fetch import CollectionError, PublicFetcher, TIMEOUT, public_url
-from app.rss_parse import article_text, parse_feed
+from app.rss_parse import article_text, discover_items
 
 LOG = logging.getLogger(__name__)
 DEFAULT_CONFIG = Path(__file__).with_name('rss_sources.json')
@@ -43,6 +44,7 @@ class FeedConfig(BaseModel):
     url: str = Field(max_length=2048)
     article_hosts: list[str] = Field(min_length=1, max_length=10)
     article_path_prefixes: list[str] = Field(default_factory=list, max_length=16)
+    format: Literal['rss', 'mintrans_html', 'eec_html', 'trendforce_html'] = 'rss'
     poll_seconds: int = Field(default=900, ge=60, le=86400)
     max_items: int = Field(default=10, ge=1, le=50)
 
@@ -79,7 +81,7 @@ class FeedConfig(BaseModel):
     @property
     def selection_hash(self):
         return hashed(json.dumps({'url': self.url, 'hosts': sorted(self.hosts),
-            'paths': self.article_path_prefixes, 'max_items': self.max_items}, sort_keys=True))
+            'paths': self.article_path_prefixes, 'max_items': self.max_items, 'format': self.format}, sort_keys=True))
 
 
 def load_config(path=DEFAULT_CONFIG):
@@ -294,7 +296,7 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                     break
             result['status'] = 'not_modified'
         elif response.status == 200:
-            items = parse_feed(response.body, response.url)
+            items = discover_items(response.body, response.url, feed.format)
             result['feed_items'] = len(items)
             seen = set()
             for item in items:

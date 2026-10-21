@@ -34,7 +34,14 @@ def country(value):
 
 
 def industry_matches(company_code, prefix):
-    return bool(company_code and prefix and (company_code == prefix or company_code.startswith(prefix + ".")))
+    if not company_code or not prefix:
+        return False
+    if company_code == prefix or company_code.startswith(prefix + "."):
+        return True
+    # OKVED subgroup 49.4 includes 49.41: this level adds a digit without a dot.
+    parent, dot, last = prefix.rpartition(".")
+    return bool(dot and len(last) == 1 and company_code.startswith(parent + "." + last)
+                and len(company_code.split(".")[len(parent.split("."))]) == 2)
 
 
 @dataclass(frozen=True)
@@ -122,6 +129,24 @@ def normalize_event(row):
                 raise KnowledgeError("forecast_horizon_must_be_an_iso_date")
             if horizon:
                 datetime.strptime(horizon, "%Y-%m-%d")
+            dimensions = {
+                "geographic_scope": {"unknown", "national", "global_market", "regional", "local"},
+                "market_scope": {"unknown", "single_case", "sector_wide"},
+                "impact_scale": {"unknown", "limited", "material"},
+                "event_status": {"unknown", "reported", "proposal", "forecast", "in_force", "announcement"},
+                "business_effect": {"unknown", "core_market", "operating_requirement", "financing"},
+                "applicability": {"unknown", "whole_industry", "conditional"},
+            }
+            for name, allowed in dimensions.items():
+                value = attributes.get(name, "unknown")
+                if not isinstance(value, str) or value not in allowed:
+                    raise KnowledgeError("invalid_business_scope_attribute")
+                attributes[name] = value
+            effective = attributes.get("effective_from")
+            if effective is not None:
+                if not isinstance(effective, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", effective):
+                    raise KnowledgeError("effective_from_must_be_an_iso_date")
+                datetime.strptime(effective, "%Y-%m-%d")
             if not raw.get("id"):
                 raise KnowledgeError("fact_id_missing")
             facts.append({"id": raw["id"], "text": raw["text"], "source_id": source["id"],

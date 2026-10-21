@@ -26,6 +26,9 @@ export interface Insight {
   event_id: string;
   status: string;
   headline: string;
+  relevance_grade?: number;
+  relevance_selected?: boolean;
+  relevance_assessment?: { business_channel?: string; required_action?: string; limitations?: string[] };
   as_of: string;
   claims: Claim[];
   relevance_reasons: Array<{ explanation?: string; reason?: string; label?: string; code?: string; feature_ids?: string[]; [key: string]: unknown }>;
@@ -49,6 +52,9 @@ export interface FeedItem {
   event_id: string;
   event_version: number;
   priority?: number;
+  title?: string;
+  relevance_grade?: number;
+  relevance_assessment?: { business_channel?: string; required_action?: string; limitations?: string[] };
   relevance_tier?: string;
   status?: string;
   reasons?: Array<{ reason?: string; label?: string; explanation?: string; [key: string]: unknown }>;

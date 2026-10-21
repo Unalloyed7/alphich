@@ -31,7 +31,7 @@ def save_local(path, data):
 def collect_corpus(config, output, limit=20, per_feed=5):
     from app.rss import load_config
     from app.rss_fetch import PublicFetcher, CollectionError, public_url
-    from app.rss_parse import parse_feed, article_text
+    from app.rss_parse import discover_items, article_text
     if not 1 <= limit <= 100 or not 1 <= per_feed <= 20:
         raise ValueError("invalid_corpus_limits")
     if not Path(output).resolve().is_relative_to(Path("data/processed").resolve()):
@@ -44,7 +44,7 @@ def collect_corpus(config, output, limit=20, per_feed=5):
             fetcher = PublicFetcher()
             response = fetcher.get(feed.url, feed.hosts)
             if response.status != 200: raise CollectionError("feed_http_"+str(response.status))
-            candidates = parse_feed(response.body, response.url)
+            candidates = discover_items(response.body, response.url, feed.format)
             accepted = attempts = 0
             for item in candidates:
                 if len(events) >= limit or accepted >= per_feed: break

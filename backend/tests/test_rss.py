@@ -225,7 +225,7 @@ def test_redirect_target_is_checked_before_another_request(monkeypatch):
 def test_default_config_loads_and_duplicate_feed_ids_fail(tmp_path):
     defaults = {feed.id: feed for feed in load_config()}
     assert set(defaults) == {'cbr-press', 'cbr-events', 'interfax-business', 'stroygaz',
-                            'cnews', 'agroinvestor', 'elec'}
+                            'agroinvestor', 'mintrans', 'eec', 'fns', 'trendforce'}
     assert defaults['interfax-business'].article_path_prefixes == ['/business/']
     path = tmp_path / 'rss.json'
     path.write_text(json.dumps({'version': 1, 'feeds': [FEED.model_dump(), FEED.model_dump()]}))
@@ -402,35 +402,48 @@ def test_invalid_path_filter_configuration_is_rejected(prefix):
         FeedConfig.model_validate({**FEED.model_dump(), 'article_path_prefixes': [prefix]})
 
 
-def test_all_seven_configured_sources_enter_existing_queue_and_deduplicate(app_store):
+def test_all_configured_sources_enter_existing_queue_and_deduplicate(app_store):
     from urllib.parse import urlsplit
     _, factory, _ = app_store
     feeds = load_config()
     feed_by_url = {feed.url: feed for feed in feeds}
-    class SevenSources:
+    class ConfiguredSources:
         def __init__(self): self.article_downloads = 0
         def get(self, url, hosts, validators=None):
             if url in feed_by_url:
                 feed = feed_by_url[url]
-                path = '/business/story' if feed.id == 'interfax-business' else '/articles/' + feed.id
+                path = {
+                    'interfax-business': '/business/story', 'mintrans': '/press-center/news/12345',
+                    'eec': '/news/new-sector-rule/', 'fns': '/rn77/news/activities_fts/12345/',
+                    'trendforce': '/presscenter/news/20261020-12345.html',
+                }.get(feed.id, '/articles/' + feed.id)
                 item_url = 'https://' + urlsplit(feed.url).hostname + path
                 body = ('<rss><channel><item><title>Economic news for companies</title><link>'
                         + item_url + '</link></item></channel></rss>').encode()
+                if feed.format == 'mintrans_html':
+                    body = ('<div class="news-inf"><div><span class="date-span">20 октября 2026</span></div>'
+                            f'<a class="news-text" href="{path}">Economic news for companies</a></div>').encode()
+                elif feed.format == 'eec_html':
+                    body = (f'<a class="NewsItem" href="{path}"><div class="NewsItem__Date">20 октября 2026</div>'
+                            '<div class="NewsItem__Title">Economic news for companies</div></a>').encode()
+                elif feed.format == 'trendforce_html':
+                    body = (f'<div><h3><a class="title-link" href="{path}">Economic news for companies</a></h3>'
+                            '<h4>20 October 2026</h4></div>').encode()
                 return Download(url, 200, {'content-type': 'application/rss+xml'}, body)
             assert urlsplit(url).hostname in hosts
             self.article_downloads += 1
             return Download(url, 200, {'content-type': 'text/html'}, ARTICLE)
-    fetcher = SevenSources()
+    fetcher = ConfiguredSources()
     reports = collect_once(factory, feeds, ['U_A', 'U_B'], fetcher=fetcher, force=True)
     assert all(row['status'] == 'collected' and row['queued'] == 2 for row in reports)
     while process_next_job(factory):
         pass
     reports = collect_once(factory, feeds, ['U_A', 'U_B'], fetcher=fetcher, force=True)
     assert all(row['queued'] == 0 for row in reports)
-    assert fetcher.article_downloads == 7
+    assert fetcher.article_downloads == len(feeds)
     with factory() as db:
-        assert db.scalar(select(func.count()).select_from(Event)) == 14
-        assert db.scalar(select(func.count()).select_from(Job)) == 14
+        assert db.scalar(select(func.count()).select_from(Event)) == 2 * len(feeds)
+        assert db.scalar(select(func.count()).select_from(Job)) == 2 * len(feeds)
         assert db.scalar(select(func.count()).select_from(Job).where(Job.operation != 'publication_ingest')) == 0
 
 

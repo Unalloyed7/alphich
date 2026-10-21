@@ -43,7 +43,7 @@ def select_from_files(args):
     selector = NewsSelector(events, encoder)
     allowed = args.allow_event if args.allow_event is not None else [e["id"] for e in events]
     scope = SelectionScope(args.company_id, args.as_of, frozenset(allowed), args.role)
-    result = selector.select(selected[0], scope, mode=args.mode, limit=args.limit)
+    result = selector.select(selected[0], scope, mode=args.mode, limit=args.limit, min_grade=args.min_grade)
     if args.bank_index_dir:
         from ..context import context_for_model
         from ..retriever import BankRetriever, RetrievalScope
