@@ -16,6 +16,7 @@ from .provider import call_role, hashed
 from .schemas import InsightRequest, QuestionRequest
 from .service import company_profile, normalized_event
 from .settings import AnalysisError, Settings
+from .gateway import inspect_gateway
 from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, CostReceipt, Insight, LLMCall
 from . import news_index as _news_index  # Register additive persistent index tables at startup.
 from .automation import AutomationRecord, AutomationConfig
@@ -97,6 +98,14 @@ def register_routes(app, get_db, current_session, factory):
                 "extraction_model": settings.extraction_model or None, "analysis_model": settings.analysis_model or None,
                 "bank_index_present": __import__("pathlib").Path(settings.bank_index).is_dir()}
 
+    @app.get("/api/v1/llm/gateway-status")
+    def gateway_status(demo=Depends(current_session)):
+        # GET /models and /key/info only; never a completion or ledger mutation.
+        try:
+            return inspect_gateway(config())
+        except AnalysisError as exc:
+            raise HTTPException(503, exc.code) from None
+
     @app.get("/api/v1/companies/{company_id}/automation")
     def automation_status(company_id: str, demo=Depends(current_session), db=Depends(get_db)):
         if company_id != demo.company_id:
@@ -158,6 +167,8 @@ def register_routes(app, get_db, current_session, factory):
                                "input_tokens": c.input_tokens, "output_tokens": c.output_tokens,
                                "cost_rub": str(c.cost_micros / 1_000_000) if c.cost_micros is not None else None,
                                "cost_source": receipts[c.id].source if c.id in receipts else "configured_token_prices",
+                               "receipt": {"amount": receipts[c.id].amount, "rub_per_unit": receipts[c.id].rub_per_unit,
+                                           "source": receipts[c.id].source} if c.id in receipts else None,
                                "reserved_rub": str(c.reserved_micros / 1_000_000), "error": c.error} for c in calls]}
 
     @app.get("/api/v1/evidence/{evidence_id}")

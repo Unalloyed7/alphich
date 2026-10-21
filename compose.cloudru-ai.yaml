@@ -4,13 +4,16 @@
 # it must not be applied to a different gateway as an assumed exchange rate.
 x-organizer-demo: &organizer-demo
   LLM_BASE_URL: https://changellenge.up.railway.app/v1
-  LLM_EXTRACTION_MODEL: qwen/qwen3.6-35b-a3b
+  # Qwen returned HTTP 503 on the deployed path; use the allowed GLM model
+  # for this bounded demo instead of automatically retrying the failed call.
+  LLM_EXTRACTION_MODEL: z-ai/glm-5.3-flash
   LLM_ANALYSIS_MODEL: z-ai/glm-5.3-flash
   LLM_BUDGET_MODE: gateway_receipt
   LLM_RECEIPT_RUB_PER_UNIT: "1"
   LLM_MODEL_CATALOG_JSON: >-
     [{"id":"qwen/qwen3.6-35b-a3b","case_model":"qwen3.6-35b-a3b","input_limit":32768,"output_limit":2500,"reasoning_enabled":false,"response_mode":"json_schema"},{"id":"z-ai/glm-5.3-flash","case_model":"glm-5.3-flash","input_limit":32768,"output_limit":2500,"reasoning_enabled":false,"response_mode":"json_schema"}]
   AI_AUTOMATION_ENABLED: "0"
+  LLM_RECONCILE_ZERO_HTTP_RECEIPTS: "1"
 
 services:
   api:

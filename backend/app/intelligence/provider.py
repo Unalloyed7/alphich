@@ -1,6 +1,8 @@
 """Chat-completions wire adapter with atomic, shared RUB accounting.
 
-No HTTP retry: a timeout may have been billed. Unknown usage keeps its reserve.
+No HTTP retry: a timeout may have been billed. Unknown outcomes keep their reserve.
+An explicit HTTP rejection with a validated zero-cost receipt can settle at zero
+without inventing token usage or publishing a result.
 The gateway protocol and actual model IDs must be confirmed by organizers.
 """
 from __future__ import annotations
@@ -18,7 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from .settings import AnalysisError, SchemaFailure, micros
-from .storage import BudgetDay, CostReceipt, LLMCall
+from .storage import BudgetDay, CostReceipt, CostReconciliation, LLMCall
 
 
 def canonical(value):
@@ -180,12 +182,14 @@ def settle(factory, call_id, model, result, usage, error=None, *, settings=None,
             cost = model.cost(incoming, outgoing)
         if valid:
             call.input_tokens, call.output_tokens = incoming, outgoing
-        if valid and cost is not None:
-            call.cost_micros, call.input_tokens, call.output_tokens = cost, incoming, outgoing
+        zero_http_error = (receipt_mode and cost == 0 and isinstance(error, str)
+                           and re.fullmatch(r"llm_http_[45][0-9]{2}", error))
+        if cost is not None and (valid or zero_http_error):
+            call.cost_micros = cost
             db.execute(update(BudgetDay).where(BudgetDay.day == call.day).values(
                 reserved_micros=BudgetDay.reserved_micros - call.reserved_micros,
                 spent_micros=BudgetDay.spent_micros + cost))
-            if incoming > model.input_limit or outgoing > model.output_limit:
+            if valid and (incoming > model.input_limit or outgoing > model.output_limit):
                 error = "provider_exceeded_declared_token_limits"
             if cost > call.reserved_micros:
                 error = "provider_exceeded_reserved_budget"
@@ -193,6 +197,44 @@ def settle(factory, call_id, model, result, usage, error=None, *, settings=None,
         call.error = error or ("usage_unknown_reserve_retained" if not valid else
                                "cost_unknown_reserve_retained" if cost is None else None)
         call.status = "failed" if error else "completed" if valid and cost is not None else "usage_unknown" if not valid else "cost_unknown"
+
+
+def reconcile_zero_http_receipts(factory):
+    """Account legacy failed HTTP calls only when their stored receipt proves zero.
+
+    Missing/positive/invalid receipts and timeout/network outcomes remain held.
+    Calls stay failed, usage stays unknown, and each release has an audit row.
+    """
+    with factory() as db:
+        ids = list(db.scalars(select(LLMCall.id).join(CostReceipt, CostReceipt.call_id == LLMCall.id).where(
+            LLMCall.status == "failed", LLMCall.cost_micros.is_(None))))
+    settled = 0
+    for call_id in ids:
+        with factory.begin() as db:
+            call, receipt = db.get(LLMCall, call_id), db.get(CostReceipt, call_id)
+            if (not call or not receipt or call.cost_micros is not None or call.status != "failed"
+                    or receipt.source != "x-litellm-response-cost"
+                    or not re.fullmatch(r"llm_http_[45][0-9]{2}", call.error or "")):
+                continue
+            try:
+                amount, unit = Decimal(receipt.amount), Decimal(receipt.rub_per_unit)
+                if not amount.is_finite() or amount != 0 or not unit.is_finite() or not 0 < unit <= 1_000_000:
+                    continue
+            except InvalidOperation:
+                continue
+            claimed = db.execute(update(LLMCall).where(LLMCall.id == call_id, LLMCall.status == "failed",
+                LLMCall.cost_micros.is_(None)).values(cost_micros=0))
+            if claimed.rowcount != 1:
+                continue
+            released = db.execute(update(BudgetDay).where(BudgetDay.day == call.day,
+                BudgetDay.reserved_micros >= call.reserved_micros).values(
+                    reserved_micros=BudgetDay.reserved_micros - call.reserved_micros))
+            if released.rowcount != 1:
+                raise AnalysisError("budget_reconciliation_inconsistent")
+            db.add(CostReconciliation(call_id=call_id, reason="validated_zero_receipt_for_http_error",
+                released_micros=call.reserved_micros, created_at=int(time.time())))
+            settled += 1
+    return {"settled_zero_receipts": settled}
 
 
 class Provider:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import time
 
 from sqlalchemy import or_, select, update
@@ -87,6 +88,9 @@ def main():
     engine, factory = make_session_factory()
     Base.metadata.create_all(engine)
     runtime = Runtime(factory, Settings.from_env())
+    if os.getenv("LLM_RECONCILE_ZERO_HTTP_RECEIPTS") == "1":
+        from .provider import reconcile_zero_http_receipts
+        LOG.info("Cost receipt reconciliation: %s", reconcile_zero_http_receipts(factory))
     from .automation import AutomationConfig, dispatch_once
     from .news_index import encoder_for, sync_index, target_ids
     automation = AutomationConfig.from_env()
