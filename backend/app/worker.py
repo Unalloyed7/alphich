@@ -15,6 +15,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core import Base, make_session_factory
 from app.news import Event, Job, SourceDocument, new_id
+from app.intelligence.discovery import collect_tick
 
 LOG = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
@@ -144,7 +145,8 @@ def main() -> None:
     LOG.info("Ingestion worker started")
     try:
         while True:
-            if not process_next_job(factory):
+            processed = process_next_job(factory)
+            if not processed and not collect_tick(factory):
                 time.sleep(args.poll_interval)
     except KeyboardInterrupt:
         LOG.info("Worker stopped")

@@ -225,12 +225,24 @@ def test_redirect_target_is_checked_before_another_request(monkeypatch):
 def test_default_config_loads_and_duplicate_feed_ids_fail(tmp_path):
     defaults = {feed.id: feed for feed in load_config()}
     assert set(defaults) == {'cbr-press', 'cbr-events', 'interfax-business', 'stroygaz',
-                            'agroinvestor', 'mintrans', 'eec', 'fns', 'trendforce'}
+                            'agroinvestor', 'mintrans', 'eec', 'fns', 'trendforce', 'russoft'}
     assert defaults['interfax-business'].article_path_prefixes == ['/business/']
     path = tmp_path / 'rss.json'
     path.write_text(json.dumps({'version': 1, 'feeds': [FEED.model_dump(), FEED.model_dump()]}))
     with pytest.raises(CollectionError, match='invalid_rss_config'):
         load_config(path)
+
+
+def test_russoft_relative_listing_dates_use_only_explicit_article_publication_metadata():
+    from app.rss_parse import discover_items, article_publication_date
+    body = ('<div><a class="post__name" href="/news/new-software-market/">Новости рынка программного обеспечения</a>'
+            '<div class="post__date">Сегодня 15:41</div></div>').encode()
+    item = discover_items(body, 'https://russoft.org/news/', 'russoft_html')[0]
+    assert item.published_at is None
+    article = b'<html><head><meta property="article:published_time" content="2026-10-21T15:41:00+03:00"></head></html>'
+    assert article_publication_date(article) == '2026-10-21T12:41:00+00:00'
+    assert article_publication_date(article.replace(b'published_time', b'modified_time')) is None
+    assert article_publication_date(b'<html>Today 15:41</html>') is None
 
 
 def test_article_shared_by_two_feeds_is_available_for_304_catchup(app_store):
@@ -416,6 +428,7 @@ def test_all_configured_sources_enter_existing_queue_and_deduplicate(app_store):
                     'interfax-business': '/business/story', 'mintrans': '/press-center/news/12345',
                     'eec': '/news/new-sector-rule/', 'fns': '/rn77/news/activities_fts/12345/',
                     'trendforce': '/presscenter/news/20261020-12345.html',
+                    'russoft': '/news/new-sector-rule/',
                 }.get(feed.id, '/articles/' + feed.id)
                 item_url = 'https://' + urlsplit(feed.url).hostname + path
                 body = ('<rss><channel><item><title>Economic news for companies</title><link>'
@@ -429,6 +442,9 @@ def test_all_configured_sources_enter_existing_queue_and_deduplicate(app_store):
                 elif feed.format == 'trendforce_html':
                     body = (f'<div><h3><a class="title-link" href="{path}">Economic news for companies</a></h3>'
                             '<h4>20 October 2026</h4></div>').encode()
+                elif feed.format == 'russoft_html':
+                    body = (f'<div><a class="post__name" href="{path}">Economic news for companies</a>'
+                            '<div class="post__date">20 октября 2026</div></div>').encode()
                 return Download(url, 200, {'content-type': 'application/rss+xml'}, body)
             assert urlsplit(url).hostname in hosts
             self.article_downloads += 1

@@ -4,6 +4,7 @@ import type { Job, DemoSession } from './types';
 import type { Answer, AuditRun, Claim, Evidence, FeedItem, FeedResult, Insight, LlmStatus } from './analysis';
 import { claimReferenceTexts, relevanceDescription } from './insightPresentation';
 import './insight.css';
+import { DiscoveryPanel } from './DiscoveryPanel';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'Не удалось выполнить запрос';
@@ -64,11 +65,8 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
     void analysisApi.status(session.token).then(x => { if (active) setStatus(x); })
       .catch(e => { if (active) setStatusError(message(e)); });
     // A previously generated result is read from the server, never fabricated locally.
-    void analysisApi.feed(session.company_id, session.token).then(async feed => {
-      const id = feed.items.find(item => item.event_id === eventId)?.insight?.id;
-      if (!id) return;
-      const item = await analysisApi.insight(id, session.token);
-      if (active) { setInsight(item); onInsightReady(eventId, item.status); }
+    void analysisApi.savedEventInsight(eventId, session.token).then(({ insight: item }) => {
+      if (active && item) { setInsight(item); onInsightReady(eventId, item.status); }
     }).catch(() => { /* Feed is optional if ranking isn't available. */ });
     return () => { active = false; };
   }, [session.company_id, session.token, eventId, onInsightReady]);
@@ -204,6 +202,7 @@ export function InsightFeed({ session, onEvent }: { session: DemoSession; onEven
       if (!silent && current === feedRequest.current) setLoading(false);
     }
   }, [session.company_id, session.token]);
+  const discoveryChanged = useCallback(() => { void reload(true); }, [reload]);
   useEffect(() => {
     setFeed(null);
     void reload();
@@ -215,6 +214,7 @@ export function InsightFeed({ session, onEvent }: { session: DemoSession; onEven
   return <div className="insight-feed panel">
     <div className="section-header"><div><div className="eyebrow">КОМПАНИЯ / РОЛЬ</div><h2>Аналитическая лента</h2><p>События с оценкой 4–5 из 5: учитываем деятельность, географию и масштаб.</p></div>
       <button type="button" className="ghost-button" onClick={() => void reload()} disabled={loading}>{loading ? 'Загрузка…' : 'Обновить'}</button></div>
+    <DiscoveryPanel key={session.token} session={session} onEvent={onEvent} onChanged={discoveryChanged} />
     {error && <p className="insight-error" role="alert">{error}</p>}
     {!loading && feed?.items.length === 0 && <p className="insight-muted">Пока нет событий с подтверждённой значимостью 4–5. Загруженные публикации доступны в разделе событий; для оценки нужен разбор фактов.</p>}
     {feed?.items.map((item: FeedItem) => <article key={`${item.event_id}:${item.event_version}`} className="insight-feed-item">
