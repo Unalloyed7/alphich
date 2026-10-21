@@ -104,6 +104,21 @@ def input_bytes(model, system, data, schema):
     return len(canonical(request_payload(model, system, data, schema)).encode()) + 256
 
 
+def apply_configured_budget(factory, settings):
+    """Explicit operator allocation at startup; preserve all spending and unknown reserves."""
+    settings.validate()
+    day = datetime.now(timezone.utc).date().isoformat()
+    with factory.begin() as db:
+        insert = sqlite_insert if db.bind.dialect.name == "sqlite" else pg_insert
+        db.execute(insert(BudgetDay).values(day=day, limit_micros=settings.daily_limit_micros,
+            spent_micros=0, reserved_micros=0).on_conflict_do_nothing(index_elements=["day"]))
+        row = db.execute(update(BudgetDay).where(BudgetDay.day == day)
+            .values(limit_micros=settings.daily_limit_micros)
+            .returning(BudgetDay.limit_micros, BudgetDay.spent_micros, BudgetDay.reserved_micros)).one()
+    return {"budget_day_utc": day, "daily_limit_rub": str(row[0] / 1_000_000),
+            "spent_rub": str(row[1] / 1_000_000), "reserved_rub": str(row[2] / 1_000_000)}
+
+
 def reserve(factory, settings, call_id, run_id, model, purpose, request_hash):
     day = datetime.now(timezone.utc).date().isoformat()
     receipt_mode = settings.budget_mode == "gateway_receipt"

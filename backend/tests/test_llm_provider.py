@@ -29,6 +29,33 @@ def ledger(tmp_path):
     engine.dispose()
 
 
+def test_explicit_budget_allocation_preserves_spend_unknown_reserve_and_call_identity(ledger):
+    from datetime import datetime, timezone
+    _, factory, settings, model = ledger
+    settings = replace(settings, daily_limit_micros=100_000_000, budget_mode='gateway_receipt',
+                       receipt_rub_per_unit=Decimal('1'))
+    day = datetime.now(timezone.utc).date().isoformat()
+    with factory.begin() as db:
+        db.add(BudgetDay(day=day, limit_micros=10_000_000,
+                         spent_micros=9_511_496, reserved_micros=488_504))
+        db.add(LLMCall(id='unknown-prior-call', run_id='old-run', day=day, model=model.id,
+            purpose='step', request_hash='hash', status='reserved', reserved_micros=488_504))
+    for _ in range(2):
+        state = provider_module.apply_configured_budget(factory, settings)
+        assert state['daily_limit_rub'] == '100.0'
+        assert state['spent_rub'] == '9.511496' and state['reserved_rub'] == '0.488504'
+    with pytest.raises(AnalysisError, match='previous_call_outcome_unknown'):
+        reserve(factory, settings, 'unknown-prior-call', 'old-run', model, 'step', 'hash')
+    reserve(factory, settings, 'new-authorized-call', 'new-run', model, 'step', 'new-hash')
+    with factory() as db:
+        budget = db.get(BudgetDay, day)
+        assert budget.limit_micros == 100_000_000 and budget.spent_micros == 9_511_496
+        assert db.get(LLMCall, 'unknown-prior-call').reserved_micros == 488_504
+        assert db.get(LLMCall, 'unknown-prior-call').status == 'reserved'
+        assert db.get(LLMCall, 'new-authorized-call').reserved_micros == 90_000_000
+        assert budget.reserved_micros == 90_488_504
+
+
 def test_concurrent_settlement_charges_one_time(ledger):
     engine, factory, settings, model = ledger
     reserve(factory, settings, "settle-once", "run", model, "step", "hash")
