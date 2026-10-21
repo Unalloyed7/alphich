@@ -10,7 +10,7 @@ from app.rss import FeedConfig, RssFeedArticle, hashed as feed_hash
 from app.intelligence.discovery import DiscoveryRun, analyze_tick, collect_tick
 from app.intelligence.storage import AnalysisTask, BudgetDay, Insight, LLMCall
 from app.intelligence.worker import process_next
-from test_intelligence import store, runtime, ScriptedGateway
+from test_intelligence import store, runtime, ScriptedGateway, queued_insight
 from test_news_automation import copies as public_copies
 
 
@@ -134,23 +134,64 @@ def test_only_five_does_not_promote_a_four_or_pay_for_personal_analysis(store):
         assert db.scalar(select(func.count()).select_from(Insight)) == 0
 
 
-def test_new_run_reuses_current_saved_card_without_queuing_another_paid_job(store):
-    _, factory, _, settings = store
-    copies(store)
-    first = start(store).json()['id']
-    collect_tick(factory, feeds=[])
+def test_new_run_reuses_a_manual_saved_card_without_queuing_another_paid_job(store):
+    client, factory, headers, settings = store
+    ids = copies(store)
     engine, gateway = runtime(factory, settings)
-    drain(store, engine)
-    saved = detail(store, first).json()['items'][0]['insight_id']
+    job = queued_insight(client, headers['DEMO_A'], ids[0]).json()
+    assert process_next(factory, engine)
+    saved = client.get('/api/v1/jobs/' + job['id'], headers=headers['DEMO_A']).json()['result_id']
     calls = len(gateway.seen)
     second = start(store, key='discovery-reuse-002').json()['id']
-    assert second != first
     collect_tick(factory, feeds=[])
     drain(store, engine)
     value = detail(store, second).json()
     assert value['status'] == 'completed' and value['stats']['reused'] == 1
     assert value['items'][0]['insight_id'] == saved
     assert float(value['cost_rub']) == 0 and len(gateway.seen) == calls
+
+
+def test_another_search_skips_processed_articles_even_after_a_new_login(store):
+    client, factory, headers, settings = store
+    copies(store)
+    first = start(store).json()['id']
+    collect_tick(factory, feeds=[])
+    engine, gateway = runtime(factory, settings)
+    drain(store, engine)
+    calls = len(gateway.seen)
+    token = client.post('/api/v1/demo-session', json={'company_id': 'DEMO_A', 'role': 'cfo'}).json()['token']
+    second = client.post('/api/v1/companies/DEMO_A/discovery', json={'target': 1},
+        headers={'X-Demo-Session': token, 'Idempotency-Key': 'fresh-search-002'}).json()['id']
+    collect_tick(factory, feeds=[])
+    drain(store, engine)
+    value = detail(store, second).json()
+    assert value['stop_reason'] == 'sources_exhausted' and value['items'] == []
+    assert value['stats']['previously_checked'] == 1 and value['stats']['checked'] == 0
+    assert float(value['cost_rub']) == 0 and len(gateway.seen) == calls
+
+
+@pytest.mark.parametrize('changed', ['profile', 'source', 'not_processed'])
+def test_changed_inputs_or_unprocessed_items_remain_eligible(store, changed):
+    _, factory, _, settings = store
+    copies(store)
+    first = start(store).json()['id']
+    collect_tick(factory, feeds=[])
+    engine, _ = runtime(factory, settings)
+    drain(store, engine)
+    with factory.begin() as db:
+        old = db.get(DiscoveryRun, first)
+        if changed == 'profile':
+            old.profile = {**old.profile, 'profile_version': 'older-profile'}
+        elif changed == 'source':
+            old.items = [{**i, 'source_revision': 'older-source'} for i in old.items]
+        else:
+            old.items = [{**i, 'state': 'pending', 'grade': None} for i in old.items]
+    second = start(store, key='fresh-changed-002').json()['id']
+    collect_tick(factory, feeds=[])
+    drain(store, engine)
+    value = detail(store, second).json()
+    assert value['status'] == 'completed' and value['stats']['previously_checked'] == 0
+    assert value['stats']['reused'] == 1
 
 
 @pytest.mark.parametrize('change', [
