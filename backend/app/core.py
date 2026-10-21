@@ -180,6 +180,7 @@ def feature_evidence(company: Company) -> list[dict]:
     values: list[tuple[str, object]] = [
         ("okved_code", company.okved_code), ("okved_name", company.okved_name),
         ("region_registration", company.region), ("revenue_raw", company.revenue_raw),
+        ("group_id", company.group_id),
         ("fts_countries", company.countries),
     ] + [(key, value) for key, value in company.products.items()]
     out = []

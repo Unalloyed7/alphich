@@ -42,6 +42,9 @@ business_relevance — серверная значимость от нуля д�
 Платёжная связь не доказывает поставку, продажу, долг или договор. Доли — от всего наблюдаемого потока,
 а не top-N; учитывай покрытие профилями. Валюта, период и назначение платежей неизвестны.
 Отрасль контрагента — условный контекст; ссылайся на исходный payment feature ID своей компании.
+business_context.hypotheses — непроверенные гипотезы, не факты и не доказательства воздействия.
+Выбирай канал по новости и признакам компании; неизвестные условия укажи явно.
+Общий GROUP_ID не доказывает общие обязательства, операции или долги.
 """
 REVIEW = """Проверь каждый факт, вывод и действие; совпадение ID не доказывает поддержку.
 Факты должны соответствовать указанным источникам; истинность новости в мире не проверяется.
@@ -67,6 +70,10 @@ class Tools:
         self.profile, self.event, self.selection, self.scope = profile, event, selection, scope
         self.bank, self.related = bank, list(related_events)
         self.registry = company_evidence(profile)
+        from alphich_kb.personalization.business import business_context
+        self.business_context = (business_context(profile) if profile.get("profile_version") else
+            {"status": "unavailable", "observed": [], "hypotheses": [],
+             "limitations": ["immutable_profile_version_missing"]})
         self.registry.update({f["id"]: {**f, "kind": "event_fact", "event_id": event["id"],
                                       "company_id": scope.company_id} for f in event["facts"]})
         self.bank_contexts, self.steps, self.seen = [], [], set()
@@ -93,6 +100,18 @@ class Tools:
             return action.model_copy(update={"ids": [self.real_ids.get(i, i) for i in action.ids]})
         return action
 
+    def prompt_business_context(self, focus=None):
+        """Do not reintroduce evidence intentionally removed by the task focus."""
+        context = self.business_context
+        if focus:
+            excluded = set(focus["not_inference_basis_ids"])
+            context = {**context, "observed": [o for o in context["observed"]
+                       if not excluded.intersection(o["evidence_ids"])],
+                       "hypotheses": [h for h in context["hypotheses"] if h["id"] == "customer_investment"]}
+        # Observed values are already present as original registry evidence.
+        return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "group_policy")
+                           if key in context})
+
     def resolve_draft(self, draft):
         return draft.model_copy(update={
             "fact_evidence_ids": [self.real_ids.get(i, i) for i in draft.fact_evidence_ids],
@@ -107,7 +126,7 @@ class Tools:
             from alphich_kb.retriever import RetrievalScope
             retriever, allowed = self.bank
             raw = retriever.retrieve(query, RetrievalScope(self.bank_day, allowed), metric=metric, horizon=horizon,
-                                     max_context_chars=5000, mode="dense")
+                                     max_context_chars=5000, mode="hybrid" if getattr(retriever, "reranker", None) else "dense")
             result = context_for_model(raw)
             for item in result["untrusted_source_data"]:
                 self.registry[item["id"]] = item
@@ -241,7 +260,8 @@ def analyze(tools, calls, question=None):
         excluded = focus["not_inference_basis_ids"] if focus else ()
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
                 "event": {k: tools.event.get(k) for k in ("id", "title", "published_at")},
-                "question": question, "relevance_reasons": tools.expose(tools.selection.get("reasons", [])),
+                "question": question, "business_context": tools.prompt_business_context(focus),
+                "relevance_reasons": tools.expose(tools.selection.get("reasons", [])),
                 "business_relevance": tools.expose({k: tools.selection.get(k) for k in (
                     "relevance_grade", "relevance_selected", "relevance_assessment", "grading_version")}),
                 "evidence": tools.prompt_evidence(exclude_ids=excluded), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
@@ -257,9 +277,18 @@ def analyze(tools, calls, question=None):
                                        [i for i, e in tools.registry.items() if e["kind"] == "company_feature"])}
         must_finish = (force_finish or calls.provider.settings.max_calls - calls.count <= 2 or
                        tools.tool_count >= calls.provider.settings.max_tools)
+        schema = FinalDecision if must_finish else Decision
+        request_data = {**data, "must_finish": must_finish}
+        from .provider import input_bytes
+        model = calls.provider.settings.models[calls.provider.settings.analysis_model]
+        if input_bytes(model, system, request_data, schema.model_json_schema()) > model.input_limit:
+            # The dossier is optional guidance; never shorten scope, evidence or
+            # a question to make generic business hypotheses fit.
+            request_data.pop("business_context", None)
+            tools.steps.append({"agent_role": "coordinator", "action": "bound_business_context",
+                                "result": {"status": "omitted_for_input_budget"}})
         try:
-            decision = calls.ask(f"agent_{index}", FinalDecision if must_finish else Decision, system,
-                                 {**data, "must_finish": must_finish}).decision
+            decision = calls.ask(f"agent_{index}", schema, system, request_data).decision
         except SchemaFailure as exc:
             if repaired or calls.count + 2 > calls.provider.settings.max_calls:
                 raise
