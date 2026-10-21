@@ -76,7 +76,7 @@ def view_run(db, run):
         'cost_rub': str(sum(c.cost_micros or 0 for c in calls) / 1_000_000),
         'cost_unknown': any(c.cost_micros is None for c in calls),
         'sources': run.collection, 'items': [{k: v for k, v in item.items() if k not in
-            {'facts_job_id', 'analysis_job_id'}} for item in items]}
+            {'facts_job_id', 'analysis_job_id', 'source_revision'}} for item in items]}
 
 
 def collect_tick(factory, *, feeds=None, poll=None, now=None):
@@ -164,8 +164,33 @@ def candidate_pool(db, run):
         .order_by(SourceDocument.received_at.desc(), Event.id).limit(300)))
     profile, candidates = normalize_company(run.profile), []
     allowed_articles = configured_article_ids(db)
+    current_sources = {event.id: source for event, source in rows}
+    revisions = {ident: hashed([source.id, source.version, source.content_hash])
+                 for ident, source in current_sources.items()}
+    previously_checked = set()
+    # History belongs to the company/role, not a browser session. A refresh or
+    # new login must not turn already processed articles into new discoveries.
+    history = db.scalars(select(DiscoveryRun).where(DiscoveryRun.company_id == run.company_id,
+        DiscoveryRun.role == run.role, DiscoveryRun.id != run.id))
+    retryable = {'budget_exceeded', 'discovery_cancelled', 'llm_not_configured'}
+    for previous in history:
+        if (previous.profile.get('profile_version') != run.profile.get('profile_version') or
+                previous.profile.get('payment_context_version') != run.profile.get('payment_context_version')):
+            continue
+        for old in previous.items:
+            ident = old['event_id']
+            if ident not in revisions or (old['state'] not in {'completed', 'below_threshold'} and
+                    not (old['state'] == 'failed' and old.get('error') not in retryable)):
+                continue
+            # Old runs did not store this fingerprint. Collector sources at
+            # version 1 are immutable; changed source versions remain eligible.
+            old_revision = old.get('source_revision')
+            if old_revision == revisions[ident] or (old_revision is None and current_sources[ident].version == 1):
+                previously_checked.add(ident)
     scope = SelectionScope(run.company_id, run.as_of, frozenset(e.id for e, _ in rows), run.role)
     for event, source in rows:
+        if event.id in previously_checked:
+            continue
         public = _public_snapshot(db, source)
         if public is None or public['article_id'] not in allowed_articles:
             continue
@@ -178,13 +203,16 @@ def candidate_pool(db, run):
             'unverified_industry_mention', 'unverified_credit_rate_channel', 'unverified_deposit_rate_channel'}]
         if meaningful:
             item['discovery_priority'] = max(r['base'] for r in meaningful)
+            item['source_revision'] = revisions[event.id]
             item['age_anchor'] = item['published_at'] or item['available_at']
             candidates.append(item)
     grouped, duplicates = group_reprints(candidates)
     ranked = sorted(grouped, key=lambda e: (-e['discovery_priority'], e['id']))
-    return [{'event_id': e['id'], 'title': e['title'], 'state': 'pending', 'grade': None}
+    return [{'event_id': e['id'], 'title': e['title'], 'state': 'pending', 'grade': None,
+             'source_revision': e['source_revision']}
             for e in ranked[:run.max_candidates]], {'scanned': len(rows), 'preselected': len(ranked),
-            'duplicates': sum(duplicates.values()), 'pre_filtered': len(rows) - len(candidates)}
+            'duplicates': sum(duplicates.values()), 'pre_filtered': len(rows) - len(candidates),
+            'previously_checked': len(previously_checked)}
 
 
 def enqueue_child(db, run, item, operation, source, now):
