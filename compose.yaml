@@ -15,6 +15,7 @@ x-llm-environment: &llm-environment
   E5_MODEL_DIR: /data/models/e5-base
   E5_MODEL_MANIFEST: /srv/knowledge/embedding-model.json
   BANK_ALLOWED_DOCUMENT_IDS: ${BANK_ALLOWED_DOCUMENT_IDS-*}
+  COMPANY_CONTEXT_DIR: ${COMPANY_CONTEXT_DIR:-}
 
 services:
   postgres:

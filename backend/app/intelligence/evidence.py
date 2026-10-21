@@ -19,11 +19,23 @@ def company_evidence(profile):
         if feature["name"] == "person_links":
             continue
         value = feature["value"]
+        if feature["name"] in {"payment_incoming", "payment_outgoing"}:
+            label = "Входящие" if feature["name"] == "payment_incoming" else "Исходящие"
+            sectors = "; ".join(f"{s.get('code')}: {str(s.get('name') or '')[:70]}, доля {s.get('share_of_all_flow')}"
+                                for s in value.get("known_sectors", [])[:3])
+            text = (f"{label} платежи: сумма в исходных единицах {value.get('amount_raw')}; "
+                    f"количество платежей {value.get('payment_count')}; контрагентов {value.get('counterparty_count')}; "
+                    f"доля крупнейшего {value.get('top_counterparty_share')}; "
+                    f"покрытие известными профилями {value.get('known_profile_amount_share')}. "
+                    "Доли от 0 до 1. Валюта, период и назначение платежей неизвестны. "
+                    f"До трёх отраслей известных контрагентов: {sectors or 'нет данных'}.")
+        else:
+            text = None
         display = "да" if value is True else "нет" if value is False else "неизвестно" if value is None else (
             ", ".join(value) if isinstance(value, list) and all(isinstance(v, str) for v in value)
             else json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value))
         result[feature["id"]] = {**feature, "kind": "company_feature", "company_id": profile.get("company_id", profile.get("id")),
-                                 "text": f"{LABELS.get(feature['name'], feature['name'])}: {display}.",
+                                 "text": text or f"{LABELS.get(feature['name'], feature['name'])}: {display}.",
                                  "quality_flags": ["company_snapshot_date_unknown"]}
     return result
 

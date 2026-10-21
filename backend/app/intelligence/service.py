@@ -11,20 +11,22 @@ from app.core import feature_evidence
 from app.news import Event, SourceDocument, new_id, serialize_event
 from . import AGENT_ROLES, VERSION
 from .agent import Tools, analyze
-from .extraction import EXTRACTION_VERSION, extract
+from .extraction import EXTRACTION_VERSION
 from .provider import Calls, Provider, hashed
 from .settings import AnalysisError
 from .storage import AnalysisLease, AnalysisRun, Answer, Extraction, Insight, LLMCall
 
 
-def company_profile(company, role):
-    return {"id": company.id, "role": role, "profile_version": company.profile_version,
+def company_profile(company, role, payment_context=None):
+    from .payments import enrich_payments
+    profile = {"id": company.id, "role": role, "profile_version": company.profile_version,
             "industry": {"okved_code": company.okved_code, "okved_name": company.okved_name},
             "region_registration": company.region, "city_registration": company.city,
             "products": company.products, "fts_flag": company.fts_flag, "fts_countries": company.countries,
             "features": feature_evidence(company), "quality_flags": company.quality_flags,
             "limitations": ["company_snapshot_date_unknown", "revenue_unit_unknown",
                             "contract_balances_rates_and_maturities_unknown", "registration_is_not_operations"]}
+    return enrich_payments(profile, payment_context)
 
 
 def event_payload(db, event, source):
@@ -96,59 +98,8 @@ class Runtime:
                 "bank_retrieval_mode": "dense" if bank and bank[0].encoder is not None else "lexical_fallback" if bank else "unavailable"}
 
     def extract_event(self, event_id, calls):
-        with self.factory() as db:
-            event = db.get(Event, event_id)
-            source = db.get(SourceDocument, event.source_id)
-            model = self.settings.models[self.settings.extraction_model]
-            verifier = self.settings.models[self.settings.analysis_model]
-            identity = [source.id, source.version, source.content_hash, EXTRACTION_VERSION, self.settings.extraction_model,
-                        model.input_limit, model.output_limit, model.reasoning_enabled, model.response_mode,
-                        verifier.id, verifier.input_limit, verifier.output_limit, verifier.reasoning_enabled, verifier.response_mode]
-            key = "extraction_" + hashed(identity)
-            unresolved = db.scalar(select(LLMCall.id).join(Extraction, Extraction.run_id == LLMCall.run_id).where(
-                Extraction.source_id == source.id, Extraction.status == "failed", LLMCall.cost_micros.is_(None)).limit(1))
-            if unresolved:
-                raise AnalysisError("extraction_outcome_unknown")
-            existing = db.get(Extraction, key)
-            if existing and existing.status == "completed":
-                return key
-            if existing:
-                raise AnalysisError("extraction_in_progress" if existing.status == "running" and
-                                    existing.lease_expires_at > int(time.time()) else "extraction_outcome_unknown")
-            snapshot = {"id": source.id, "version": source.version, "title": source.title, "text": source.body,
-                        "received_at": source.received_at}
-        try:
-            with self.factory.begin() as db:
-                db.add(Extraction(id=key, source_id=snapshot["id"], source_version=snapshot["version"],
-                                  event_id=event_id, event_version=0, status="running", facts=[], limitations=[],
-                                  coverage={}, run_id=calls.run_id, lease_expires_at=int(time.time()) + 600))
-        except IntegrityError:
-            raise AnalysisError("extraction_in_progress") from None
-        try:
-            facts, coverage, limits = extract(snapshot, calls)
-        except Exception:
-            with self.factory.begin() as db:
-                failed = db.get(Extraction, key)
-                if failed.run_id == calls.run_id:
-                    failed.status = "failed"
-            raise
-        calls.heartbeat()
-        with self.factory.begin() as db:
-            event = db.scalar(select(Event).where(Event.id == event_id).with_for_update())
-            source = db.scalar(select(SourceDocument).where(SourceDocument.id == snapshot["id"]).with_for_update())
-            record = db.get(Extraction, key)
-            if record.run_id != calls.run_id or record.status != "running":
-                raise AnalysisError("extraction_lease_lost")
-            if source.version != snapshot["version"] or source.body != snapshot["text"]:
-                raise AnalysisError("source_version_changed")
-            event.version += 1
-            event.topics = sorted({topic for f in facts for topic in f["attributes"]["topics"]})
-            event.topic_method = "quote_and_llm_entailment"
-            event.extraction_status = "extracted" if coverage["complete"] else "partially_extracted"
-            source.extraction_status = event.extraction_status
-            record.event_version, record.status, record.facts = event.version, "completed", facts
-            record.limitations, record.coverage = limits, coverage
-        return key
+        from .article_cache import extract_for_event
+        return extract_for_event(self, event_id, calls)
 
     def process(self, task, job, heartbeat):
         from alphich_kb.personalization.inputs import SelectionScope

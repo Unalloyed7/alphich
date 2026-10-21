@@ -742,9 +742,9 @@ def test_partial_extraction_is_disclosed_and_keeps_exact_offsets(store):
     job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
     assert job["status"] == "succeeded", job
     card = client.get("/api/v1/insights/" + job["result_id"], headers=headers["DEMO_A"]).json()
-    assert "partial_extraction_bounded_source_prefix" in card["limitations"]
+    assert "partial_extraction_bounded_source_windows" in card["limitations"]
     assert card["extraction_coverage"]["complete"] is False
-    assert card["extraction_coverage"]["end"] < len(body)
+    assert sum(w["end"] - w["start"] for w in card["extraction_coverage"]["windows"]) < len(body)
 
 
 def test_shared_atomic_budget_and_run_call_cap(store):

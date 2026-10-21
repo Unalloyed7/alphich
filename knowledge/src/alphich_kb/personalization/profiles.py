@@ -43,7 +43,11 @@ def normalize_company(row):
             raise KnowledgeError("Company feature IDs must be present and unique")
         if feature.get("company_id", company_id) != company_id:
             raise KnowledgeError("Feature belongs to another company")
-        if feature.get("version", feature.get("profile_version")) != reference_version:
+        version = feature.get("version", feature.get("profile_version"))
+        payment_bound = (feature.get("name") in {"payment_incoming", "payment_outgoing"} and
+                         feature.get("bound_profile_version") == row["profile_version"] and
+                         version == feature.get("source_context_version") == row.get("payment_context_version") and bool(version))
+        if version != reference_version and not payment_bound:
             raise KnowledgeError("Feature belongs to a different profile/context version")
         features[feature["id"]] = copy.deepcopy(feature)
         by_name.setdefault(feature["name"], []).append(feature)

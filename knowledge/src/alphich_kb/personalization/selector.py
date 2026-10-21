@@ -14,6 +14,7 @@ from .inputs import SelectionScope, instant, normalize_event, words
 from .planning import bank_questions
 from .profiles import normalize_company
 from .rules import BUSINESS, match_reasons
+from .reprints import group_reprints
 
 
 class NewsSelector:
@@ -88,18 +89,8 @@ class NewsSelector:
             current["age_anchor"] = min((s["published_at"] or s["available_at"] for s in snapshots), key=instant)
             visible.append(current)
             excluded["older_event_version"] += len(snapshots) - 1
-        groups = defaultdict(list)
-        for event in visible:
-            kinds = sorted({f["attributes"].get("kind", "unknown") for f in event["facts"]})
-            identity = digest({"title": words(event["title"]), "text": words(event["text"]),
-                               "published_at": event["published_at"] or event["available_at"], "event_at": event["event_at"], "kinds": kinds})
-            groups[identity].append(event)
-        result = []
-        for duplicates in groups.values():
-            representative = min(duplicates, key=lambda e: (-len(e["facts"]), instant(e["available_at"]), e["id"]))
-            representative["duplicate_event_ids"] = sorted(e["id"] for e in duplicates if e["id"] != representative["id"])
-            result.append(representative)
-            excluded["exact_reprint"] += len(duplicates) - 1
+        result, reprints = group_reprints(visible)
+        excluded.update(reprints)
         return sorted(result, key=lambda e: e["id"]), dict(excluded)
 
     def _retrieve(self, events, facets, mode):
@@ -202,6 +193,8 @@ class NewsSelector:
                       "primary_topic": "policy_rate" if "policy_rate" in topics else next(iter(sorted(topics)), "industry"),
                       "major_event": any(f["attributes"].get("kind") == "rate_decision" and f["attributes"].get("geography") == scope.market_country for f in event["facts"]),
                       "duplicate_event_ids": event["duplicate_event_ids"],
+                      "story_group_id": event["story_group_id"], "reprint_sources": event["reprint_sources"],
+                      "reprint_group_size": event["reprint_group_size"],
                       "ranking": {"structural_base": strongest["base"], "freshness_bonus": freshness,
                                   "retrieval_bonus": retrieval_bonus, "role_bonus": role_bonus, "facets": retrieval}}
             ranked.append(fields)

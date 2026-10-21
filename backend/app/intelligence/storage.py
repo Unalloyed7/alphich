@@ -66,6 +66,19 @@ class Extraction(Base):
     lease_expires_at: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
+class PublicArticleExtraction(Base):
+    """Only collector-proven public article facts; never company prompts/results."""
+    __tablename__ = "public_article_extractions"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    article_id: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(40))
+    facts: Mapped[list] = mapped_column(JSON, default=list)
+    coverage: Mapped[dict] = mapped_column(JSON, default=dict)
+    limitations: Mapped[list] = mapped_column(JSON, default=list)
+    run_id: Mapped[str] = mapped_column(String(40))
+    lease_expires_at: Mapped[int] = mapped_column(BigInteger)
+
+
 class AnalysisTask(Base):
     __tablename__ = "analysis_tasks"
     job_id: Mapped[str] = mapped_column(String(40), primary_key=True)

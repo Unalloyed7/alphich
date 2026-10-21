@@ -1,0 +1,604 @@
+{
+  "version": "real-rss-selection-labels-v1",
+  "scope": "real_public_news_provisional_agent_labels_not_independent_benchmark",
+  "review_status": "agent_authored_provisional_requires_independent_human_review",
+  "independently_reviewed": false,
+  "labels_frozen_before_first_evaluation": true,
+  "as_of": "2026-10-21T12:59:17.310678+00:00",
+  "company_ids": [
+    "U_9250",
+    "U_44792",
+    "U_20244"
+  ],
+  "roles": [
+    "cfo",
+    "ceo"
+  ],
+  "grade_definitions": {
+    "0": "Нет установленной тематической связи",
+    "1": "Общий или смежный контекст",
+    "2": "Условная отраслeвая релевантность",
+    "3": "Непосредственно относится к деятельности компании"
+  },
+  "events_sha256": "93197dfff3a26f82744c0d85de95684425647c24096fbe0f7b1edf93b3938559",
+  "sources": [
+    {
+      "event_id": "rss_da2c281bc4f4dd4a941b",
+      "title": "Результаты мониторинга максимальных процентных ставок кредитных организаций (21.10.2026)",
+      "url": "https://www.cbr.ru/press/PR/?file=639281806781687368BANK_SECTOR.htm",
+      "text_sha256": "c751c74b339f55d1bbe20abc4f25ddbc4154d0e61abb0061f225facb8aad6442"
+    },
+    {
+      "event_id": "rss_dc9c04e1f2631b26eaa3",
+      "title": "Установлены факты манипулирования рынком руководителем компании – профессионального участника рынка ценных бумаг (16.10.2026)",
+      "url": "https://www.cbr.ru/press/PR/?file=639277388823606918PNP.htm",
+      "text_sha256": "2982d1bb4132901645f12cbc73731f70b942daf264d0b0940fc7fcee6786ae7f"
+    },
+    {
+      "event_id": "rss_bf9fde9557f87eb6be0b",
+      "title": "Результаты мониторинга максимальных процентных ставок кредитных организаций (13.10.2026)",
+      "url": "https://www.cbr.ru/press/PR/?file=639275076044949684BANK_SECTOR.htm",
+      "text_sha256": "eee55f8140d659883c735c3ea53eaa33e6140ada93ad753e42aea002854df840"
+    },
+    {
+      "event_id": "rss_1c494c811aa09767809b",
+      "title": "Установлены факты манипулирования рынком ценных бумаг группой аффилированных организаций и их владельцами (08.10.2026)",
+      "url": "https://www.cbr.ru/press/PR/?file=639270476049988487PNP.htm",
+      "text_sha256": "5402922d3e8b0938fc88801fe327ab7862e63ea4bfd28d9e8e77c34f1278c29a"
+    },
+    {
+      "event_id": "rss_08aac01eeb6e852b87f5",
+      "title": "Страхование ответственности владельцев опасных объектов: расширение тарифного коридора",
+      "url": "https://www.cbr.ru/press/event/?id=32925",
+      "text_sha256": "f2b7874744e465bb47439274e2af4df398b38bccba0040d9af6cf7d37aa8dbcf"
+    },
+    {
+      "event_id": "rss_e09305f50458dec276dc",
+      "title": "Банк России приглашает студентов принять участие в чемпионате «Кибербезопасность в финансах»",
+      "url": "https://www.cbr.ru/press/event/?id=32922",
+      "text_sha256": "5b81cbdc2ec831035f7d141448aaf78fb0250983d0820d896bf4b055e07bcfb4"
+    },
+    {
+      "event_id": "rss_002841a4af4da5e1b6ff",
+      "title": "23 октября в 15:00 состоится пресс-конференция по итогам заседания Совета директоров по денежно-кредитной политике",
+      "url": "https://www.cbr.ru/press/event/?id=32923",
+      "text_sha256": "948bc516a22d872cc1573ccbf78a09e006300b5ac4e86deb0af998526047d506"
+    },
+    {
+      "event_id": "rss_9f10b60aed544eaa32d4",
+      "title": "В большинстве регионов в сентябре цены выросли умеренно",
+      "url": "https://www.cbr.ru/press/event/?id=32919",
+      "text_sha256": "c4a459f1d0e295c67c2c95867f19b7f2f0b5a530667e18d2e43f177445dc6bda"
+    },
+    {
+      "event_id": "rss_8fbbec66c0cccc460df7",
+      "title": "В РФ обсуждают распределение налога на прибыль маркетплейсов между регионами в зависимости от продаж",
+      "url": "https://www.interfax.ru/business/1123990",
+      "text_sha256": "3e5b23be40b6ae4311c474b80b0b493c104afd02b99099a5932d7ac5dc70c5bf"
+    },
+    {
+      "event_id": "rss_720a3a1095d7630eea03",
+      "title": "Brent остается в плюсе и торгуется у $109,43 за баррель",
+      "url": "https://www.interfax.ru/business/1123985",
+      "text_sha256": "3cf725513f94e05186aa494c8e80c1895c532d09041e8f2fe6bafe14b5f94cb9"
+    },
+    {
+      "event_id": "rss_138722a8e44c00a004e4",
+      "title": "Мораторий на штрафы для собственников ОКН оживит рынок реставрации",
+      "url": "https://stroygaz.ru/publication/architecture/moratoriy-na-shtrafy-dlya-sobstvennikov-okn-ozhivit-rynok-restavratsii/",
+      "text_sha256": "c9dab8ed874ef70401cdd537b76569f30d856d03557965cdb1b0d6a0fc724923"
+    },
+    {
+      "event_id": "rss_5b1ff906707a198c7d04",
+      "title": "За три года средняя высота домов в Москве выросла на 1 этаж",
+      "url": "https://stroygaz.ru/news/construction/za-tri-goda-srednyaya-vysota-domov-v-moskve-vyrosla-na-1-etazh/",
+      "text_sha256": "e8833aaae9c6afa3ffd601de6ccde9999b088b6fa2126894f7cbd9560326b3e2"
+    },
+    {
+      "event_id": "rss_e2e198755ac5770c008b",
+      "title": "Сергей Собянин объявил о предстоящем создании в Москве Дворца ветеранов СВО",
+      "url": "https://stroygaz.ru/news/official/sergey-sobyanin-obyavil-o-predstoyashchem-sozdanii-v-moskve-dvortsa-veteranov-svo/",
+      "text_sha256": "6b39d05b80b1e9ee9865906e8239c0e646e958667548f0550a0605ff1bf040f4"
+    },
+    {
+      "event_id": "rss_910fc59a81f177570f71",
+      "title": "Завершено строительство бизнес-центра класса А на Дербеневской набережной",
+      "url": "https://stroygaz.ru/news/commercial/zaversheno-stroitelstvo-biznes-tsentra-klassa-a-na-derbenevskoy-naberezhnoy-/",
+      "text_sha256": "b5a23a93d3780e9d8cd23893e9f68fc7fbe4b492c633c714c3ec881996b73f3e"
+    },
+    {
+      "event_id": "rss_13cbee8d238036541a62",
+      "title": "«Циан» запускает VR-обучение навыкам поведения дома для людей с аутизмом",
+      "url": "https://www.cnews.ru/news/line/2026-10-21_tsian_zapuskaet_vr-obuchenie",
+      "text_sha256": "bbb13b3f93cde07f7d96d886c7f0667ce65cb525a60a0c705f44322ace3725ca"
+    },
+    {
+      "event_id": "rss_69ca4bb230a484871944",
+      "title": "Республика Алтай подтвердила полную готовность к проведению ГИА на ОС Astra Linux",
+      "url": "https://www.cnews.ru/news/line/2026-10-21_respublika_altaj_podtverdila",
+      "text_sha256": "3dcab0f8a2ba6ae3deca8f9863e9cd9bdfd9eb9826e8b876a80ec42ba48eab2e"
+    },
+    {
+      "event_id": "rss_8706546dde43cb382484",
+      "title": "Нейросети крушат устои свободного ПО. Программисты стали вдвое меньше работать, а четверть всего кода теперь – это мусор",
+      "url": "https://www.cnews.ru/news/top/2026-10-21_nejroseti_krushat_ustoi_svobodnogo",
+      "text_sha256": "683e20ce55f6af13c787becf3e78ae733163aa0ddb1f55d7f38d3809c045a3af"
+    },
+    {
+      "event_id": "rss_03fa633f55eb1b44c8ac",
+      "title": "«Кит-системс» масштабировал сетевую инфраструктуру в Коломенского завода",
+      "url": "https://www.cnews.ru/news/line/2026-10-21_kit-sistems_masshtabiroval",
+      "text_sha256": "ca7310eda1856279f0c5bd413d2086a69a036a3d7c402033023d27fad7e42ae1"
+    },
+    {
+      "event_id": "rss_73d5d9ad3a1fab8c9f93",
+      "title": "Минсельхоз предлагает включить лизин в перечень критически важных для АПК препаратов",
+      "url": "https://www.agroinvestor.ru/markets/news/46718-minselkhoz-predlagaet-vklyuchit-lizin-v-perechen-kriticheski-vazhnykh-dlya-apk-preparatov/",
+      "text_sha256": "315cc4372f40c211b29f471b8d8b60d6e9b263fdebf79081b74de847028345a5"
+    },
+    {
+      "event_id": "rss_d56e552abadaaaf6e71a",
+      "title": "Господдержка четырех госпрограмм АПК за три года составит 1,3 трлн рублей",
+      "url": "https://www.agroinvestor.ru/markets/news/46717-gospodderzhka-chetyrekh-gosprogramm-apk-za-tri-goda-sostavit-1-3-trln-rubley/",
+      "text_sha256": "f455cecec5bd4e0da16d35f3395a4433403c23ae2bdd8f0722f61c4b0a23e192"
+    },
+    {
+      "event_id": "rss_36f4c42598811b4e75f8",
+      "title": "Картофель выкопан с 80% посадочных площадей",
+      "url": "https://www.agroinvestor.ru/markets/news/46716-kartofel-vykopan-s-80-posadochnykh-ploshchadey/",
+      "text_sha256": "9479180c2e69406ebbac506497084b3b50e0b1559d46bdcfe2cf1cedc9003374"
+    },
+    {
+      "event_id": "rss_e1b3c05f4deca6c9a31b",
+      "title": "ВТБ продал агрохолдинг «Лабинский» структурам компании «Просторы»",
+      "url": "https://www.agroinvestor.ru/investments/news/46713-vtb-prodal-agrokholding-labinskiy-strukturam-kompanii-prostory/",
+      "text_sha256": "69638f6f1b409606dd3ea9c832a8f2de8a88459d53b24c1850bd02a49695c34b"
+    },
+    {
+      "event_id": "rss_cebbd612165f19e3b821",
+      "title": "«Транснефть» предложила обмениваться отраслевыми данными на основе прямых соглашений",
+      "url": "https://www.elec.ru/news/2026/10/21/transneft-predlozhila-obmenivatsja-otraslevymi-dan.html",
+      "text_sha256": "f6ef46fa39469621293c01c580dd778c0b817b311d0dccefac3c62ee5220bfd4"
+    },
+    {
+      "event_id": "rss_d48f22e0b4d3121ea77c",
+      "title": "«Росатом» начал тестировать роботизированную электрозарядную станцию в Москве",
+      "url": "https://www.elec.ru/news/2026/10/21/rosatom-nachal-testirovat-robotizirovannuju-elektr.html",
+      "text_sha256": "e7d37491d1fa3cb23693045f8ec68e821d803942f749ac3d5034bf76433fe199"
+    }
+  ],
+  "labels": [
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_da2c281bc4f4dd4a941b",
+      "grade": 1,
+      "rationale": "Мониторинг вкладов физических лиц: общий финансовый фон, не корпоративные ставки."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_da2c281bc4f4dd4a941b",
+      "grade": 1,
+      "rationale": "Мониторинг вкладов физических лиц: общий финансовый фон, не корпоративные ставки."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_da2c281bc4f4dd4a941b",
+      "grade": 1,
+      "rationale": "Мониторинг вкладов физических лиц: общий финансовый фон, не корпоративные ставки."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_dc9c04e1f2631b26eaa3",
+      "grade": 0,
+      "rationale": "Расследование по постороннему участнику рынка: связи с выбранными компаниями не установлены."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_dc9c04e1f2631b26eaa3",
+      "grade": 0,
+      "rationale": "Расследование по постороннему участнику рынка: связи с выбранными компаниями не установлены."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_dc9c04e1f2631b26eaa3",
+      "grade": 0,
+      "rationale": "Расследование по постороннему участнику рынка: связи с выбранными компаниями не установлены."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_bf9fde9557f87eb6be0b",
+      "grade": 1,
+      "rationale": "Более ранний мониторинг розничных вкладов: контекст, не решение о ключевой ставке."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_bf9fde9557f87eb6be0b",
+      "grade": 1,
+      "rationale": "Более ранний мониторинг розничных вкладов: контекст, не решение о ключевой ставке."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_bf9fde9557f87eb6be0b",
+      "grade": 1,
+      "rationale": "Более ранний мониторинг розничных вкладов: контекст, не решение о ключевой ставке."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_1c494c811aa09767809b",
+      "grade": 0,
+      "rationale": "Манипулирование бумагами сторонних организаций не устанавливает экспозицию выбранных компаний."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_1c494c811aa09767809b",
+      "grade": 0,
+      "rationale": "Манипулирование бумагами сторонних организаций не устанавливает экспозицию выбранных компаний."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_1c494c811aa09767809b",
+      "grade": 0,
+      "rationale": "Манипулирование бумагами сторонних организаций не устанавливает экспозицию выбранных компаний."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_08aac01eeb6e852b87f5",
+      "grade": 1,
+      "rationale": "Опасные объекты: условный контекст для инфраструктуры и хранения; наличие объекта неизвестно."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_08aac01eeb6e852b87f5",
+      "grade": 0,
+      "rationale": "Опасные объекты: условный контекст для инфраструктуры и хранения; наличие объекта неизвестно."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_08aac01eeb6e852b87f5",
+      "grade": 1,
+      "rationale": "Опасные объекты: условный контекст для инфраструктуры и хранения; наличие объекта неизвестно."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_e09305f50458dec276dc",
+      "grade": 0,
+      "rationale": "Студенческое соревнование не является изменением условий бизнеса выбранных компаний."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_e09305f50458dec276dc",
+      "grade": 0,
+      "rationale": "Студенческое соревнование не является изменением условий бизнеса выбранных компаний."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_e09305f50458dec276dc",
+      "grade": 0,
+      "rationale": "Студенческое соревнование не является изменением условий бизнеса выбранных компаний."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_002841a4af4da5e1b6ff",
+      "grade": 1,
+      "rationale": "Анонс заседания — календарный контекст; решения и новой ставки в нём ещё нет."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_002841a4af4da5e1b6ff",
+      "grade": 1,
+      "rationale": "Анонс заседания — календарный контекст; решения и новой ставки в нём ещё нет."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_002841a4af4da5e1b6ff",
+      "grade": 1,
+      "rationale": "Анонс заседания — календарный контекст; решения и новой ставки в нём ещё нет."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_9f10b60aed544eaa32d4",
+      "grade": 2,
+      "rationale": "Региональная динамика цен и топлива — деловой контекст всех трёх отраслей без оценки эффекта."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_9f10b60aed544eaa32d4",
+      "grade": 2,
+      "rationale": "Региональная динамика цен и топлива — деловой контекст всех трёх отраслей без оценки эффекта."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_9f10b60aed544eaa32d4",
+      "grade": 2,
+      "rationale": "Региональная динамика цен и топлива — деловой контекст всех трёх отраслей без оценки эффекта."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_8fbbec66c0cccc460df7",
+      "grade": 1,
+      "rationale": "Обсуждение налога маркетплейсов: участие компаний в этих продажах неизвестно."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_8fbbec66c0cccc460df7",
+      "grade": 1,
+      "rationale": "Обсуждение налога маркетплейсов: участие компаний в этих продажах неизвестно."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_8fbbec66c0cccc460df7",
+      "grade": 1,
+      "rationale": "Обсуждение налога маркетплейсов: участие компаний в этих продажах неизвестно."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_720a3a1095d7630eea03",
+      "grade": 1,
+      "rationale": "Нефтяные котировки и логистика — косвенный фон, потребление топлива и договоры неизвестны."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_720a3a1095d7630eea03",
+      "grade": 1,
+      "rationale": "Нефтяные котировки и логистика — косвенный фон, потребление топлива и договоры неизвестны."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_720a3a1095d7630eea03",
+      "grade": 1,
+      "rationale": "Нефтяные котировки и логистика — косвенный фон, потребление топлива и договоры неизвестны."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_138722a8e44c00a004e4",
+      "grade": 2,
+      "rationale": "Условия реставрационных проектов тематически связаны со строительством; конкретные проекты неизвестны."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_138722a8e44c00a004e4",
+      "grade": 0,
+      "rationale": "Условия реставрационных проектов тематически связаны со строительством; конкретные проекты неизвестны."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_138722a8e44c00a004e4",
+      "grade": 0,
+      "rationale": "Условия реставрационных проектов тематически связаны со строительством; конкретные проекты неизвестны."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_5b1ff906707a198c7d04",
+      "grade": 1,
+      "rationale": "Этажность жилья в Москве: слабая связь с инженерным строительством в Иркутской области."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_5b1ff906707a198c7d04",
+      "grade": 0,
+      "rationale": "Этажность жилья в Москве: слабая связь с инженерным строительством в Иркутской области."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_5b1ff906707a198c7d04",
+      "grade": 0,
+      "rationale": "Этажность жилья в Москве: слабая связь с инженерным строительством в Иркутской области."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_e2e198755ac5770c008b",
+      "grade": 2,
+      "rationale": "Реконструкция и инфраструктурный проект: отраслевой контекст, участие компании неизвестно."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_e2e198755ac5770c008b",
+      "grade": 0,
+      "rationale": "Реконструкция и инфраструктурный проект: отраслевой контекст, участие компании неизвестно."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_e2e198755ac5770c008b",
+      "grade": 0,
+      "rationale": "Реконструкция и инфраструктурный проект: отраслевой контекст, участие компании неизвестно."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_910fc59a81f177570f71",
+      "grade": 1,
+      "rationale": "Ввод офисного объекта: контекст строительства, прямое участие инженерного подрядчика не установлено."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_910fc59a81f177570f71",
+      "grade": 0,
+      "rationale": "Ввод офисного объекта: контекст строительства, прямое участие инженерного подрядчика не установлено."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_910fc59a81f177570f71",
+      "grade": 0,
+      "rationale": "Ввод офисного объекта: контекст строительства, прямое участие инженерного подрядчика не установлено."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_13cbee8d238036541a62",
+      "grade": 0,
+      "rationale": "Новый VR-продукт — отраслевой пример разработки ПО; для других отраслей оснований нет."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_13cbee8d238036541a62",
+      "grade": 2,
+      "rationale": "Новый VR-продукт — отраслевой пример разработки ПО; для других отраслей оснований нет."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_13cbee8d238036541a62",
+      "grade": 0,
+      "rationale": "Новый VR-продукт — отраслевой пример разработки ПО; для других отраслей оснований нет."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_69ca4bb230a484871944",
+      "grade": 0,
+      "rationale": "Внедрение российской ОС — условия рынка ПО; закупки выбранной компании неизвестны."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_69ca4bb230a484871944",
+      "grade": 2,
+      "rationale": "Внедрение российской ОС — условия рынка ПО; закупки выбранной компании неизвестны."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_69ca4bb230a484871944",
+      "grade": 0,
+      "rationale": "Внедрение российской ОС — условия рынка ПО; закупки выбранной компании неизвестны."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_8706546dde43cb382484",
+      "grade": 0,
+      "rationale": "Изменения процессов разработки и сопровождения открытого ПО непосредственно относятся к отрасли 62."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_8706546dde43cb382484",
+      "grade": 3,
+      "rationale": "Изменения процессов разработки и сопровождения открытого ПО непосредственно относятся к отрасли 62."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_8706546dde43cb382484",
+      "grade": 0,
+      "rationale": "Изменения процессов разработки и сопровождения открытого ПО непосредственно относятся к отрасли 62."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_03fa633f55eb1b44c8ac",
+      "grade": 0,
+      "rationale": "Кабельная сеть промышленного предприятия: смежный IT-контекст, а не доказанный спрос на ПО."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_03fa633f55eb1b44c8ac",
+      "grade": 1,
+      "rationale": "Кабельная сеть промышленного предприятия: смежный IT-контекст, а не доказанный спрос на ПО."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_03fa633f55eb1b44c8ac",
+      "grade": 0,
+      "rationale": "Кабельная сеть промышленного предприятия: смежный IT-контекст, а не доказанный спрос на ПО."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_73d5d9ad3a1fab8c9f93",
+      "grade": 0,
+      "rationale": "В статье обсуждаются глубокая переработка зерна и кормовые добавки: контекст зерновой торговли."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_73d5d9ad3a1fab8c9f93",
+      "grade": 0,
+      "rationale": "В статье обсуждаются глубокая переработка зерна и кормовые добавки: контекст зерновой торговли."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_73d5d9ad3a1fab8c9f93",
+      "grade": 2,
+      "rationale": "В статье обсуждаются глубокая переработка зерна и кормовые добавки: контекст зерновой торговли."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_d56e552abadaaaf6e71a",
+      "grade": 0,
+      "rationale": "Господдержка, льготное кредитование и инфраструктура АПК — отраслевой контекст зернового рынка."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_d56e552abadaaaf6e71a",
+      "grade": 0,
+      "rationale": "Господдержка, льготное кредитование и инфраструктура АПК — отраслевой контекст зернового рынка."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_d56e552abadaaaf6e71a",
+      "grade": 2,
+      "rationale": "Господдержка, льготное кредитование и инфраструктура АПК — отраслевой контекст зернового рынка."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_36f4c42598811b4e75f8",
+      "grade": 0,
+      "rationale": "Картофель не равен зерну: только смежный аграрный фон, прямой экспозиции не установлено."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_36f4c42598811b4e75f8",
+      "grade": 0,
+      "rationale": "Картофель не равен зерну: только смежный аграрный фон, прямой экспозиции не установлено."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_36f4c42598811b4e75f8",
+      "grade": 1,
+      "rationale": "Картофель не равен зерну: только смежный аграрный фон, прямой экспозиции не установлено."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_e1b3c05f4deca6c9a31b",
+      "grade": 0,
+      "rationale": "Консолидация растениеводческих активов и производителей круп относится к зерновому рынку."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_e1b3c05f4deca6c9a31b",
+      "grade": 0,
+      "rationale": "Консолидация растениеводческих активов и производителей круп относится к зерновому рынку."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_e1b3c05f4deca6c9a31b",
+      "grade": 2,
+      "rationale": "Консолидация растениеводческих активов и производителей круп относится к зерновому рынку."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_cebbd612165f19e3b821",
+      "grade": 0,
+      "rationale": "Обмен отраслевыми данными: смежный контекст IT, применимость конкретного ПО неизвестна."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_cebbd612165f19e3b821",
+      "grade": 1,
+      "rationale": "Обмен отраслевыми данными: смежный контекст IT, применимость конкретного ПО неизвестна."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_cebbd612165f19e3b821",
+      "grade": 0,
+      "rationale": "Обмен отраслевыми данными: смежный контекст IT, применимость конкретного ПО неизвестна."
+    },
+    {
+      "company_id": "U_9250",
+      "event_id": "rss_d48f22e0b4d3121ea77c",
+      "grade": 2,
+      "rationale": "Зарядная инфраструктура: условный инженерный контекст и смежная цифровая технология."
+    },
+    {
+      "company_id": "U_44792",
+      "event_id": "rss_d48f22e0b4d3121ea77c",
+      "grade": 1,
+      "rationale": "Зарядная инфраструктура: условный инженерный контекст и смежная цифровая технология."
+    },
+    {
+      "company_id": "U_20244",
+      "event_id": "rss_d48f22e0b4d3121ea77c",
+      "grade": 0,
+      "rationale": "Зарядная инфраструктура: условный инженерный контекст и смежная цифровая технология."
+    }
+  ]
+}
