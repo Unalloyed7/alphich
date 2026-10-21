@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { api, ApiError } from './api';
+import { api, analysisApi, ApiError } from './api';
 import { EventInsight, InsightFeed } from './InsightUI';
 import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
 
@@ -59,8 +59,8 @@ function Notice({ kind = 'info', children, onClose }: { kind?: 'info' | 'error' 
   </div>;
 }
 
-function StatusPill({ status }: { status: Job['status'] | 'raw' | 'analyzed' }) {
-  const labels: Record<string, string> = { queued: 'В очереди', running: 'В работе', succeeded: 'Сохранено', failed: 'Ошибка', raw: 'Без AI-анализа', analyzed: 'Факты извлечены' };
+function StatusPill({ status }: { status: Job['status'] | 'raw' | 'analyzed' | 'insight' | 'insufficient' }) {
+  const labels: Record<string, string> = { queued: 'В очереди', running: 'В работе', succeeded: 'Сохранено', failed: 'Ошибка', raw: 'Без AI-анализа', analyzed: 'Факты извлечены', insight: 'AI-карточка готова', insufficient: 'Недостаточно данных' };
   return <span className={`status-pill status-${status}`}><span className="status-dot"/>{labels[status]}</span>;
 }
 
@@ -126,16 +126,17 @@ function PublishForm({ onPublish, busy }: { onPublish: (data: PublicationPayload
   </div>;
 }
 
-function EventCard({ item, onOpen }: { item: Event; onOpen: (event: Event) => void }) {
+function EventCard({ item, onOpen, insightStatus }: { item: Event; onOpen: (event: Event) => void; insightStatus?: string }) {
   return <button className="event-card" type="button" onClick={() => onOpen(item)}>
     <div className="event-card-top"><span className="event-tag">СОБЫТИЕ</span><span className="muted small">{formattedDate(item.published_at)}</span></div>
     <h3>{item.title}</h3>
     <p>Источник сохранён · {item.sources.length} {item.sources.length === 1 ? 'публикация' : 'публикаций'}</p>
-    <div className="event-card-bottom"><StatusPill status={item.extraction_status === 'extracted' || item.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><span className="view-action">Открыть <Icon name="arrow" size={16}/></span></div>
+    <div className="event-card-bottom"><StatusPill status={insightStatus ? (insightStatus === 'insufficient_evidence' ? 'insufficient' : 'insight') : item.extraction_status === 'extracted' || item.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><span className="view-action">Открыть <Icon name="arrow" size={16}/></span></div>
   </button>;
 }
 
-function EventsList({ items, loading, onReload, onOpen, onPublish, hasMore = false, moreLoading = false, onMore }: {
+function EventsList({ items, insightsByEvent, loading, onReload, onOpen, onPublish, hasMore = false, moreLoading = false, onMore }: {
+  insightsByEvent: Record<string, string>;
   items: Event[];
   loading: boolean;
   onReload: () => void;
@@ -159,7 +160,7 @@ function EventsList({ items, loading, onReload, onOpen, onPublish, hasMore = fal
     {loading && items.length === 0 ? <div className="empty-state"><span className="spinner"/> Загружаем события…</div> : items.length === 0 ?
       <div className="empty-state"><div className="empty-icon"><Icon name="file" size={27}/></div><h3>Пока нет событий</h3><p>Добавь первую публикацию. После обработки worker она появится здесь автоматически.</p><button className="secondary-button" type="button" onClick={onPublish}><Icon name="plus" size={16}/> Добавить публикацию</button></div> : visible.length === 0 ?
       <div className="empty-state"><h3>Совпадений нет</h3><p>Поиск выполняется только среди загруженных событий. Можно загрузить более старые.</p><button type="button" className="ghost-button" onClick={() => setSearch('')}>Сбросить поиск</button></div> :
-      <div className="event-list">{visible.map(item => <EventCard key={item.id} item={item} onOpen={onOpen}/>)}</div>}
+      <div className="event-list">{visible.map(item => <EventCard key={item.id} item={item} onOpen={onOpen} insightStatus={insightsByEvent[item.id]}/>)}</div>}
     {hasMore && onMore && <div className="event-pagination"><button className="secondary-button" type="button" disabled={loading || moreLoading} onClick={onMore}>{moreLoading ? 'Загружаем…' : 'Показать ещё события'}</button></div>}
   </div>;
 }
@@ -188,7 +189,10 @@ function Profile({ profile }: { profile: CompanyProfile | null }) {
   </div>;
 }
 
-function EventDrawer({ session, event, source, loading, error, onClose, onSource }: { session: DemoSession; event: Event; source: SourceDetail | null; loading: boolean; error: string | null; onClose: () => void; onSource: (id: string) => void }) {
+function EventDrawer({ session, event, insightStatus, onInsightReady, source, loading, error, onClose, onSource }: {
+  session: DemoSession; event: Event; insightStatus?: string; onInsightReady: (id: string, status: string) => void;
+  source: SourceDetail | null; loading: boolean; error: string | null; onClose: () => void; onSource: (id: string) => void;
+}) {
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const sourcePanelRef = useRef<HTMLDivElement>(null);
 
@@ -208,7 +212,7 @@ function EventDrawer({ session, event, source, loading, error, onClose, onSource
     <div className="drawer" role="dialog" aria-modal="true" aria-label="Информация о событии">
       <header className="drawer-head"><span className="eyebrow">ПОДРОБНОСТИ СОБЫТИЯ</span><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></header>
       <div className="drawer-scroll">
-        <StatusPill status={event.extraction_status === 'extracted' || event.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><h2>{event.title}</h2>
+        <StatusPill status={insightStatus ? (insightStatus === 'insufficient_evidence' ? 'insufficient' : 'insight') : event.extraction_status === 'extracted' || event.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><h2>{event.title}</h2>
         <div className="drawer-metadata">
           <div><span>Публикация</span><strong>{formattedDate(event.published_at)}</strong></div>
           <div><span>Событие</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Дата события не установлена'}</strong></div>
@@ -239,7 +243,7 @@ function EventDrawer({ session, event, source, loading, error, onClose, onSource
             <div className="source-footer"><span><Icon name="alert" size={15}/> Ссылка не верифицирована</span>{source.url && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть внешний адрес</a>}</div>
           </section>}
         </div>}
-        <EventInsight session={session} eventId={event.id}/>
+        <EventInsight session={session} eventId={event.id} onInsightReady={onInsightReady}/>
       </div>
     </div>
   </div>;
@@ -259,6 +263,7 @@ function App() {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsMoreLoading, setEventsMoreLoading] = useState(false);
   const [eventsHasMore, setEventsHasMore] = useState(false);
+  const [insightsByEvent, setInsightsByEvent] = useState<Record<string, string>>({});
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -274,7 +279,7 @@ function App() {
   const logOut = useCallback(() => {
     latestSourceRequest.current += 1;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    setSession(null); setProfile(null); setEvents([]); setEventsHasMore(false); setCompanies([]); setSelectedEvent(null); setError(null); setJobIds([]); setJobs({}); setJobsError(null); setScreen('dashboard');
+    setSession(null); setProfile(null); setEvents([]); setEventsHasMore(false); setInsightsByEvent({}); setCompanies([]); setSelectedEvent(null); setError(null); setJobIds([]); setJobs({}); setJobsError(null); setScreen('dashboard');
   }, []);
 
   const safeError = useCallback((e: unknown): string => {
@@ -326,13 +331,14 @@ function App() {
   useEffect(() => {
     if (!session) return;
     let active = true;
-    setProfile(null); setEvents([]); setEventsHasMore(false); setCompanies([]); setError(null);
+    setProfile(null); setEvents([]); setEventsHasMore(false); setInsightsByEvent({}); setCompanies([]); setError(null);
     setJobIds([]); setJobs({}); setJobsError(null);
     void Promise.allSettled([
       api.profile(session.company_id, session.token),
       api.companies(session.token),
       api.events(session.company_id, session.token, EVENTS_PAGE_SIZE, 0),
       api.jobs(session.token),
+      analysisApi.feed(session.company_id, session.token),
     ]).then(results => {
       if (!active) return;
       if (results[0].status === 'fulfilled') setProfile(results[0].value); else setError(safeError(results[0].reason));
@@ -345,6 +351,12 @@ function App() {
         setJobIds(results[3].value.items.map(job => job.id));
         setJobs(Object.fromEntries(results[3].value.items.map(job => [job.id, job])));
       } else setJobsError(safeError(results[3].reason));
+      // Saved verified cards are separate from the raw event extraction status.
+      // Use existing feed references; loading the page never creates paid jobs.
+      if (results[4].status === 'fulfilled') {
+        setInsightsByEvent(Object.fromEntries(results[4].value.items
+          .filter(item => item.insight).map(item => [item.event_id, item.insight!.status])));
+      }
     });
     return () => { active = false; };
   }, [session, safeError]);
@@ -412,6 +424,10 @@ function App() {
     catch (e) { setError(safeError(e)); }
   }, [openEvent, safeError, session]);
 
+  const markInsightReady = useCallback((eventId: string, status: string) => {
+    setInsightsByEvent(current => current[eventId] === status ? current : { ...current, [eventId]: status });
+  }, []);
+
   const company = useMemo(() => companies.find(item => item.id === session?.company_id), [companies, session]);
   const completed = jobIds.filter(id => jobs[id]?.status === 'succeeded').length;
   const pending = jobIds.filter(id => jobs[id]?.status === 'running' || jobs[id]?.status === 'queued').length;
@@ -433,16 +449,16 @@ function App() {
         {screen === 'dashboard' && <>
           <div className="hero"><div className="hero-content"><div className="hero-overline"><span className="hero-dot"/> ЦЕНТР БИЗНЕС-АНАЛИТИКИ</div><h1>Контекст важнее<br/><em>заголовков.</em></h1><p>Все новые публикации, статусы обработки и подтверждающие материалы — в одном месте.</p><button type="button" className="hero-button" onClick={() => setScreen('publish')}>Добавить публикацию <Icon name="arrow" size={18}/></button></div><div className="hero-figure"><div className="hero-ring ring-a"/><div className="hero-ring ring-b"/><div className="hero-letter">α</div><div className="hero-figure-caption">DATA <span>→</span> CONTEXT <span>→</span> INSIGHT</div></div></div>
           <div className="stat-grid"><div className="stat"><span><Icon name="briefcase" size={19}/> Компания</span><strong>{session.company_id}</strong><small>{company?.okved_name || 'Профиль подключён'}</small></div><div className="stat"><span><Icon name="file" size={19}/> События</span><strong>{events.length.toString().padStart(2, '0')}</strong><small>Сохранены в PostgreSQL</small></div><div className="stat"><span><Icon name="check" size={19}/> Завершено задач</span><strong>{completed.toString().padStart(2, '0')}</strong><small>Из задач этой демосессии</small></div><div className="stat"><span><Icon name="activity" size={19}/> В обработке</span><strong>{pending.toString().padStart(2, '0')}</strong><small>Статус обновляется автоматически</small></div></div>
-          <div className="dashboard-grid"><EventsList items={events.slice(0, 5)} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/></div>
+          <div className="dashboard-grid"><EventsList items={events.slice(0, 5)} insightsByEvent={insightsByEvent} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/></div>
         </>}
         {screen === 'publish' && <><div className="page-title"><div className="eyebrow">NEWS INGESTION / P0</div><h1>Новая публикация<span>.</span></h1><p>Проверь полный путь от отправки текста до события в базе данных.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>FastAPI сохраняет источник и создаёт задачу. Worker забирает её из PostgreSQL и создаёт событие. Статус можно отслеживать здесь.</p><span>Время обработки обычно небольшое, но зависит от состояния worker.</span></div></div></div></>}
-        {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
+        {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
         {screen === 'insights' && <InsightFeed session={session} onEvent={id => void openEventId(id)}/>}
         {screen === 'profile' && <><div className="page-title"><div className="eyebrow">COMPANY CONTEXT / P0</div><h1>Контекст компании<span>.</span></h1><p>Признаки, на которых в дальнейшем будет основана персонализированная аналитика.</p></div><Profile profile={profile}/></>}
         <footer className="app-footer"><span>© ALPHICH / HACKATHON PROTOTYPE</span><span>Профили обезличены · Источники требуют проверки</span></footer>
       </div>
     </main>
-    {selectedEvent && <EventDrawer key={`${session.token}:${selectedEvent.id}`} session={session} event={selectedEvent} source={source} loading={sourceLoading} error={sourceError} onClose={() => { latestSourceRequest.current += 1; setSelectedEvent(null); }} onSource={id => void openSource(id)}/>}
+    {selectedEvent && <EventDrawer key={`${session.token}:${selectedEvent.id}`} session={session} event={selectedEvent} insightStatus={insightsByEvent[selectedEvent.id]} onInsightReady={markInsightReady} source={source} loading={sourceLoading} error={sourceError} onClose={() => { latestSourceRequest.current += 1; setSelectedEvent(null); }} onSource={id => void openSource(id)}/>}
   </div>;
 }
 
