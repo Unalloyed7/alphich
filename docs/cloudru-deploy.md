@@ -1,8 +1,14 @@
-# Cloud.ru: ручной GitHub Actions deploy после CI
+# Cloud.ru: автоматический GitHub Actions deploy после CI
 
-Назначение: безопасное ручное обновление уже работающего демостенда с локальным Xray-прокси, без переноса `.env`, модели E5, индекса или базы данных из GitHub.
+Назначение: обновление уже работающего демостенда после успешного CI с сохранением локального Xray-прокси, `.env`, модели E5, индекса и базы данных на сервере.
 
-Сначала проверьте, что `api`, `analysis-worker`, `frontend`, `postgres`, `rss-collector` и `worker` работают. `/home/alphich/.config/alphich/compose.vpn.yml` должен существовать; Xray запущен отдельно в Docker-сети `alphich-ai-proxy`. GitHub Actions запускается **только вручную**, при `confirm=deploy`, для текущего `main` с прошедшим `ci.yml`.
+Сначала проверьте, что `api`, `analysis-worker`, `frontend`, `postgres`, `rss-collector` и `worker` работают. `/home/alphich/.config/alphich/compose.vpn.yml` должен существовать; Xray запущен отдельно в Docker-сети `alphich-ai-proxy`. После успешного `CI — offline integration` для push в `main` автоматически запускается workflow `Deploy Cloud.ru (manual or after CI)`. Он повторно проверяет SHA текущего `main` и успешный push CI именно для этого SHA; устаревший автоматический запуск пропускается. Ручной запуск с `confirm=deploy` также сохранён.
+
+## Конфигурация моделей демостенда
+
+Сценарий объединяет `compose.yaml`, приватный `compose.vpn.yml`, затем публичный `compose.cloudru-ai.yaml`. Последний задаёт только настройки разрешённых моделей организаторов: Qwen для фактов, GLM для анализа, каталог JSON Schema и режим `gateway_receipt` с проверенным для этого шлюза коэффициентом `1`. Это не универсальный курс валют для другого API. Ключ остаётся в серверном `.env`, настройки прокси сохраняются, существующий денежный лимит и журнал расходов не меняются. В обоих контейнерах применяются одинаковые настройки. Автоматическая генерация выключена; проверочные карточки запускаются вручную.
+
+При переходе со старого сценария, который ещё не подключал этот Compose-файл, после первого обновления исходников повторите deploy того же SHA вручную. Он запустит уже обновлённый сценарий с дополнительным файлом. Затем `/api/v1/llm/status` должен показывать `configured=true`, `budget_mode=gateway_receipt`; значение `prices_confirmed=false` допустимо для этого режима. Готовность настроек сама по себе не проверяет сетевое соединение: его подтверждает успешная задача анализа.
 
 ## Первоначальная подготовка
 
@@ -29,7 +35,7 @@ cat ~/.ssh/alphich_github_deploy.pub | ssh -i ~/.ssh/alphich_cloudru -o Identiti
 
 5. Проверьте подлинность host key VPS. На Mac сравните отпечатки `ssh-keyscan -t ed25519 89.232.176.172 2>/dev/null > /tmp/alphich-known-hosts && ssh-keygen -lf /tmp/alphich-known-hosts` и `ssh -i ~/.ssh/alphich_cloudru alphich@89.232.176.172 'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'`. Они должны совпасть. Не сохраняйте непроверенный host key.
 6. В GitHub репозитории: **Settings → Secrets and variables → Actions → New repository secret**. Создайте `CLOUDRU_DEPLOY_KEY` (полный приватный ключ `~/.ssh/alphich_github_deploy`) и `CLOUDRU_KNOWN_HOSTS` (проверенная строка `/tmp/alphich-known-hosts`). Эти значения нельзя публиковать.
-7. На GitHub в **Actions → Deploy Cloud.ru (manual) → Run workflow** выберите `main`, введите `deploy`. При первом запуске сценарий перепроверит и пересоберёт контейнеры даже для уже установленного коммита, чтобы проверить полный процесс CD. Следующие новые коммиты будут сначала проверены CI, потом резервированы и развёрнуты по этой кнопке.
+7. Для ручной проверки на GitHub в **Actions → Deploy Cloud.ru (manual or after CI) → Run workflow** выберите `main`, введите `deploy`. Сценарий перепроверит и пересоберёт контейнеры даже для уже установленного коммита. Обычные обновления идут через PR → merge в `main` → успешный push CI → автоматический deploy с резервной копией БД. Для такого обновления кода отдельный SSH-доступ разработчику не требуется; серверные секреты и VPN-настройки по-прежнему изменяются через доступ к самой VPS.
 
 ## Ограничения
 
@@ -38,6 +44,6 @@ cat ~/.ssh/alphich_github_deploy.pub | ssh -i ~/.ssh/alphich_cloudru -o Identiti
 - Не используйте `docker compose down -v`.
 - `create_all` не заменяет миграции БД. Изменения со сломом схемы требуют ручного плана миграции и восстановления. CI не гарантирует их безопасность.
 - При ошибке деплоя **нет автоматического отката** схемы или данных. Разберите ошибку и используйте резервную копию лишь по отдельной процедуре восстановления.
-- Обновления GitHub применяются через `-f compose.yaml -f ~/.config/alphich/compose.vpn.yml --profile news`, поэтому VPN-настройка сохраняется и RSS продолжает работать.
+- Обновления GitHub применяются через `-f compose.yaml -f ~/.config/alphich/compose.vpn.yml -f compose.cloudru-ai.yaml --profile news`, поэтому VPN-настройка сохраняется и RSS продолжает работать.
 - Пароли, ключи, модель E5, PDF, индекс и состояние PostgreSQL исключены из Git; команда `git pull` их не переносит.
 - Права workflow позволяют читать репозиторий и статусы CI. SSH-ключ ограничен forced command, но код, развёртываемый на сервер, должен проходить review: пользователь `alphich` имеет доступ к `sudo docker`.
