@@ -217,6 +217,7 @@ export function InsightFeed({ session, onEvent }: { session: DemoSession; onEven
     <DiscoveryPanel key={session.token} session={session} onEvent={onEvent} onChanged={discoveryChanged} />
     {error && <p className="insight-error" role="alert">{error}</p>}
     {!loading && feed?.items.length === 0 && <p className="insight-muted">Пока нет событий с подтверждённой значимостью 4–5. Загруженные публикации доступны в разделе событий; для оценки нужен разбор фактов.</p>}
+    {!!feed?.items.length && <h3>Сохранённая аналитика — включая прошлые запуски</h3>}
     {feed?.items.map((item: FeedItem) => <article key={`${item.event_id}:${item.event_version}`} className="insight-feed-item">
       <div><strong>{item.insight?.headline || item.title || item.event_id}</strong><p className="insight-muted">Значимость {item.relevance_grade ?? 'не определена'}/5 · {item.insight?.status || 'Без карточки'}</p>
         {item.relevance_assessment?.business_channel && <p>{item.relevance_assessment.business_channel}</p>}
