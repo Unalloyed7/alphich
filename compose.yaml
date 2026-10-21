@@ -76,6 +76,7 @@ services:
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
       DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-U_9250,U_99802,U_44792}
   analysis-worker:
+    stop_grace_period: 20m
     build:
       context: .
       dockerfile: backend/Dockerfile

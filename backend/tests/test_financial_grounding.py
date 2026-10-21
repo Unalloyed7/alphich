@@ -82,7 +82,7 @@ def test_credit_flag_alone_and_unrelated_sector_or_news_cannot_trigger_construct
     assert business_focus(evidence) is None
     context = construction_context(evidence)
     context['industry']['value'] = '62.01'
-    assert business_focus(context) is None
+    assert business_focus(context)['channel'] == 'customer_it_demand'
     context = construction_context(evidence)
     context['news']['attributes']['topics'] = ['sports']
     assert business_focus(context) is None
@@ -117,3 +117,28 @@ def test_focused_card_cannot_add_competing_extra_inferences(evidence):
     card.claims[0].evidence_ids = ['news', 'industry']
     card.claims.append(card.claims[0].model_copy(update={'id': 'c2'}))
     assert focus_issues(card, context) == ['business_focus_requires_one_primary_inference']
+
+
+@pytest.mark.parametrize('code,channel', [('41.20', 'customer_investment_demand'),
+    ('62.01', 'customer_it_demand'), ('46.90', 'customer_demand_and_inventory'),
+    ('49.41', 'logistics_demand'), ('25.11', 'investment_demand')])
+def test_rate_mechanism_uses_evidenced_business_activity_without_inventing_own_debt(evidence, code, channel):
+    context = construction_context(evidence)
+    context['industry']['value'] = code
+    focus = business_focus(context)
+    assert focus['channel'] == channel and focus['hypothesis'].startswith('Если')
+    assert focus['company_ids'] == ['industry'] and 'credit' in focus['not_inference_basis_ids']
+
+
+def test_inflation_headline_cannot_be_replaced_with_historical_rate_background(evidence):
+    context = construction_context(evidence)
+    context['inflation'] = {'kind': 'event_fact', 'text': 'Годовая инфляция замедлилась до 7,15%.',
+                            'attributes': {'topics': ['inflation']}}
+    title = 'Инфляция в России замедлилась до 7,15%'
+    focus = business_focus(context, event_title=title)
+    assert focus['driver'] == 'inflation' and focus['news_ids'] == ['inflation']
+    bad = draft('Если заказчики зависят от кредитов, высокая ставка может ограничивать новые заказы.')
+    bad.claims[0].evidence_ids = ['news', 'industry', 'forecast']
+    assert focus_issues(bad, context, event_title=title) == ['c1:business_focus_needs_primary_news_basis']
+    del context['inflation']
+    assert business_focus(context, event_title=title)['max_inferences'] == 0

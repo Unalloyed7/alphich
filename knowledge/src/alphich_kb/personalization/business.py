@@ -4,7 +4,7 @@ from .inputs import industry_matches
 from .profiles import normalize_company
 from .payments import METHOD, validate_payment_feature
 
-VERSION = "business-context-v1"
+VERSION = "business-context-v2"
 
 # Activity suggests questions; it does not prove a problem or a business model.
 LENSES = {
@@ -76,10 +76,20 @@ def business_context(profile):
         if company["products"][product] is True:
             observe(product + "_flag", True, company["bindings"][product],
                     "Продукт указан в профиле; остатки, договорные условия и текущая экспозиция неизвестны.")
+    if company["products"]["loan"] is True and company["bindings"]["loan"]:
+        hypotheses.append({"id": "financing_sensitivity", "status": "requires_confirmation",
+            "basis_feature_ids": company["bindings"]["loan"],
+            "possible_problem": "Если есть действующий долг с плавающей ставкой или близким рефинансированием, условия финансирования могут влиять на денежный поток.",
+            "mechanism": "Подтверждённый остаток и условия договора → процентные платежи и даты выплат → платёжный план.",
+            "check_data": "Остаток долга, фиксированная или плавающая ставка, формула, даты пересмотра, погашения и рефинансирования.",
+            "decision": "Рассчитать сценарии платежей по договору; прогноз ключевой ставки сам по себе не изменяет договор."})
     if company["fts_flag"] is True:
         observe("customs_countries", company["countries"], company["bindings"]["fts"],
                 "Страны в сведениях ФТС; направление, товары, валюты и действующие сделки не подтверждены.")
     for f in company["features"].values():
+        if f["name"] == "revenue_raw" and f["value"] is not None:
+            observe("revenue_raw", f["value"], [f["id"]],
+                "Исходное значение выручки. Единица, валюта и период не подтверждены; денежный масштаб и эффект по нему не рассчитываются.")
         if f["name"] == "group_id" and f["value"]:
             observe("group_membership", f["value"], [f["id"]],
                     "Общий GROUP_ID; не доказывает контроль, консолидированный бюджет, гарантию или общий долг.")
@@ -99,6 +109,11 @@ def business_context(profile):
                 "check_data": "Период и полнота платежей, назначение, разовые операции и хозяйственная роль контрагента.",
                 "decision": "Проверить устойчивость потоков после установления их хозяйственного смысла."})
     all_lenses = dict(LENSES)
+    for construction in ("42", "43"):
+        all_lenses[construction] = LENSES["41"]
+    all_lenses["47"] = LENSES["46"]
+    for transport in ("50", "51", "52"):
+        all_lenses[transport] = LENSES["49"]
     code = company["industry"]["code"] or ""
     if code.split('.')[0].isdigit() and 10 <= int(code.split('.')[0]) <= 33:
         all_lenses[code.split('.')[0]] = INDUSTRIAL_LENSES
@@ -117,6 +132,18 @@ def business_context(profile):
     ]
     if not any(o["code"].startswith("payment_") for o in observed):
         gaps.append({"id": "payment_context", "question": "Есть ли проверенный снимок платёжных связей этой компании?"})
+    priorities = (["financial_snapshot", "contracts", "payment_context", "business_model", "operations", "eligibility"]
+                  if company["role"] == "cfo" else
+                  ["business_model", "operations", "contracts", "financial_snapshot", "payment_context", "eligibility"])
+    purposes = {"business_model": "Определить рынки сбыта и проверить отраслевую применимость новости.",
+        "operations": "Проверить географию влияния, маршруты, проекты и зависимости.",
+        "contracts": "Разделить риск маржи, условия оплаты и движение денег.",
+        "financial_snapshot": "Оценить масштаб и рассчитать эффект на сопоставимых подтверждённых данных.",
+        "eligibility": "Проверить, распространяется ли требование или льгота на это юрлицо.",
+        "payment_context": "Проверить концентрацию и назначение наблюдаемых потоков."}
+    gaps.sort(key=lambda g: priorities.index(g["id"]))
+    for gap in gaps:
+        gap["purpose"] = purposes[gap["id"]]
     result = {"version": VERSION, "company_id": company["id"], "profile_version": company["profile_version"],
         "observed": observed, "hypotheses": hypotheses, "missing_data": gaps,
         "market_position": {"market_share": None, "status": "unknown",

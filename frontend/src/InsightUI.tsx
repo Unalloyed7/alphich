@@ -152,6 +152,7 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
     {job && <p className="insight-job">Задача {job.id.slice(0, 16)}: {job.status} · {job.stage}{job.error ? ` · ${job.error}` : ''}</p>}
     {error && <p className="insight-error" role="alert">{error}</p>}
     {insight && <div className="insight-result">
+      {insight.analysis_method_current === false && <p className="insight-muted">Разбор сохранён до обновления правил анализа. Для повторной проверки используйте «Сформировать заново».</p>}
       <h4>{insight.headline}</h4><p className="insight-muted">Статус: {insight.status}. Анализ на {dateLabel(insight.as_of)}. Проверка: {insight.verification?.status}.</p>
       {typeof insight.relevance_grade === 'number' && <p><strong>Значимость: {insight.relevance_grade}/5.</strong> {insight.relevance_selected ? 'Проходит отбор в ленту.' : 'Ниже порога отбора в ленту.'}</p>}
       <p><strong>Позиция банка:</strong> {insight.bank_view.status === 'found' ? 'Найдена в источниках' : insight.bank_view.status === 'historical_only' ? 'Только исторические материалы' : insight.bank_view.status === 'conflicting' ? 'Обнаружен конфликт источников' : 'Подтверждённая позиция отсутствует'}</p>

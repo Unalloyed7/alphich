@@ -17,7 +17,7 @@ bank_researcher передаёт разрешённые bank_claim_ids и gaps; 
 После finish verifier проверяет карточку и может вернуть замечания на одно исправление.
 Корневой business_focus — заданная сервером гипотеза для анализа; используй этот канал и его источники.
 Он не доказывает экспозицию: неизвестные предпосылки остаются условиями, а не фактами о компании.
-При business_focus дай только один вывод по этой гипотезе. Для его company evidence используй только
+При business_focus соблюдай max_inferences (0 означает только факты и пробелы). Для company evidence используй только
 inference_basis.company_ids. Причины первоначального отбора новости не доказывают экспозицию.
 
 Факты выбирай по fact_evidence_ids типов event_fact/company_feature/bank_claim: сервер копирует их текст.
@@ -107,7 +107,7 @@ class Tools:
             excluded = set(focus["not_inference_basis_ids"])
             context = {**context, "observed": [o for o in context["observed"]
                        if not excluded.intersection(o["evidence_ids"])],
-                       "hypotheses": [h for h in context["hypotheses"] if h["id"] == "customer_investment"]}
+                       "hypotheses": []}
         # Observed values are already present as original registry evidence.
         return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "group_policy")
                            if key in context})
@@ -196,11 +196,11 @@ class Tools:
         return {"evidence": [self.registry[i] for i in ids[:5]],
                 "limitations": ["neighbor_data_not_imported"] if action.action == "get_payment_neighbors" and not ids else []}
 
-    def prompt_evidence(self, *, kinds=None, exclude_ids=()):
+    def prompt_evidence(self, *, kinds=None, exclude_ids=(), max_bytes=15000, priority_ids=()):
         # Restrict only prompt excerpts; original immutable evidence remains intact.
         result, used = [], 0
         priority = {"event_fact": 0, "company_feature": 1, "bank_claim": 2, "document_chunk": 3}
-        for item in sorted(self.registry.values(), key=lambda x: (priority.get(x["kind"], 4), x["id"])):
+        for item in sorted(self.registry.values(), key=lambda x: (x['id'] not in priority_ids, priority.get(x["kind"], 4), x["id"])):
             if item["id"] in exclude_ids:
                 continue
             if kinds is not None and item["kind"] not in kinds:
@@ -216,7 +216,7 @@ class Tools:
             if len(text) > 1600:
                 summary["prompt_excerpt_only"] = True
             size = len(str(summary).encode())
-            if used + size > 15000:
+            if used + size > max_bytes:
                 continue
             result.append(self.expose(summary))
             used += size
@@ -230,12 +230,15 @@ def analyze(tools, calls, question=None):
     researcher = BankResearchAgent(tools, calls, question)
     verifier = VerificationAgent(tools, calls, REVIEW)
     observations, errors = [], []
-    initial_focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
+    initial_focus = business_focus(tools.registry, question=question, event_id=tools.event["id"], event_title=tools.event.get('title'))
     questions = list(tools.selection.get("bank_questions", [])[:2])
     if initial_focus:
-        questions = [{**q, "query": "Какую траекторию ключевой ставки прогнозирует банк?"} if q.get("metric") == "policy_rate"
-                     else {**q, "query": "Как высокая ставка влияет на инвестиционный спрос заказчиков и запуск строительных проектов?",
-                           "metric": None, "horizon": None} for q in questions]
+        metric = {'policy_rate': 'policy_rate', 'inflation': 'consumer_inflation_yoy',
+                  'fuel': 'fuel_inflation_risk'}.get(initial_focus['driver'])
+        horizon = next((q.get('horizon') for q in questions if metric and q.get('metric') == metric), None)
+        questions = [{'query': 'Позиция банка по событию: ' + tools.event.get('title', ''),
+                      'metric': metric, 'horizon': horizon}]
+        tools.selection = {**tools.selection, 'bank_questions': questions}
     for question_spec in questions:
         calls.heartbeat()
         result = tools.invoke(SearchBank(action="search_bank_materials",
@@ -256,7 +259,7 @@ def analyze(tools, calls, question=None):
 """
     repaired, force_finish = False, False
     for index in range(calls.provider.settings.max_tools + 2):
-        focus = business_focus(tools.registry, question=question, event_id=tools.event["id"])
+        focus = business_focus(tools.registry, question=question, event_id=tools.event["id"], event_title=tools.event.get('title'))
         excluded = focus["not_inference_basis_ids"] if focus else ()
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
                 "event": {k: tools.event.get(k) for k in ("id", "title", "published_at")},
@@ -272,7 +275,7 @@ def analyze(tools, calls, question=None):
             data["repair_instruction"] = ("Заново обоснуй экономический переход и бизнес-последствие по business_focus, "
                 "если он задан. Не маскируй отвергнутый вывод синонимами или оговорками. "
                 "Пауза ставки не устанавливает траекторию стоимости обслуживания; признак продукта и ОКВЭД не доказывают долг.")
-        data["inference_basis"] = {"news_ids": tools.expose([i for i, e in tools.registry.items() if e["kind"] == "event_fact"]),
+        data["inference_basis"] = {"news_ids": tools.expose(focus['news_ids'] if focus else [i for i, e in tools.registry.items() if e["kind"] == "event_fact"]),
                                    "company_ids": tools.expose(focus["company_ids"] if focus else
                                        [i for i, e in tools.registry.items() if e["kind"] == "company_feature"])}
         must_finish = (force_finish or calls.provider.settings.max_calls - calls.count <= 2 or
@@ -287,6 +290,15 @@ def analyze(tools, calls, question=None):
             request_data.pop("business_context", None)
             tools.steps.append({"agent_role": "coordinator", "action": "bound_business_context",
                                 "result": {"status": "omitted_for_input_budget"}})
+        evidence_budget = 15000
+        primary = (focus['news_ids'] + focus['company_ids']) if focus else []
+        for _ in range(3):
+            excess = input_bytes(model, system, request_data, schema.model_json_schema()) - model.input_limit
+            if excess <= 0:
+                break
+            evidence_budget = max(0, evidence_budget - excess - 256)
+            request_data['evidence'] = tools.prompt_evidence(exclude_ids=excluded, max_bytes=evidence_budget,
+                                                            priority_ids=primary)
         try:
             decision = calls.ask(f"agent_{index}", schema, system, request_data).decision
         except SchemaFailure as exc:
@@ -316,7 +328,7 @@ def analyze(tools, calls, question=None):
         draft, errors = materialize_draft(tools.resolve_draft(decision.draft), tools.registry)
         if draft is not None:
             errors += verify_draft(draft, tools.registry)
-            errors += focus_issues(draft, tools.registry, question=question, event_id=tools.event["id"])
+            errors += focus_issues(draft, tools.registry, question=question, event_id=tools.event["id"], event_title=tools.event.get('title'))
             if tools.bank_claim_allowlist is not None and any(
                     c.kind == "bank_view" and any(i not in tools.bank_claim_allowlist for i in c.evidence_ids)
                     for c in draft.claims):
@@ -329,6 +341,8 @@ def analyze(tools, calls, question=None):
         tools.steps.append({"agent_role": "verifier", "action": "verify_card", "issues": errors, "repair": repaired,
                             "candidate": draft.model_dump() if draft is not None else None, "candidate_stage": "pre_publication"})
         if not errors:
+            if focus and not focus['news_ids']:
+                return draft.model_dump(), {"status": "insufficient_evidence", "issues": ["primary_event_evidence_missing"]}
             return draft.model_dump(), {"status": "passed_with_conditions", "issues": [],
                                         "method": "deterministic_provenance_and_llm_entailment"}
         if repaired or calls.count + 2 > calls.provider.settings.max_calls:

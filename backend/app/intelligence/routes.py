@@ -159,7 +159,8 @@ def register_routes(app, get_db, current_session, factory):
     def insight_detail(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
         insight = authorized(db.get(Insight, insight_id), demo)
         allowed_evidence(insight.evidence, config())
-        return insight.payload
+        from .service import public_insight_payload
+        return public_insight_payload(insight)
 
     @app.get("/api/v1/insights/{insight_id}/quality")
     def insight_quality(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):

@@ -21,9 +21,10 @@ def test_dossier_keeps_industry_hypotheses_separate_from_observed_exposure():
     before = copy.deepcopy(p)
     result = business_context(p)
     assert p == before
-    assert {h['id'] for h in result['hypotheses']} == {'customer_it_budgets', 'delivery_economics'}
+    assert {h['id'] for h in result['hypotheses']} == {'customer_it_budgets', 'delivery_economics', 'financing_sensitivity'}
     assert all(h['status'] == 'requires_confirmation' and h['possible_problem'].startswith('Если')
-               and h['basis_feature_ids'] == ['industry'] for h in result['hypotheses'])
+               and h['basis_feature_ids'] == (['loan'] if h['id'] == 'financing_sensitivity' else ['industry'])
+               for h in result['hypotheses'])
     assert result['market_position']['market_share'] is None
     assert next(o for o in result['observed'] if o['code'] == 'loan_flag')['value'] is True
     assert 'не подтверждает' in next(o for o in result['observed'] if o['code'] == 'registration')['meaning']

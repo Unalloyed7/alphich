@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { api, analysisApi, ApiError } from './api';
 import { EventInsight, InsightFeed } from './InsightUI';
+import { CompanyAnalysis } from './CompanyAnalysis';
 import { mergeRecentEvents } from './recentEvents';
 import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
 
@@ -71,7 +72,7 @@ const NAV: { key: Screen; label: string; icon: IconName }[] = [
   { key: 'publish', label: 'Новая публикация', icon: 'plus' },
   { key: 'events', label: 'События', icon: 'list' },
   { key: 'insights', label: 'Аналитика', icon: 'activity' },
-  { key: 'profile', label: 'Профиль компании', icon: 'briefcase' },
+  { key: 'profile', label: 'Анализ компании', icon: 'briefcase' },
 ];
 
 function SessionGate({ onConnect, busy, error }: {
@@ -486,7 +487,7 @@ function App() {
         {screen === 'publish' && <><div className="page-title"><div className="eyebrow">NEWS INGESTION / P0</div><h1>Новая публикация<span>.</span></h1><p>Проверь полный путь от отправки текста до события в базе данных.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>FastAPI сохраняет источник и создаёт задачу. Worker забирает её из PostgreSQL и создаёт событие. Статус можно отслеживать здесь.</p><span>Время обработки обычно небольшое, но зависит от состояния worker.</span></div></div></div></>}
         {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
         {screen === 'insights' && <InsightFeed key={session.token} session={session} onEvent={id => void openEventId(id)}/>}
-        {screen === 'profile' && <><div className="page-title"><div className="eyebrow">COMPANY CONTEXT / P0</div><h1>Контекст компании<span>.</span></h1><p>Признаки, на которых в дальнейшем будет основана персонализированная аналитика.</p></div><Profile profile={profile}/></>}
+        {screen === 'profile' && <><div className="page-title"><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h1>Анализ компании<span>.</span></h1><p>Что известно о бизнесе, какие механизмы влияния проверить и какие данные нужны для решения.</p></div><CompanyAnalysis key={session.token} session={session}/><details><summary>Исходный профиль компании</summary><Profile profile={profile}/></details></>}
         <footer className="app-footer"><span>© ALPHICH / HACKATHON PROTOTYPE</span><span>Профили обезличены · Источники требуют проверки</span></footer>
       </div>
     </main>
