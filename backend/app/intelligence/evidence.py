@@ -4,6 +4,7 @@ import re
 from decimal import Decimal
 
 from .schemas import CardDraft
+from .financial_grounding import unsupported_financing_stability
 
 LABELS = {"okved_code": "ОКВЭД", "okved_name": "Основная деятельность", "region_registration": "Регион регистрации",
           "revenue_raw": "Выручка в исходных единицах", "fts_countries": "Страны в сведениях ФТС",
@@ -115,6 +116,8 @@ def verify_draft(draft, registry):
                     if newer:
                         issues.append(f"{claim.id}:bank_claim_superseded_in_context")
         else:
+            if unsupported_financing_stability(claim.text):
+                issues.append(f"{claim.id}:unsupported_company_contract_stability")
             evidence_kinds = {e["kind"] for e in evidence}
             if not {"event_fact", "company_feature"} <= evidence_kinds or not claim.conditions:
                 issues.append(f"{claim.id}:personal_inference_needs_company_news_and_conditions")

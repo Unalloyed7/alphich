@@ -81,7 +81,8 @@ class ScriptedGateway:
     """Fictional test responses derived from supplied evidence, never production fallback."""
     def __init__(self, *, bad_quote=False, bad_schema=False, reject_review=False, extra_search=False,
                  fabricated_number=False, timeout=False, missing_usage=False, empty_facts=False,
-                 reject_semantics=False, repair_semantics=False, always_search=False):
+                 reject_semantics=False, repair_semantics=False, always_search=False, bad_contract_stability=False,
+                 business_issue=None, persistent_business_issue=False):
         self.options = locals().copy()
         self.seen = []
         self.decisions = 0
@@ -116,18 +117,27 @@ class ScriptedGateway:
                 result = {"decision": {"action": "search_bank_materials", "query": f"Более свежий прогноз ключевой ставки, запрос {self.decisions}", "metric": "policy_rate", "horizon": "2026-12-31"}}
             else:
                 news = next(e for e in data["evidence"] if e["kind"] == "event_fact")
-                company = next(e for e in data["evidence"] if e["kind"] == "company_feature")
+                company = next(e for e in data["evidence"] if e["kind"] == "company_feature" and "Основная деятельность" in e["text"])
                 facts = [news["id"], company["id"]]
-                inferences = [{"id": "i1", "text": "Условия финансирования компании требуют проверки по договору.",
-                               "evidence_ids": [news["id"], company["id"]], "conditions": ["Суммы и условия договоров неизвестны"]}]
+                inferences = [{"id": "i1", "text": "Если заказчики строительной компании финансируют проекты кредитами, сохранение дорогого финансирования может откладывать запуск проектов и поступление авансов подрядчику.",
+                               "evidence_ids": [news["id"], company["id"]], "conditions": ["Проекты заказчиков зависят от кредитного финансирования"]}]
                 bank_claim = next((e for e in data["evidence"] if e["kind"] == "bank_claim" and e.get("position_role") == "current_in_document"), None)
                 if bank_claim:
                     facts.append(bank_claim["id"])
                 if self.options["fabricated_number"]:
                     inferences[0]["text"] = "Компания потеряет 999999 рублей."
+                if self.options["bad_contract_stability"] and self.decisions == 1:
+                    inferences[0]["text"] = ("Если у компании есть действующий кредитный договор, условия финансирования "
+                        "могут сохраняться в неизменном виде до конца года в базовом сценарии банка; "
+                        "стоимость и структуру долга следует уточнить по договору.")
+                if self.options["business_issue"] and (self.decisions == 1 or self.options["persistent_business_issue"]):
+                    inferences[0]["text"] = {
+                        "missing_business_mechanism": "Условия финансирования компании требуют проверки по договору.",
+                        "unsupported_transmission": "Если ставка остаётся высокой, заказчики стремятся больше тратить и ускоряют запуск строительных проектов.",
+                    }[self.options["business_issue"]]
                 result = {"decision": {"action": "finish", "draft": {"fact_evidence_ids": facts, "inferences": inferences, "risks": ["i1"], "opportunities": [],
-                    "next_steps": [{"text": "Уточнить применимые условия договора", "basis_inference_ids": ["i1"],
-                                    "conditions": ["Если компания планирует пересмотр условий"]}], "missing_data": ["Условия договора"]}}}
+                    "next_steps": [{"text": "Проверить подтверждённое финансирование и сроки запуска крупных заявок, чтобы оценить надёжность плана поступления авансов.", "basis_inference_ids": ["i1"],
+                                    "conditions": ["Если в плане есть ещё не запущенные проекты"]}], "missing_data": ["Источники финансирования и сроки запуска проектов заказчиков"]}}}
         elif title in {"SemanticReview", "VerificationDecision", "FinalVerificationDecision"}:
             self.reviews += 1
             result = {"supported_claim_ids": [c["id"] for c in data["draft"]["claims"]],
@@ -135,6 +145,9 @@ class ScriptedGateway:
             if self.options["reject_semantics"] or (self.options["repair_semantics"] and self.reviews == 1):
                 result["supported_claim_ids"] = []
                 result["issues"] = ["unsupported_claim"]
+            if self.options["business_issue"] and (self.reviews == 1 or self.options["persistent_business_issue"]):
+                result["supported_claim_ids"] = [c["id"] for c in data["draft"]["claims"] if c["kind"] != "model_inference"]
+                result["issues"] = [self.options["business_issue"]]
             if title != "SemanticReview":
                 result = {"decision": {"action": "verdict", **result}}
         else:
@@ -736,6 +749,50 @@ def test_semantic_repair_is_attempted_once_and_rechecked(store):
     assert job["status"] == "succeeded", job
     assert gateway.reviews == 2 and gateway.decisions == 2
     assert len(gateway.seen) == 6
+
+
+def test_macro_forecast_cannot_publish_reported_contract_stability_even_if_reviewer_agrees(store):
+    client, factory, headers, settings = store
+    event_id = stored_event(client, factory, headers["DEMO_A"])
+    job_id = queued_insight(client, headers["DEMO_A"], event_id).json()["id"]
+    engine, gateway = runtime(factory, settings, ScriptedGateway(bad_contract_stability=True))
+    process_next(factory, engine)
+    job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
+    assert job["status"] == "succeeded", job
+    card = client.get("/api/v1/insights/" + job["result_id"], headers=headers["DEMO_A"]).json()
+    assert gateway.decisions == 2 and gateway.reviews == 1
+    inference = next(c for c in card["claims"] if c["kind"] == "model_inference")
+    assert "поступление авансов" in inference["text"] and "неизменном" not in inference["text"]
+    run = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
+    checks = [s for s in run["steps"] if s["action"] == "verify_card"]
+    assert any("unsupported_company_contract_stability" in issue for issue in checks[0]["issues"])
+    assert checks[-1]["issues"] == []
+
+
+@pytest.mark.parametrize("issue", ["missing_business_mechanism", "unsupported_transmission"])
+@pytest.mark.parametrize("persistent", [False, True])
+def test_business_quality_verdict_requires_repair_or_prevents_publication(store, issue, persistent):
+    """Protocol regression: scripted verdicts test enforcement, not model accuracy."""
+    client, factory, headers, settings = store
+    event_id = stored_event(client, factory, headers["DEMO_A"])
+    job_id = queued_insight(client, headers["DEMO_A"], event_id).json()["id"]
+    engine, gateway = runtime(factory, settings, ScriptedGateway(business_issue=issue, persistent_business_issue=persistent))
+    process_next(factory, engine)
+    job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
+    assert gateway.reviews == gateway.decisions == 2
+    assert len(gateway.seen) <= settings.max_calls
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(Insight)) == (0 if persistent else 1)
+    if persistent:
+        assert job["status"] == "failed" and job["error"] == "card_validation_failed"
+    else:
+        assert job["status"] == "succeeded", job
+        card = client.get("/api/v1/insights/" + job["result_id"], headers=headers["DEMO_A"]).json()
+        run = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
+        checks = [s for s in run["steps"] if s["action"] == "verify_card"]
+        assert issue in checks[0]["issues"] and checks[-1]["issues"] == []
+        inference = next(c for c in card["claims"] if c["kind"] == "model_inference")
+        assert "поступление авансов" in inference["text"]
 
 
 def test_persistent_semantic_failure_never_publishes(store):

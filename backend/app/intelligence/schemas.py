@@ -107,14 +107,14 @@ InferenceRef = Annotated[str, Field(pattern=r"^i[1-9][0-9]?$", max_length=3)]
 class ReferencedInference(Strict):
     id: InferenceRef
     text: str = Field(min_length=6, max_length=1000, pattern=r"^[^\d]*$",
-                      description="Conditional interpretation without digits; exact numbers/dates belong to server facts")
+                      description="Explain event -> economic mechanism -> conditional company consequence; no digits. A data-check alone is not an insight.")
     evidence_ids: list[str] = Field(min_length=2, max_length=8)
     conditions: list[str] = Field(min_length=1, max_length=5)
 
 
 class ReferencedStep(Strict):
     text: str = Field(min_length=6, max_length=500, pattern=r"^[^\d]*$",
-                      description="Conditional data-check action without numerical claims")
+                      description="State what data to check and which business decision it informs; no digits")
     basis_inference_ids: list[InferenceRef] = Field(min_length=1, max_length=4)
     conditions: list[str] = Field(min_length=1, max_length=4)
 
@@ -179,7 +179,8 @@ class SemanticReview(Strict):
     supported_claim_ids: list[str] = Field(max_length=12)
     supported_action_indexes: list[int] = Field(max_length=4)
     issues: list[Literal["unsupported_claim", "unsupported_action", "contradicts_evidence",
-                        "unmarked_assumption", "unsupported_number", "bank_attribution_error", "irrelevant_answer"]] = Field(
+                        "unmarked_assumption", "unsupported_number", "bank_attribution_error", "irrelevant_answer",
+                        "missing_business_mechanism", "unsupported_transmission"]] = Field(
         default_factory=list, max_length=12, description="Error codes only; [] if all claims and actions pass. No explanations or reasoning.")
 
 
