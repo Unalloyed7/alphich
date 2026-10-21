@@ -24,7 +24,7 @@ class CloudruAIConfigTests(unittest.TestCase):
             env_file = Path(directory) / 'fixture.env'
             env_file.write_text('LLM_API_KEY=test-only-key\nLLM_DAILY_LIMIT_RUB=10\n'
                                 'LLM_BUDGET_MODE=token_prices\nLLM_PRICES_CONFIRMED=0\n'
-                                'LLM_MODEL_CATALOG_JSON=[]\n')
+                                'LLM_MODEL_CATALOG_JSON=[]\nDEMO_COMPANY_IDS=DEMO_A,DEMO_B\n')
             vpn = Path(directory) / 'vpn.yaml'
             vpn.write_text('services:\n  api:\n    environment:\n'
                            '      HTTPS_PROXY: http://test-proxy:1080\n'
@@ -32,12 +32,17 @@ class CloudruAIConfigTests(unittest.TestCase):
                            '  analysis-worker:\n    environment:\n'
                            '      HTTPS_PROXY: http://test-proxy:1080\n')
             # Do not inherit any operator secrets or LLM configuration into the fixture.
-            clean_env = {k: v for k, v in os.environ.items() if not k.startswith(('LLM_', 'AI_AUTOMATION_'))}
+            clean_env = {k: v for k, v in os.environ.items()
+                         if not k.startswith(('LLM_', 'AI_AUTOMATION_', 'DEMO_COMPANY_IDS'))}
             result = subprocess.run(
-                ['docker', 'compose', '--env-file', str(env_file), '-f', str(ROOT / 'compose.yaml'),
+                ['docker', 'compose', '--profile', 'news', '--env-file', str(env_file), '-f', str(ROOT / 'compose.yaml'),
                  '-f', str(vpn), '-f', str(ROOT / 'compose.cloudru-ai.yaml'), 'config', '--format', 'json'],
                 capture_output=True, text=True, env=clean_env, check=True)
             config = json.loads(result.stdout)
+        for service in ('api', 'worker', 'analysis-worker', 'rss-collector'):
+            with self.subTest(company_scope=service):
+                self.assertEqual(config['services'][service]['environment']['DEMO_COMPANY_IDS'],
+                                 'DEMO_A,DEMO_B')
         for service in ('api', 'analysis-worker'):
             with self.subTest(service=service):
                 env = config['services'][service]['environment']
