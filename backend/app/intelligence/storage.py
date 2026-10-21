@@ -38,6 +38,14 @@ class CostReceipt(Base):
     source: Mapped[str] = mapped_column(String(80))
 
 
+class CostReconciliation(Base):
+    __tablename__ = "llm_cost_reconciliations"
+    call_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    reason: Mapped[str] = mapped_column(String(80))
+    released_micros: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[int] = mapped_column(BigInteger)
+
+
 class AnalysisRun(Base):
     __tablename__ = "analysis_runs"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)

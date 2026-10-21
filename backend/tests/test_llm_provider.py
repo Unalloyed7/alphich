@@ -12,9 +12,9 @@ from sqlalchemy import event, select
 from app.core import Base, make_session_factory
 from app.intelligence import provider as provider_module
 from app.intelligence.gateway import inspect_gateway
-from app.intelligence.provider import Provider, parse_json_object, reserve, settle
+from app.intelligence.provider import Provider, parse_json_object, reconcile_zero_http_receipts, reserve, settle
 from app.intelligence.settings import AnalysisError, Model, Settings
-from app.intelligence.storage import BudgetDay, CostReceipt, LLMCall
+from app.intelligence.storage import BudgetDay, CostReceipt, CostReconciliation, LLMCall
 
 
 @pytest.fixture
@@ -147,3 +147,54 @@ def test_gateway_diagnostic_malformed_shapes_have_safe_error(ledger, models_body
     with httpx.Client(transport=httpx.MockTransport(gateway)) as client:
         with pytest.raises(AnalysisError, match="gateway_diagnostic_invalid_response"):
             inspect_gateway(settings, client)
+
+
+def test_zero_cost_http_rejection_keeps_failure_and_unknown_tokens_but_releases_money(ledger):
+    _, factory, settings, model = ledger
+    settings = replace(settings, budget_mode="gateway_receipt", receipt_rub_per_unit=Decimal("1"))
+    with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(
+            503, headers={"x-litellm-response-cost": "0"}, json={"error": "unavailable"}))) as client:
+        with pytest.raises(AnalysisError, match="llm_http_503"):
+            Provider(factory, settings, client).generate("rejection", "step", model.id, "JSON", {}, {})
+    with factory() as db:
+        call, budget = db.scalar(select(LLMCall)), db.scalar(select(BudgetDay))
+        assert call.status == "failed" and call.error == "llm_http_503" and call.result is None
+        assert call.input_tokens is None and call.output_tokens is None
+        assert call.cost_micros == 0 and budget.spent_micros == 0 and budget.reserved_micros == 0
+
+
+@pytest.mark.parametrize("receipt", [None, "invalid", "0.1"])
+def test_http_rejection_without_proven_zero_retains_reserve(ledger, receipt):
+    _, factory, settings, model = ledger
+    settings = replace(settings, budget_mode="gateway_receipt", receipt_rub_per_unit=Decimal("1"))
+    headers = {} if receipt is None else {"x-litellm-response-cost": receipt}
+    with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(503, headers=headers))) as client:
+        with pytest.raises(AnalysisError, match="llm_http_503"):
+            Provider(factory, settings, client).generate("rejection", "step", model.id, "JSON", {}, {})
+    with factory() as db:
+        call, budget = db.scalar(select(LLMCall)), db.scalar(select(BudgetDay))
+        assert call.cost_micros is None and budget.reserved_micros == call.reserved_micros
+
+
+def test_legacy_zero_receipt_reconciliation_is_atomic_and_leaves_other_unknown_calls_held(ledger):
+    _, factory, _, _ = ledger
+    with factory.begin() as db:
+        db.add(BudgetDay(day="2026-10-21", limit_micros=3_000_000, spent_micros=0, reserved_micros=3_000_000))
+        for ident, error, amount in [("zero", "llm_http_503", "0"),
+                                     ("timeout", "llm_timeout_outcome_unknown", "0"),
+                                     ("positive", "llm_http_503", "0.1")]:
+            db.add(LLMCall(id=ident, run_id="old-" + ident, day="2026-10-21", model="unit-model", purpose="step",
+                request_hash="hash", status="failed", reserved_micros=1_000_000, cost_micros=None,
+                input_tokens=None, output_tokens=None, result=None, error=error))
+            db.add(CostReceipt(call_id=ident, amount=amount, rub_per_unit="1", source="x-litellm-response-cost"))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: reconcile_zero_http_receipts(factory), range(2)))
+    assert sum(r["settled_zero_receipts"] for r in results) == 1
+    assert reconcile_zero_http_receipts(factory)["settled_zero_receipts"] == 0
+    with factory() as db:
+        budget = db.get(BudgetDay, "2026-10-21")
+        assert budget.limit_micros == 3_000_000 and budget.spent_micros == 0 and budget.reserved_micros == 2_000_000
+        assert db.get(LLMCall, "zero").cost_micros == 0
+        assert db.get(LLMCall, "zero").status == "failed"
+        assert db.get(LLMCall, "timeout").cost_micros is None and db.get(LLMCall, "positive").cost_micros is None
+        assert db.get(CostReconciliation, "zero").released_micros == 1_000_000

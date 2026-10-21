@@ -83,5 +83,11 @@ git merge --ff-only "$TARGET_SHA"
   up -d --build --wait --wait-timeout 180
 curl --fail --silent --show-error --retry 12 --retry-delay 3 \
   --retry-connrefused --max-time 5 http://127.0.0.1:8000/api/v1/health >/dev/null
+# This command only reads /models and /key/info using the worker's proxy.
+# A model outage must not take down the otherwise healthy site.
+echo 'LLM_GATEWAY_CHECK_BEGIN'
+if ! "${COMPOSE[@]}" exec -T analysis-worker python -m app.intelligence.cli gateway-status; then
+  echo 'LLM_GATEWAY_CHECK_FAILED: web/API remain deployed; generation readiness needs attention.'
+fi
 "${COMPOSE[@]}" --profile news ps
 echo "DEPLOY_OK: $(git rev-parse HEAD)"

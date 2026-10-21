@@ -50,6 +50,33 @@ def store(tmp_path, monkeypatch):
     engine.dispose()
 
 
+def test_gateway_status_is_session_scoped_read_only_and_sanitized(store, monkeypatch):
+    client, factory, headers, _ = store
+    from app.intelligence import routes
+    seen = []
+    def inspect(settings):
+        seen.append(settings.base_url)
+        return {"status": "reachable", "selected_models_available": True}
+    monkeypatch.setattr(routes, "inspect_gateway", inspect)
+    assert client.get('/api/v1/llm/gateway-status').status_code == 401
+    response = client.get('/api/v1/llm/gateway-status', headers=headers['DEMO_A'])
+    assert response.status_code == 200 and response.json()['selected_models_available'] is True
+    assert len(seen) == 1 and 'test-secret' not in response.text
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
+        assert db.scalar(select(func.count()).select_from(BudgetDay)) == 0
+
+
+def test_gateway_status_returns_safe_upstream_error(store, monkeypatch):
+    client, _, headers, _ = store
+    from app.intelligence import routes
+    def inspect(_):
+        raise AnalysisError('gateway_models_http_503')
+    monkeypatch.setattr(routes, 'inspect_gateway', inspect)
+    response = client.get('/api/v1/llm/gateway-status', headers=headers['DEMO_A'])
+    assert response.status_code == 503 and response.json()['detail'] == 'gateway_models_http_503'
+
+
 class ScriptedGateway:
     """Fictional test responses derived from supplied evidence, never production fallback."""
     def __init__(self, *, bad_quote=False, bad_schema=False, reject_review=False, extra_search=False,
