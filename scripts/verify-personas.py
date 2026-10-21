@@ -7,17 +7,44 @@ synthetic source texts if a company has no events. Never prints session tokens.
 from __future__ import annotations
 
 import argparse
+import base64
+import getpass
 import json
+import os
 import sys
 import time
 import uuid
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.parse import quote, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class CheckFailed(RuntimeError):
     pass
+
+
+class NoRedirect(HTTPRedirectHandler):
+    """Never forward site credentials or demo tokens to a redirect target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def site_auth(base: str) -> dict[str, str]:
+    """Optional reverse-proxy login, separate from the application demo token."""
+    username = os.getenv('ALPHICH_SMOKE_USER', '')
+    password = os.getenv('ALPHICH_SMOKE_PASSWORD', '')
+    parsed = urlsplit(base)
+    if parsed.username is not None or parsed.password is not None:
+        raise CheckFailed('Do not embed credentials in the base URL')
+    if not username and not password:
+        return {}
+    if not username or not password or ':' in username:
+        raise CheckFailed('Set both ALPHICH_SMOKE_USER and ALPHICH_SMOKE_PASSWORD')
+    if parsed.scheme != 'https' or not parsed.hostname:
+        raise CheckFailed('Site Basic Auth requires an HTTPS base URL')
+    encoded = base64.b64encode(f'{username}:{password}'.encode('utf-8')).decode('ascii')
+    return {'Authorization': 'Basic ' + encoded}
 
 
 def request(base: str, method: str, path: str, *, token: str | None = None,
@@ -27,7 +54,7 @@ def request(base: str, method: str, path: str, *, token: str | None = None,
         raise CheckFailed(f'Forbidden POST for unpaid acceptance test: {path}')
     if method not in {'GET', 'POST'}:
         raise CheckFailed(f'Forbidden method: {method}')
-    headers = {'Accept': 'application/json'}
+    headers = {'Accept': 'application/json', **site_auth(base)}
     if token:
         headers['X-Demo-Session'] = token
     if key:
@@ -36,7 +63,9 @@ def request(base: str, method: str, path: str, *, token: str | None = None,
     if body is not None:
         headers['Content-Type'] = 'application/json'
     try:
-        with urlopen(Request(base + path, data=body, headers=headers, method=method), timeout=30) as response:
+        with build_opener(NoRedirect()).open(
+            Request(base + path, data=body, headers=headers, method=method), timeout=30
+        ) as response:
             return response.status, json.load(response)
     except HTTPError as error:
         try:
@@ -196,6 +225,7 @@ def run(args: argparse.Namespace) -> None:
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--base', default='http://127.0.0.1:8000')
+    p.add_argument('--basic-user', help='HTTPS site login; password is prompted or read from ALPHICH_SMOKE_PASSWORD')
     p.add_argument('--company-a', default='DEMO_A')
     p.add_argument('--company-b', default='DEMO_B')
     p.add_argument('--seed-missing', action='store_true', help='Write ONLY synthetic publications where no events exist')
@@ -204,6 +234,13 @@ def main() -> int:
     p.add_argument('--require-insight', action='store_true', help='Fail if no existing CFO card is available')
     args = p.parse_args()
     try:
+        if args.basic_user:
+            parsed = urlsplit(args.base)
+            if parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None:
+                raise CheckFailed('Site Basic Auth requires an HTTPS base URL without credentials')
+            os.environ['ALPHICH_SMOKE_USER'] = args.basic_user
+            if not os.getenv('ALPHICH_SMOKE_PASSWORD'):
+                os.environ['ALPHICH_SMOKE_PASSWORD'] = getpass.getpass('Site password: ')
         run(args)
     except (CheckFailed, KeyError, ValueError, TypeError) as exc:
         print(f'FAIL {exc}', file=sys.stderr)

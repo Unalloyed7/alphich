@@ -26,6 +26,7 @@ if ! sudo -n docker info >/dev/null; then
   exit 2
 fi
 cd "$ROOT"
+COMPOSE=(sudo -n docker compose -f compose.yaml -f "$OVERLAY" -f compose.cloudru-ai.yaml)
 exec 9>"$LOCK"
 if ! flock -n 9; then
   echo >&2 'Another deployment is in progress.'
@@ -56,7 +57,7 @@ mkdir -p backups
 chmod 700 backups
 TMP_BACKUP="$(mktemp "$ROOT/backups/.predeploy-XXXXXXXX.dump")"
 trap 'rm -f "$TMP_BACKUP"' EXIT
-sudo -n docker compose -f compose.yaml -f "$OVERLAY" \
+"${COMPOSE[@]}" \
   exec -T postgres sh -eu -c \
   'exec pg_dump --format=custom --compress=6 --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   > "$TMP_BACKUP"
@@ -77,10 +78,10 @@ echo "BACKUP_OK: $BACKUP"
 
 # Do not run destructive migrations or delete the PostgreSQL volume.
 git merge --ff-only "$TARGET_SHA"
-sudo -n docker compose -f compose.yaml -f "$OVERLAY" --profile news config --quiet
-sudo -n docker compose -f compose.yaml -f "$OVERLAY" --profile news \
+"${COMPOSE[@]}" --profile news config --quiet
+"${COMPOSE[@]}" --profile news \
   up -d --build --wait --wait-timeout 180
 curl --fail --silent --show-error --retry 12 --retry-delay 3 \
   --retry-connrefused --max-time 5 http://127.0.0.1:8000/api/v1/health >/dev/null
-sudo -n docker compose -f compose.yaml -f "$OVERLAY" --profile news ps
+"${COMPOSE[@]}" --profile news ps
 echo "DEPLOY_OK: $(git rev-parse HEAD)"

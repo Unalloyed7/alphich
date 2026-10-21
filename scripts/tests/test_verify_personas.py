@@ -1,11 +1,14 @@
 """Mocked, unpaid company/role and saved-insight ACL smoke checks."""
 import importlib.util
 import io
+import os
+import threading
 import types
 import unittest
 from contextlib import redirect_stdout
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 MODULE = Path(__file__).resolve().parents[1] / 'verify-personas.py'
 spec = importlib.util.spec_from_file_location('alphich_verify_personas', MODULE)
@@ -116,6 +119,69 @@ class PersonaTests(unittest.TestCase):
     def test_same_company_ids_are_invalid(self):
         with self.assertRaisesRegex(personas.CheckFailed, 'distinct'):
             personas.run(self.args(company_b='DEMO_A'))
+
+
+class SiteAuthTests(unittest.TestCase):
+    def test_proxy_login_and_demo_token_are_both_sent_over_https(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.status = 200
+        response.read.return_value = b'{"items": []}'
+        opener = MagicMock()
+        opener.open.return_value = response
+        with (patch.dict(os.environ, {'ALPHICH_SMOKE_USER': 'test-user',
+                                     'ALPHICH_SMOKE_PASSWORD': 'test-password'}, clear=True),
+              patch.object(personas, 'build_opener', return_value=opener)):
+            code, data = personas.request('https://site.example/api/v1', 'GET', '/companies', token='demo-token')
+        self.assertEqual((code, data), (200, {'items': []}))
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.get_header('Authorization'), 'Basic dGVzdC11c2VyOnRlc3QtcGFzc3dvcmQ=')
+        self.assertEqual(request.get_header('X-demo-session'), 'demo-token')
+
+    def test_credentials_are_not_transmitted_over_http(self):
+        with (patch.dict(os.environ, {'ALPHICH_SMOKE_USER': 'test-user',
+                                     'ALPHICH_SMOKE_PASSWORD': 'test-password'}, clear=True),
+              patch.object(personas, 'build_opener') as build):
+            with self.assertRaisesRegex(personas.CheckFailed, 'HTTPS'):
+                personas.request('http://site.example/api/v1', 'GET', '/companies')
+            build.assert_not_called()
+
+    def test_partial_credentials_and_url_credentials_fail_before_network(self):
+        for env, base in [({'ALPHICH_SMOKE_USER': 'test-user'}, 'https://site.example'),
+                          ({'ALPHICH_SMOKE_PASSWORD': 'test-password'}, 'https://site.example'),
+                          ({}, 'https://test-user:test-password@site.example')]:
+            with self.subTest(env_keys=list(env), base_has_userinfo='@' in base):
+                with patch.dict(os.environ, env, clear=True), patch.object(personas, 'build_opener') as build:
+                    with self.assertRaises(personas.CheckFailed):
+                        personas.request(base, 'GET', '/health')
+                    build.assert_not_called()
+
+    def test_redirect_does_not_forward_demo_token(self):
+        paths = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                paths.append(self.path)
+                self.send_response(302 if self.path == '/redirect' else 200)
+                self.send_header('Location', '/target')
+                self.end_headers()
+                self.wfile.write(b'{}')
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with patch.dict(os.environ, {}, clear=True):
+                code, _ = personas.request(f'http://127.0.0.1:{server.server_port}', 'GET', '/redirect', token='demo-token')
+            self.assertEqual(code, 302)
+            self.assertEqual(paths, ['/redirect'])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
 
 if __name__ == '__main__':

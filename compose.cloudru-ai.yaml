@@ -1,0 +1,21 @@
+# Explicit configuration for this hackathon demo and organizer gateway.
+# Secrets and the existing monetary limit come from the server's .env.
+# Receipt unit 1 is the validated organizer convention documented in docs/llm.md;
+# it must not be applied to a different gateway as an assumed exchange rate.
+x-organizer-demo: &organizer-demo
+  LLM_BASE_URL: https://changellenge.up.railway.app/v1
+  LLM_EXTRACTION_MODEL: qwen/qwen3.6-35b-a3b
+  LLM_ANALYSIS_MODEL: z-ai/glm-5.3-flash
+  LLM_BUDGET_MODE: gateway_receipt
+  LLM_RECEIPT_RUB_PER_UNIT: "1"
+  LLM_MODEL_CATALOG_JSON: >-
+    [{"id":"qwen/qwen3.6-35b-a3b","case_model":"qwen3.6-35b-a3b","input_limit":32768,"output_limit":2500,"reasoning_enabled":false,"response_mode":"json_schema"},{"id":"z-ai/glm-5.3-flash","case_model":"glm-5.3-flash","input_limit":32768,"output_limit":2500,"reasoning_enabled":false,"response_mode":"json_schema"}]
+  AI_AUTOMATION_ENABLED: "0"
+
+services:
+  api:
+    environment:
+      <<: *organizer-demo
+  analysis-worker:
+    environment:
+      <<: *organizer-demo
