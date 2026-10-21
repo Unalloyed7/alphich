@@ -21,7 +21,7 @@ if [[ ! -f "$OVERLAY" || ! -s "$ROOT/.env" ]]; then
   echo >&2 'Missing private VPN Compose override or .env; refusing deploy.'
   exit 2
 fi
-if ! sudo -n true; then
+if ! sudo -n docker info >/dev/null; then
   echo >&2 'Passwordless sudo for the Docker command is required.'
   exit 2
 fi
