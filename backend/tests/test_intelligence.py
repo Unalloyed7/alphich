@@ -134,6 +134,7 @@ class ScriptedGateway:
                     inferences[0]["text"] = {
                         "missing_business_mechanism": "Условия финансирования компании требуют проверки по договору.",
                         "unsupported_transmission": "Если ставка остаётся высокой, заказчики стремятся больше тратить и ускоряют запуск строительных проектов.",
+                        "off_focus_inference": "Если у компании есть действующий кредит, его обслуживание может ограничивать денежный поток; нужно оценить график платежей.",
                     }[self.options["business_issue"]]
                 result = {"decision": {"action": "finish", "draft": {"fact_evidence_ids": facts, "inferences": inferences, "risks": ["i1"], "opportunities": [],
                     "next_steps": [{"text": "Проверить подтверждённое финансирование и сроки запуска крупных заявок, чтобы оценить надёжность плана поступления авансов.", "basis_inference_ids": ["i1"],
@@ -769,7 +770,28 @@ def test_macro_forecast_cannot_publish_reported_contract_stability_even_if_revie
     assert checks[-1]["issues"] == []
 
 
-@pytest.mark.parametrize("issue", ["missing_business_mechanism", "unsupported_transmission"])
+def test_rate_construction_business_focus_reaches_author_and_independent_reviewer(store):
+    client, factory, headers, settings = store
+    event_id = stored_event(client, factory, headers["DEMO_A"])
+    job_id = queued_insight(client, headers["DEMO_A"], event_id).json()["id"]
+    engine, gateway = runtime(factory, settings)
+    process_next(factory, engine)
+    job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
+    assert job['status'] == 'succeeded', job
+    author = next(data for title, data in gateway.seen if title in {'Decision', 'FinalDecision'})
+    reviewer = next(data for title, data in gateway.seen if title in {'VerificationDecision', 'FinalVerificationDecision'})
+    assert author['business_focus'] == reviewer['business_focus']
+    assert author['business_focus']['channel'] == 'customer_investment_demand'
+    assert author['business_focus']['company_ids']
+    assert author['business_focus']['unknowns']
+    card = client.get('/api/v1/insights/' + job['result_id'], headers=headers['DEMO_A']).json()
+    run = client.get('/api/v1/runs/' + card['run_id'], headers=headers['DEMO_A']).json()
+    focus_step = next(s for s in run['steps'] if s['action'] == 'select_business_focus')
+    assert focus_step['result']['channel'] == 'customer_investment_demand'
+    assert all(i.startswith('feature_') for i in focus_step['result']['company_ids'])
+
+
+@pytest.mark.parametrize("issue", ["missing_business_mechanism", "unsupported_transmission", "off_focus_inference"])
 @pytest.mark.parametrize("persistent", [False, True])
 def test_business_quality_verdict_requires_repair_or_prevents_publication(store, issue, persistent):
     """Protocol regression: scripted verdicts test enforcement, not model accuracy."""
