@@ -88,6 +88,9 @@ def main():
     engine, factory = make_session_factory()
     Base.metadata.create_all(engine)
     runtime = Runtime(factory, Settings.from_env())
+    if os.getenv("LLM_APPLY_CONFIGURED_BUDGET") == "1":
+        from .provider import apply_configured_budget
+        LOG.info("Explicit configured daily allocation: %s", apply_configured_budget(factory, runtime.settings))
     if os.getenv("LLM_RECONCILE_ZERO_HTTP_RECEIPTS") == "1":
         from .provider import reconcile_zero_http_receipts
         LOG.info("Cost receipt reconciliation: %s", reconcile_zero_http_receipts(factory))
