@@ -1,0 +1,56 @@
+name: Deploy Cloud.ru (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type deploy to publish the current, CI-passed main commit'
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: cloudru-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Confirm successful CI for this exact main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          successes="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}&per_page=30" \
+            --jq '[.workflow_runs[] | select(.event == "push" and .head_branch == "main" and .conclusion == "success")] | length')"
+          if [[ "$successes" -lt 1 ]]; then
+            echo 'The exact commit does not have successful main-branch CI. Deployment blocked.' >&2
+            exit 1
+          fi
+      - name: Deploy over SSH using a restricted deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.CLOUDRU_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.CLOUDRU_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$DEPLOY_KEY" || -z "$KNOWN_HOSTS" ]]; then
+            echo 'Missing CLOUDRU_DEPLOY_KEY or CLOUDRU_KNOWN_HOSTS secret.' >&2
+            exit 1
+          fi
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/cloudru_deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/cloudru_deploy_key ~/.ssh/known_hosts
+          ssh -i ~/.ssh/cloudru_deploy_key \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            alphich@89.232.176.172 "deploy ${GITHUB_SHA}"
