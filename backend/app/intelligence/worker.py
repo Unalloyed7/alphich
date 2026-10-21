@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import signal
 import time
 
 from sqlalchemy import or_, select, update
@@ -88,6 +89,13 @@ def main():
     engine, factory = make_session_factory()
     Base.metadata.create_all(engine)
     runtime = Runtime(factory, Settings.from_env())
+    stopping = False
+    def request_stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+        LOG.info('Shutdown requested; finishing the current analysis before exit')
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
     if os.getenv("LLM_APPLY_CONFIGURED_BUDGET") == "1":
         from .provider import apply_configured_budget
         LOG.info("Explicit configured daily allocation: %s", apply_configured_budget(factory, runtime.settings))
@@ -99,11 +107,13 @@ def main():
     automation = AutomationConfig.from_env()
     next_dispatch = next_index = 0
     try:
-        while True:
+        while not stopping:
             if time.monotonic() >= next_dispatch:
                 dispatch_once(factory, runtime.settings, automation)
                 next_dispatch = time.monotonic() + 10
             _discovery.analyze_tick(factory, runtime.settings)
+            if stopping:
+                break
             processed = process_next(factory, runtime)
             if not processed and time.monotonic() >= next_index and target_ids():
                 sync_index(factory, encoder_for(runtime.settings), target_ids(), limit=1)

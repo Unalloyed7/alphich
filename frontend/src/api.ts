@@ -57,6 +57,8 @@ export const api = {
 /** Analysis operations are served by the existing intelligence router.
  * Every call uses the same demo token as ingestion. No provider key reaches the browser. */
 export const analysisApi = {
+  businessContext: (companyId: string, token: string) =>
+    request<import('./CompanyAnalysis').BusinessContext>(`/companies/${encodeURIComponent(companyId)}/business-context`, {}, token),
   discoveryLatest: (companyId: string, token: string) =>
     request<{ run: import('./DiscoveryPanel').DiscoveryRun | null }>(`/companies/${encodeURIComponent(companyId)}/discovery`, {}, token),
   startDiscovery: (companyId: string, token: string, minGrade: 4 | 5) =>

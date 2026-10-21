@@ -6,7 +6,7 @@ from decimal import Decimal
 from .schemas import CardDraft
 from .financial_grounding import unsupported_financing_stability
 
-LABELS = {"okved_code": "ОКВЭД", "okved_name": "Основная деятельность", "region_registration": "Регион регистрации",
+LABELS = {"group_id": "Группа из исходного профиля", "okved_code": "ОКВЭД", "okved_name": "Основная деятельность", "region_registration": "Регион регистрации",
           "revenue_raw": "Выручка в исходных единицах", "fts_countries": "Страны в сведениях ФТС",
           "CL_PRODUCT_LOA_MARK": "Кредитный продукт", "CL_PRODUCT_DEP_MARK": "Депозитный продукт",
           "CL_PRODUCT_LEA_MARK": "Лизинговый продукт", "CL_PRODUCT_GAR_MARK": "Гарантийный продукт",

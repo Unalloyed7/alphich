@@ -184,7 +184,8 @@ class VerificationAgent:
                 "inspection_allowed": inspection_allowed, "remaining_calls": remaining}
         if relevance:
             data["business_relevance"] = self.tools.expose(relevance)
-        focus = business_focus(self.tools.registry, question=question, event_id=self.tools.event["id"])
+        focus = business_focus(self.tools.registry, question=question, event_id=self.tools.event["id"],
+                               event_title=self.tools.event.get('title'))
         if focus:
             data["business_focus"] = self.tools.expose({k: v for k, v in focus.items() if k != "not_inference_basis_ids"})
             referenced = {ref for claim in draft.claims for ref in claim.evidence_ids}

@@ -25,6 +25,7 @@ export interface Insight {
   role: string;
   event_id: string;
   status: string;
+  analysis_method_current?: boolean;
   headline: string;
   relevance_grade?: number;
   relevance_selected?: boolean;

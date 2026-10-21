@@ -29,6 +29,11 @@ def company_profile(company, role, payment_context=None):
     return enrich_payments(profile, payment_context)
 
 
+def public_insight_payload(insight):
+    return {**insight.payload, 'analysis_method_current':
+            insight.snapshot.get('versions', {}).get('runtime') == VERSION}
+
+
 def event_payload(db, event, source):
     snapshot = db.scalar(select(Extraction).where(Extraction.event_id == event.id,
                                                  Extraction.event_version == event.version,
@@ -262,6 +267,8 @@ class Runtime:
                        "limitations": sorted(set(selection.get("limitations", []) + event.get("extraction_limitations", []) + ["llm_semantic_check_is_not_human_review",
                            "source_truth_not_independently_confirmed", "company_snapshot_date_unknown"] +
                            [l for c in tools.bank_contexts for l in c.get("limitations", [])]))}
+            from .content_quality import content_quality
+            payload["content_quality"] = content_quality(payload, tools.registry)
             lease_heartbeat()
             with self.factory.begin() as db:
                 if task.parent_insight_id:

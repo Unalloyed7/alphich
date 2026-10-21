@@ -212,6 +212,30 @@ def test_fact_only_route_is_scoped_idempotent_and_does_not_generate_personal_car
     assert sum(title == 'ExtractionDraft' for title, _ in gateway.seen) == 1
 
 
+def test_business_context_and_quality_are_scoped_and_free_to_read(store):
+    client, factory, headers, settings = store
+    path = '/api/v1/companies/DEMO_A/business-context'
+    assert client.get(path).status_code == 401
+    assert client.get(path, headers=headers['DEMO_B']).status_code == 403
+    context = client.get(path, headers=headers['DEMO_A']).json()
+    assert context['company_id'] == 'DEMO_A' and context['hypotheses']
+    assert context['market_position']['market_share'] is None
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
+    event_id = stored_event(client, factory, headers['DEMO_A'])
+    job = queued_insight(client, headers['DEMO_A'], event_id).json()
+    engine, _ = runtime(factory, settings)
+    assert process_next(factory, engine)
+    result = client.get('/api/v1/jobs/' + job['id'], headers=headers['DEMO_A']).json()
+    assert result['status'] == 'succeeded', result
+    quality_path = '/api/v1/insights/' + result['result_id'] + '/quality'
+    assert client.get(quality_path, headers=headers['DEMO_B']).status_code == 404
+    quality = client.get(quality_path, headers=headers['DEMO_A']).json()
+    assert quality['factual_quote_match']['ratio'] == 1
+    assert quality['semantic_correctness'] is None
+    assert quality['human_review']['status'] == 'not_recorded'
+
+
 def test_full_api_extraction_agent_extra_search_evidence_and_budget(store):
     client, factory, headers, settings = store
     event_id = stored_event(client, factory, headers["DEMO_A"])

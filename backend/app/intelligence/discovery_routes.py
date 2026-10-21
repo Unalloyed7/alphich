@@ -116,4 +116,5 @@ def register_discovery_routes(app, get_db, current_session, settings_for):
         if allowed is not None and any(e.get('document_id') and e['document_id'] not in allowed
                                        for e in insight.evidence.values()):
             raise HTTPException(403, 'Analysis contains documents outside current access policy')
-        return {'insight': insight.payload}
+        from .service import public_insight_payload
+        return {'insight': public_insight_payload(insight)}

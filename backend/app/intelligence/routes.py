@@ -121,6 +121,16 @@ def register_routes(app, get_db, current_session, factory):
                 "as_of": row.as_of, "error": row.error, "assessment": row.assessment,
                 "extraction_job_id": row.extraction_job_id, "analysis_job_id": row.analysis_job_id} for row in rows]}
 
+    @app.get("/api/v1/companies/{company_id}/business-context")
+    def company_business_context(company_id: str, demo=Depends(current_session), db=Depends(get_db)):
+        if company_id != demo.company_id:
+            raise HTTPException(403, "Session does not grant access to this company")
+        company = db.get(Company, company_id)
+        if company is None:
+            raise HTTPException(404, "Company not found")
+        from alphich_kb.personalization.business import business_context
+        return business_context(company_profile(company, demo.role))
+
     @app.post("/api/v1/companies/{company_id}/insights", status_code=202, response_model=JobView)
     def create_insight(company_id: str, payload: InsightRequest, idempotency_key: str | None = Header(None),
                        demo=Depends(current_session), db=Depends(get_db)):
@@ -149,7 +159,15 @@ def register_routes(app, get_db, current_session, factory):
     def insight_detail(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
         insight = authorized(db.get(Insight, insight_id), demo)
         allowed_evidence(insight.evidence, config())
-        return insight.payload
+        from .service import public_insight_payload
+        return public_insight_payload(insight)
+
+    @app.get("/api/v1/insights/{insight_id}/quality")
+    def insight_quality(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
+        insight = authorized(db.get(Insight, insight_id), demo)
+        allowed_evidence(insight.evidence, config())
+        from .content_quality import content_quality
+        return content_quality(insight.payload, insight.evidence)
 
     @app.post("/api/v1/insights/{insight_id}/questions", status_code=202, response_model=JobView)
     def question(insight_id: str, payload: QuestionRequest, idempotency_key: str | None = Header(None),
