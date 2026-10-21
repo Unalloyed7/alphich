@@ -99,6 +99,15 @@
       "max_items": 10
     },
     {
+      "id": "russoft",
+      "url": "https://russoft.org/news/",
+      "article_hosts": ["russoft.org"],
+      "article_path_prefixes": ["/news/"],
+      "format": "russoft_html",
+      "poll_seconds": 1800,
+      "max_items": 10
+    },
+    {
       "id": "agroinvestor",
       "url": "https://www.agroinvestor.ru/feed/public-agronews.xml",
       "article_hosts": [

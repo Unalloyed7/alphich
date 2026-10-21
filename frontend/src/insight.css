@@ -40,3 +40,9 @@
 .status-insight{background:#e6f5ea;color:#20754d}
 .status-insufficient{background:#fff2df;color:#945b12}
 .insight-evidence-region{scroll-margin-top:20px}
+.discovery-panel{border:1px solid #e3e4e9;background:#fafafb;padding:18px;border-radius:12px;font-size:13px}
+.discovery-panel h3{margin:0 0 8px;font-size:17px}.discovery-panel p{margin:8px 0}
+.discovery-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:14px 0}
+.discovery-actions label{display:flex;align-items:center;gap:8px}.discovery-actions select{padding:8px;border:1px solid #d9dbe1;border-radius:7px;background:white;color:#333}
+.discovery-progress progress{display:block;width:100%;height:12px;margin:12px 0;accent-color:#bd2434}
+.discovery-results{list-style:none;padding:0;display:grid;gap:12px}.discovery-results li{display:grid;gap:5px}.discovery-results button{text-align:left}.discovery-results span{font-size:12px;color:#646773}

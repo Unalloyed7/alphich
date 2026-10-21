@@ -29,6 +29,9 @@ def register_routes(app, get_db, current_session, factory):
         except AnalysisError as exc:
             raise HTTPException(503, exc.code) from None
 
+    from .discovery_routes import register_discovery_routes
+    register_discovery_routes(app, get_db, current_session, config)
+
     def authorized(record, demo):
         if record is None or record.company_id != demo.company_id or record.role != demo.role:
             raise HTTPException(404, "Analysis result not found")

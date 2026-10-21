@@ -152,6 +152,10 @@ def discover_items(body: bytes, url: str, format='rss') -> list[FeedItem]:
         nodes = document.xpath(f'//a[{cls("title-link")}][@href]')
         title_path, date_path = '.', '../../h4'
         path_pattern, offset = r'/presscenter/news/\d{8}-\d+\.html', 8
+    elif format == 'russoft_html':
+        nodes = document.xpath(f'//a[{cls("post__name")}][@href]')
+        title_path, date_path = '.', f'../div[{cls("post__date")}]'
+        path_pattern, offset = r'/news/[^/]+/', 3
     else:
         raise CollectionError('unsupported_discovery_format')
     from urllib.parse import urlsplit
@@ -168,6 +172,20 @@ def discover_items(body: bytes, url: str, format='rss') -> list[FeedItem]:
     if not items:
         raise CollectionError('listing_layout_changed_or_empty')
     return items
+
+
+def article_publication_date(body: bytes) -> str | None:
+    """Explicit publication metadata only. 'Today', modified time and download time are not dates."""
+    if len(body) > MAX_BYTES:
+        return None
+    from lxml import etree, html
+    try:
+        document = html.fromstring(body, parser=html.HTMLParser(no_network=True, recover=True))
+    except (etree.ParserError, ValueError):
+        return None
+    values = document.xpath('//head/meta[@property="article:published_time"]/@content')
+    dates = {date for value in values if (date := source_date(value)) is not None}
+    return next(iter(dates)) if len(dates) == 1 else None
 
 
 def article_text(body: bytes, url: str, content_type: str) -> str:

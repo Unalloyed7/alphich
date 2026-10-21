@@ -13,7 +13,7 @@ from app.news import Job
 from .service import Runtime
 from .settings import AnalysisError, Settings
 from .storage import AnalysisTask
-from . import automation as _automation, news_index as _news_index  # Additive tables for standalone workers.
+from . import automation as _automation, news_index as _news_index, discovery as _discovery
 
 LOG = logging.getLogger(__name__)
 LEASE_SECONDS = 600
@@ -100,6 +100,7 @@ def main():
             if time.monotonic() >= next_dispatch:
                 dispatch_once(factory, runtime.settings, automation)
                 next_dispatch = time.monotonic() + 10
+            _discovery.analyze_tick(factory, runtime.settings)
             processed = process_next(factory, runtime)
             if not processed and time.monotonic() >= next_index and target_ids():
                 sync_index(factory, encoder_for(runtime.settings), target_ids(), limit=1)

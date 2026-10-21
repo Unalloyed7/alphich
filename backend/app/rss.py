@@ -24,7 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core import Base, Company, make_session_factory
 from app.news import Job, PublicationInput, SourceDocument, digest_input, digest_request, new_id
 from app.rss_fetch import CollectionError, PublicFetcher, TIMEOUT, public_url
-from app.rss_parse import article_text, discover_items
+from app.rss_parse import article_text, article_publication_date, discover_items
 
 LOG = logging.getLogger(__name__)
 DEFAULT_CONFIG = Path(__file__).with_name('rss_sources.json')
@@ -44,7 +44,7 @@ class FeedConfig(BaseModel):
     url: str = Field(max_length=2048)
     article_hosts: list[str] = Field(min_length=1, max_length=10)
     article_path_prefixes: list[str] = Field(default_factory=list, max_length=16)
-    format: Literal['rss', 'mintrans_html', 'eec_html', 'trendforce_html'] = 'rss'
+    format: Literal['rss', 'mintrans_html', 'eec_html', 'trendforce_html', 'russoft_html'] = 'rss'
     poll_seconds: int = Field(default=900, ge=60, le=86400)
     max_items: int = Field(default=10, ge=1, le=50)
 
@@ -191,7 +191,8 @@ def _active(db, feed, token, now):
 def _store_article(factory, feed, token, item, url, downloaded, now):
     article_id = hashed(url)
     body = article_text(downloaded.body, downloaded.url, downloaded.headers.get('content-type', ''))
-    payload = PublicationInput(title=item.title, text=body, source_url=downloaded.url, published_at=item.published_at)
+    published = item.published_at or article_publication_date(downloaded.body)
+    payload = PublicationInput(title=item.title, text=body, source_url=downloaded.url, published_at=published)
     with factory.begin() as db:
         _active(db, feed, token, now)
         if db.get(RssArticle, article_id) is None:

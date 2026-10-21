@@ -57,6 +57,17 @@ export const api = {
 /** Analysis operations are served by the existing intelligence router.
  * Every call uses the same demo token as ingestion. No provider key reaches the browser. */
 export const analysisApi = {
+  discoveryLatest: (companyId: string, token: string) =>
+    request<{ run: import('./DiscoveryPanel').DiscoveryRun | null }>(`/companies/${encodeURIComponent(companyId)}/discovery`, {}, token),
+  startDiscovery: (companyId: string, token: string, minGrade: 4 | 5) =>
+    request<import('./DiscoveryPanel').DiscoveryRun>(`/companies/${encodeURIComponent(companyId)}/discovery`, {
+      method: 'POST', headers: { 'Idempotency-Key': `discovery-${crypto.randomUUID()}` },
+      body: JSON.stringify({ target: 10, min_grade: minGrade, max_candidates: 40 }),
+    }, token),
+  discovery: (id: string, token: string) => request<import('./DiscoveryPanel').DiscoveryRun>(`/discovery/${encodeURIComponent(id)}`, {}, token),
+  stopDiscovery: (id: string, token: string) => request<import('./DiscoveryPanel').DiscoveryRun>(`/discovery/${encodeURIComponent(id)}/stop`, { method: 'POST' }, token),
+  savedEventInsight: (eventId: string, token: string) =>
+    request<{ insight: import('./analysis').Insight | null }>(`/events/${encodeURIComponent(eventId)}/saved-insight`, {}, token),
   status: (token: string) => request<import('./analysis').LlmStatus>('/llm/status', {}, token),
   feed: (companyId: string, token: string) =>
     request<import('./analysis').FeedResult>(`/companies/${encodeURIComponent(companyId)}/feed`, {}, token),
