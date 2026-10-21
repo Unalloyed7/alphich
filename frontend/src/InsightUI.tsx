@@ -190,12 +190,27 @@ export function InsightFeed({ session, onEvent }: { session: DemoSession; onEven
   const [feed, setFeed] = useState<FeedResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    setLoading(true); setError(null);
-    try { setFeed(await analysisApi.feed(session.company_id, session.token)); }
-    catch (e) { setError(message(e)); } finally { setLoading(false); }
+  const feedRequest = useRef(0);
+  const reload = useCallback(async (silent = false) => {
+    const current = ++feedRequest.current;
+    if (!silent) { setLoading(true); setError(null); }
+    try {
+      const response = await analysisApi.feed(session.company_id, session.token);
+      if (current === feedRequest.current) setFeed(response);
+    } catch (e) {
+      if (!silent && current === feedRequest.current) setError(message(e));
+    } finally {
+      if (!silent && current === feedRequest.current) setLoading(false);
+    }
   }, [session.company_id, session.token]);
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    setFeed(null);
+    void reload();
+    const refresh = () => { if (document.visibilityState !== 'hidden') void reload(true); };
+    const interval = window.setInterval(refresh, 20_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { feedRequest.current++; window.clearInterval(interval); document.removeEventListener('visibilitychange', refresh); };
+  }, [reload]);
   return <div className="insight-feed panel">
     <div className="section-header"><div><div className="eyebrow">КОМПАНИЯ / РОЛЬ</div><h2>Аналитическая лента</h2><p>Приоритет отражает правила отбора, а не размер финансового риска.</p></div>
       <button type="button" className="ghost-button" onClick={() => void reload()} disabled={loading}>{loading ? 'Загрузка…' : 'Обновить'}</button></div>

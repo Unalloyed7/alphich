@@ -1,0 +1,8 @@
+# Test-only overlay: sixth service runs but performs NO external RSS polling.
+# The offline acceptance fixture runs as an ephemeral command in this service.
+services:
+  rss-collector:
+    command: ["sh", "-c", "while true; do sleep 3600; done"]
+    environment:
+      DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-DEMO_A,DEMO_B}
+      RSS_COMPANY_IDS: DEMO_A
