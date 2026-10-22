@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alphich.example/schemas/relevance-ml-prediction-v1",
+  "title": "Alphich relevance ML prediction v1 (contract proposal)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["p_relevant", "decision", "model_version", "feature_version"],
+  "properties": {
+    "p_relevant": {"type": "number", "minimum": 0, "maximum": 1, "description": "Calibrated probability of human gold grade 4–5; never itself a business grade"},
+    "decision": {"enum": ["candidate", "uncertain", "low_priority"]},
+    "model_version": {"type": "string", "minLength": 1},
+    "feature_version": {"type": "string", "minLength": 1}
+  }
+}

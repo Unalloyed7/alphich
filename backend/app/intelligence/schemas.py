@@ -236,3 +236,8 @@ class InsightRequest(BaseModel):
 class QuestionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     question: str = Field(min_length=6, max_length=1000)
+
+
+class FeedbackRequest(Strict):
+    value: Literal["useful", "not_relevant", "needs_review"]
+    comment: str = Field(default="", max_length=500)

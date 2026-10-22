@@ -1,0 +1,47 @@
+// Synthetic API data for browser checks only. Never imported by the application.
+export const status = { configured: true, prices_confirmed: true, daily_limit_rub: '500', spent_rub: '12', reserved_rub: '0', budget_day_utc: '2026-10-22', extraction_model: 'fixture', analysis_model: 'fixture', bank_index_present: true };
+const titles = ['Новые требования к расчётам строительных компаний', 'Банк России сохранил ключевую ставку', 'Изменились условия поставок строительных материалов'];
+export const events = titles.map((title, i) => ({ id: `event-${i+1}`, company_id: 'DEMO_A', version: 1, title, published_at: '2026-10-21T10:00:00Z', event_at: null, topics: ['regulation'], facts: [], topic_method: 'fixture', extraction_status: 'extracted', completeness: 'full', source_ids: [`source-${i+1}`], sources: [{ id: `source-${i+1}`, title: 'Тестовый новостной источник', kind: 'news', published_at: '2026-10-21T10:00:00Z', received_at: '2026-10-21T10:00:00Z', url: 'https://example.org/news', url_verified: true, fetched_at: null, content_hash: 'fixture', extraction_status: 'extracted', completeness: 'full' }] }));
+export function insight(index=0) {
+  return { id: `insight-${index+1}`, company_id: 'DEMO_A', role: 'cfo', event_id: events[index].id, status: 'ready', analysis_method_current: true, headline: ['Расчётные процессы: проверьте применимость новых требований', 'Стоимость финансирования остаётся фактором планирования', 'Условия поставок могут изменить потребность в оборотном капитале'][index], relevance_grade: index===0 ? 5 : 4, relevance_selected: true, relevance_assessment: { business_channel: 'Событие затрагивает расчётные процессы строительной компании. Применимость зависит от договоров и вида операций.', required_action: 'Проверьте условия договоров и сроки исполнения требований.', limitations: [] }, as_of: `2026-10-${22-index}T11:30:00Z`, claims: [{ id:'c1', kind:'news_fact', text:'В публикации указаны новые требования к оформлению расчётов.', evidence_ids:['e1'], conditions:[] }, { id:'c2', kind:'company_fact', text:'В профиле компании указано строительство инженерных сооружений.', evidence_ids:['e2'], conditions:[] }, { id:'c3', kind:'model_inference', text:'Если требования применимы к договорам компании, может потребоваться изменение расчётных процессов.', evidence_ids:['e1','e2'], conditions:['Применимость требований к действующим договорам подтверждена.'] }, { id:'c4', kind:'bank_view', text:'В тестовом материале банка рассматриваются условия финансирования.', evidence_ids:['e3'], conditions:[] }], relevance_reasons: [{ explanation:'ОКВЭД компании соответствует деятельности, затронутой событием.' }], bank_view: { status:['found','historical_only','not_found'][index], claim_ids:index===0 ? ['c4'] : [], reason:index===0 ? null : 'Актуального материала банка по этому событию не найдено.' }, risks:['c3'], opportunities:[], next_steps:[{ text:'Уточните применимость требований к договорам, чтобы определить необходимость обновления расчётных процессов.', basis_claim_ids:['c3'], conditions:['Требования распространяются на компанию.'] }], missing_data:['Какие договоры подпадают под требования?'], verification:{status:'passed',issues:[]}, limitations:[], run_id:'run-1' };
+}
+export function profile(company='DEMO_A') { return { id:company, role:'cfo', profile_version:'synthetic-v1', industry:{okved_code:'42',okved_name:company==='DEMO_A'?'Строительство инженерных сооружений':'Разработка программного обеспечения'}, region_registration:'Москва', city_registration:'Москва', revenue_raw:'20000000', revenue_unit:null, client_type:'CLIENT', products:{CL_PRODUCT_LOA_MARK:true}, fts_flag:false, fts_countries:[], features:[], quality_flags:[], limitations:['Единица выручки не подтверждена.'] }; }
+export const context = { company_id:'DEMO_A', profile_version:'synthetic-v1', context_hash:'fixture', observed:[{code:'industry',value:{code:'42',name:'Строительство инженерных сооружений'},evidence_ids:['e2'],meaning:'Деятельность используется для отбора новостей.'},{code:'registration',value:'Москва',evidence_ids:[],meaning:'Регистрация не подтверждает географию операций.'},{code:'loan_flag',value:true,evidence_ids:[],meaning:'Условия кредита неизвестны.'},{code:'deposit_flag',value:false,evidence_ids:[],meaning:'Депозит не указан в профиле.'}], hypotheses:[{id:'h1',status:'hypothesis',basis_feature_ids:['e2'],possible_problem:'Изменение стоимости финансирования',mechanism:'Если кредит имеет плавающую ставку, изменение условий может повлиять на расходы.',check_data:'Проверьте договор и структуру ставок.',decision:'Нужно ли пересмотреть план денежных потоков?'}], missing_data:[{id:'m1',question:'Какие ставки установлены по договорам?',purpose:'Оценить применимость механизма.'}], market_position:{market_share:null,status:'unknown',reason:'Доля рынка не установлена по доступным данным.'},group_policy:'Группа не подтверждает общие обязательства.' };
+export async function mockApi(page, options={}) {
+  const state={requests:[],company:'DEMO_A',feedback:{},...options};
+  await page.route('**/api/v1/**',async route=>{
+    const req=route.request(), path=new URL(req.url()).pathname.replace('/api/v1',''), method=req.method();
+    state.requests.push({path,method,headers:req.headers(),body:req.postDataJSON()});
+    const send=(data,code=200)=>route.fulfill({status:code,contentType:'application/json',body:JSON.stringify(data)});
+    if(path==='/health') return send({status:'ok',database:'ready'});
+    if(path==='/demo-session') {state.company=req.postDataJSON().company_id;return send({token:`test-${state.company}`,company_id:state.company,role:req.postDataJSON().role,expires_at:Date.now()/1000+7200,demo_only:true});}
+    if(state.expired) return send({detail:'Session expired'},401);
+    if(path==='/llm/status') return send({...status,configured:!state.unconfigured});
+    if(path.endsWith('/feed')) {if(state.feedError)return send({detail:'Тестовый сбой ленты'},503);return send({items:state.empty?[]:events.map((event,i)=>({event_id:event.id,event_version:1,title:event.title,relevance_grade:state.legacy?undefined:i===0?5:4,relevance_assessment:state.legacy?undefined:insight(i).relevance_assessment,reasons:insight(i).relevance_reasons,insight:insight(i)})),limitations:['bounded_candidate_pool','machine_relevance_not_human_review']});}
+    if(path.endsWith('/profile')) return send(profile(state.company));
+    if(path==='/companies') return send({items:[{id:state.company,okved_name:profile(state.company).industry.okved_name,region:'Москва',revenue_raw:'20000000',revenue_unit:null,profile_version:'synthetic-v1'}]});
+    if(path.endsWith('/business-context')) return send(context);
+    if(path.endsWith('/events') && method==='GET') return send({items:events});
+    if(path==='/jobs') return send({items:[]});
+    if(path.endsWith('/discovery') && method==='GET') return send({run:null});
+    if(path.endsWith('/discovery') && method==='POST') return send({id:'discovery-1',company_id:state.company,role:'cfo',status:'completed',stage:'finished',stop_reason:'sources_exhausted',target:10,min_grade:4,max_candidates:40,cost_rub:'0',cost_unknown:false,stats:{completed:0,checked:0,below_threshold:0,failed:0,feeds_checked:2,reused:0},items:[]});
+    if(path.endsWith('/saved-insight')) return send({insight:state.noInsight?null:insight(Number(path.split('/')[2].split('-')[1])-1)});
+    if(/^\/events\/[^/]+$/.test(path)) return send(events.find(e=>e.id===path.split('/')[2]));
+    if(path.startsWith('/sources/')) return send({...events[0].sources[0],id:path.split('/')[2],text:'Полный текст тестового первоисточника. <script>window.injected=true</script>',company_id:state.company,version:1,note:'fixture'});
+    if(path.startsWith('/evidence/')) return send({id:'e1',text:'Подтверждающий фрагмент из тестового документа.',title:'Тестовая аналитика Альфа-Банка',kind:'bank_claim',document_id:'doc-1',page:2,published_at:'2026-10-20',url:'https://example.org/research.pdf'});
+    if(path.startsWith('/runs/')) return send({id:'run-1',status:'succeeded',steps:[{action:'search_bank',result:'fixture'}],verification:{status:'passed'},llm_calls:[]});
+    if(path.endsWith('/questions')) return send({id:'question-1',status:'succeeded',stage:'finished',result_type:'answer',result_id:'answer-1',error:null},202);
+    if(path.startsWith('/answers/')) return send({...insight(),id:'answer-1',insight_id:'insight-1',question:'Какие данные нужны для решения?'});
+    if(path.endsWith('/insights') && method==='POST') return send({id:'analysis-job',status:'succeeded',stage:'finished',result_type:'insight',result_id:'insight-1',error:null},202);
+    if(path.endsWith('/feedback')) {
+      if(state.feedbackUnavailable) return send({detail:'Not Found'},404);
+      const key=req.headers()['x-demo-session']+':'+path;
+      if(method==='PUT') state.feedback[key]={...req.postDataJSON(),updated_at:Math.floor(Date.now()/1000)};
+      return send({feedback:state.feedback[key] ?? null});
+    }
+    if(path.startsWith('/insights/')) return send(insight());
+    if(path==='/publications') return send({id:'publication-job',status:'queued',stage:'queued',result_type:'event',result_id:null,error:null},202);
+    return send({detail:`Unhandled test endpoint: ${method} ${path}`},404);
+  });
+  return state;
+}

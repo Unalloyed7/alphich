@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { analysisApi } from './api';
+import { analysisApi, ApiError } from './api';
 import type { DemoSession } from './types';
 import type { LlmStatus } from './analysis';
+import { Icon } from './Icon';
 
 export interface DiscoveryRun {
   id: string; company_id: string; role: string; status: string; stage: string;
@@ -41,6 +42,7 @@ export function DiscoveryPanel({ session, onEvent, onChanged }: {
 }) {
   const [run, setRun] = useState<DiscoveryRun | null>(null);
   const [status, setStatus] = useState<LlmStatus | null>(null);
+  const [available, setAvailable] = useState(false);
   const [minGrade, setMinGrade] = useState<4 | 5>(4);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +51,14 @@ export function DiscoveryPanel({ session, onEvent, onChanged }: {
 
   useEffect(() => {
     let alive = true;
-    void Promise.all([analysisApi.discoveryLatest(session.company_id, session.token), analysisApi.status(session.token)])
-      .then(([value, llm]) => { if (alive) { setRun(value.run); setStatus(llm); } })
-      .catch(e => { if (alive) setError(e instanceof Error ? e.message : 'Не удалось прочитать статус поиска'); });
+    void Promise.allSettled([analysisApi.discoveryLatest(session.company_id, session.token), analysisApi.status(session.token)])
+      .then(([discovery, llm]) => {
+        if (!alive) return;
+        if (llm.status === 'fulfilled') setStatus(llm.value);
+        if (discovery.status === 'fulfilled') { setRun(discovery.value.run); setAvailable(true); }
+        else setError(discovery.reason instanceof ApiError && discovery.reason.status === 404 ? 'Подбор новостей недоступен на этом сервере.' : 'Не удалось загрузить статус подбора. Попробуйте обновить страницу.');
+        if (llm.status === 'rejected') setError('Не удалось проверить доступность аналитики. Попробуйте обновить страницу.');
+      });
     return () => { alive = false; };
   }, [session.company_id, session.token]);
 
@@ -95,38 +102,12 @@ export function DiscoveryPanel({ session, onEvent, onChanged }: {
     finally { setBusy(false); }
   };
 
-  return <section className="discovery-panel" aria-label="Автономный поиск новостей">
-    <h3>Найти новости для {session.company_id}</h3>
-    <p>Проверим источники и разберём ещё не проверенные публикации для этой компании и роли. Ранее сохранённые карточки останутся в ленте. Поиск продолжится, если закрыть вкладку.</p>
-    <div className="discovery-actions">
-      <label>Отбирать <select value={minGrade} disabled={active || busy} onChange={e => setMinGrade(Number(e.target.value) as 4 | 5)}>
-        <option value={4}>4–5 из 5</option><option value={5}>Только 5 из 5</option>
-      </select></label>
-      <button type="button" className="insight-primary" disabled={active || busy || !status?.configured} onClick={() => void start()}>
-        {busy ? 'Подождите…' : active ? 'Поиск выполняется' : 'Найти и разобрать 10 новых новостей'}
-      </button>
-      {active && <button type="button" className="insight-link" disabled={busy || run?.status === 'stopping'} onClick={() => void stop()}>Остановить</button>}
-    </div>
-    {status && <p className="insight-muted">Общий бюджет на UTC-день: {status.spent_rub} ₽ учтено, {status.reserved_rub} ₽ зарезервировано, лимит {status.daily_limit_rub} ₽.
-      {' '}Проверяем до 40 кандидатов за запуск; цель не гарантирует наличие десяти подходящих новостей.</p>}
-    {status && !status.configured && <p className="insight-error">Модели пока не настроены — запуск недоступен.</p>}
+  return <section className="discovery-panel" aria-label="Подбор новостей для компании">
+    <div className="discovery-top"><span className="discovery-icon"><Icon name="activity" size={23}/></span><div><h3>{active ? 'Ищем важное для вашего бизнеса' : 'Ваш следующий важный инсайт'}</h3><p>{active ? 'Проверяем публикации и готовим персональные разборы.' : 'Подберём и разберём до 10 новых событий для вашей компании.'}</p></div><button type="button" className="insight-primary" disabled={active || busy || !available || !status?.configured} onClick={() => void start()}>{busy ? 'Подождите…' : active ? <><span className="spinner tiny"/> Подбираем…</> : <>Найти важное <Icon name="arrow" size={16}/></>}</button></div>
+    <div className="discovery-bottom"><span><Icon name="briefcase" size={13}/> {session.company_id} <span className="separator">/</span> {session.role.toUpperCase()}</span><details className="discovery-options"><summary>Настройки подбора</summary><div><label>Значимость <select value={minGrade} disabled={active || busy} onChange={e => setMinGrade(Number(e.target.value) as 4 | 5)}><option value={4}>4–5 из 5</option><option value={5}>Только 5 из 5</option></select></label><p>Проверяем до 40 кандидатов. Подходящих новостей может оказаться меньше десяти. Поиск продолжится после закрытия вкладки.</p>{status && <p>Общий бюджет на {status.budget_day_utc} (UTC): {status.spent_rub} ₽ потрачено · {status.reserved_rub} ₽ зарезервировано · лимит {status.daily_limit_rub} ₽.</p>}</div></details></div>
+    <p className="discovery-cost-note">Запуск использует общий бюджет аналитики.</p>
+    {status && !status.configured && <p className="insight-warning">Подбор недоступен: аналитический сервис ещё не настроен. Сохранённые разборы можно просматривать.</p>}
     {error && <p className="insight-error" role="alert">{error}</p>}
-    {run && <div className="discovery-progress" aria-live="polite">
-      <strong>{run.stats.completed} / {run.target} карточек · порог {run.min_grade}/5</strong>
-      <progress value={run.stats.completed} max={run.target} aria-label="Готовые аналитические карточки" />
-      <p>{stages[run.stage] ?? 'Обработка поиска'}</p>
-      <p className="insight-muted">Источников опрошено: {run.stats.feeds_checked}; просмотрено статей: {run.stats.scanned ?? 0};
-        {' '}оценено: {run.stats.checked}; ниже порога: {run.stats.below_threshold}; с ошибкой: {run.stats.failed};
-        {' '}пропущено ранее проверенных: {run.stats.previously_checked ?? 0}.</p>
-      <p className="insight-muted">Расход этого запуска: {run.cost_rub} ₽{run.cost_unknown ? ' · стоимость части запросов ещё не подтверждена' : ''}.
-        {run.stats.reused > 0 ? ` Повторно использовано готовых карточек: ${run.stats.reused}.` : ''}</p>
-      {run.stop_reason && <p>{reasons[run.stop_reason] ?? 'Поиск остановлен после ошибки обработки. Уже готовые результаты сохранены.'}</p>}
-      {run.items.length > 0 && <details><summary>Публикации и результаты проверки</summary>
-        <ul className="discovery-results">{run.items.map(item => <li key={item.event_id}>
-          <button type="button" className="insight-link" onClick={() => onEvent(item.event_id)}>{item.title}</button>
-          <span>{item.grade === null ? 'Оценка ожидается' : `${item.grade}/5`} · {itemStates[item.state] ?? 'В обработке'}</span>
-        </li>)}</ul>
-      </details>}
-    </div>}
+    {run && <div className="discovery-progress" aria-live="polite"><div className="discovery-progress-heading"><strong>{run.stats.completed} <span>/ {run.target} разборов</span></strong>{active && <button type="button" className="text-button" disabled={busy || run.status === 'stopping'} onClick={() => void stop()}>{run.status === 'stopping' ? 'Останавливаем…' : 'Остановить подбор'}</button>}</div><progress value={run.stats.completed} max={run.target} aria-label="Готовые аналитические карточки"/><p>{stages[run.stage] ?? 'Обрабатываем публикации'}</p>{run.stop_reason && <p className="insight-muted">{reasons[run.stop_reason] ?? 'Поиск остановлен после ошибки. Готовые результаты сохранены.'}</p>}<details className="discovery-run-details"><summary>Подробности подбора и расходы</summary><p>Источников: {run.stats.feeds_checked} · просмотрено статей: {run.stats.scanned ?? 0} · оценено: {run.stats.checked} · ниже порога: {run.stats.below_threshold} · ошибок: {run.stats.failed} · ранее проверенных: {run.stats.previously_checked ?? 0}.</p><p>Расход: {run.cost_rub} ₽{run.cost_unknown ? ' · стоимость части запросов не подтверждена' : ''}. Использовано готовых карточек: {run.stats.reused}.</p>{run.items.length > 0 && <ul className="discovery-results">{run.items.map(item => <li key={item.event_id}><button type="button" className="text-button" onClick={() => onEvent(item.event_id)}>{item.title}</button><span>{item.grade === null ? 'Оценка ожидается' : `${item.grade}/5`} · {itemStates[item.state] ?? 'В обработке'}</span></li>)}</ul>}</details></div>}
   </section>;
 }

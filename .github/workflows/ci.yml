@@ -54,12 +54,13 @@ jobs:
         run: node --experimental-transform-types --test scripts/tests/test_insight_presentation.mjs scripts/tests/test_recent_events.mjs
 
   docker-smoke:
-    name: Five-service Docker smoke (no LLM requests)
+    name: Docker smoke (no live RSS or LLM requests)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       DEMO_COMPANY_IDS: DEMO_A,DEMO_B
       POSTGRES_PASSWORD: ci_local_only
+      RSS_ENABLED: '0'
       LLM_BASE_URL: ''
       LLM_API_KEY: ''
       LLM_EXTRACTION_MODEL: ''
@@ -75,7 +76,7 @@ jobs:
           python-version: '3.12'
       - name: Validate Docker Compose configuration
         run: docker compose config --quiet
-      - name: Build and start all five services
+      - name: Build and start services
         run: docker compose up -d --build
       - name: Full unpaid API smoke (imports synthetic fixtures if necessary)
         run: python3 scripts/verify-stack.py --import-fixtures
