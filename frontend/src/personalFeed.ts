@@ -3,7 +3,7 @@ import { analysisApi } from './api';
 import type { FeedItem, FeedResult } from './analysis';
 import type { DemoSession } from './types';
 
-export type FeedFilter = 'all' | 'critical' | 'bank' | 'saved';
+export type FeedFilter = 'all' | 'critical' | 'bank' | 'saved' | 'bookmarks' | 'unread';
 export interface PersonalFeedState {
   feed: FeedResult | null;
   loading: boolean;

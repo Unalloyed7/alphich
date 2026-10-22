@@ -129,3 +129,17 @@ class Answer(Base):
     evidence: Mapped[dict] = mapped_column(JSON)
     run_id: Mapped[str] = mapped_column(String(40))
     created_at: Mapped[int] = mapped_column(BigInteger)
+
+
+class InsightFeedback(Base):
+    """Latest explicit review per demo session/card, with server-owned provenance."""
+    __tablename__ = "insight_feedback"
+    session_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    insight_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    company_id: Mapped[str] = mapped_column(String(100), index=True)
+    role: Mapped[str] = mapped_column(String(8))
+    value: Mapped[str] = mapped_column(String(24))
+    comment: Mapped[str] = mapped_column(String(500))
+    context: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[int] = mapped_column(BigInteger)
+    updated_at: Mapped[int] = mapped_column(BigInteger)

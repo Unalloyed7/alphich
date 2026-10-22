@@ -6,9 +6,13 @@ import { Icon, type IconName } from './Icon';
 import { DashboardSummary } from './DashboardSummary';
 import { usePersonalFeed, type FeedFilter } from './personalFeed';
 import { mergeRecentEvents } from './recentEvents';
+import { useWorkspaceNavigation, type Screen } from './navigation';
+import { useReadingState } from './readingState';
+import { QuickSearch } from './QuickSearch';
+import { AccessibleTabs } from './AccessibleTabs';
+import './workspace.css';
 import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
 
-type Screen = 'dashboard' | 'publish' | 'events' | 'insights' | 'profile';
 const SESSION_STORAGE_KEY = 'alphich.demo-session.v1';
 const EVENTS_PAGE_SIZE = 20;
 const RSS_EVENT_REFRESH_MS = 15_000;
@@ -178,6 +182,7 @@ function EventDrawer({ session, event, insightStatus, onInsightReady, source, lo
 }) {
   const [tab, setTab] = useState<'analysis' | 'sources'>('analysis');
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const sourcePanelRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -196,20 +201,27 @@ function EventDrawer({ session, event, insightStatus, onInsightReady, source, lo
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
     };
     window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = previousOverflow; if (previousFocus?.isConnected) previousFocus.focus(); };
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = previousOverflow; if (previousFocus?.isConnected) previousFocus.focus(); else document.getElementById('page-main')?.focus(); };
   }, []);
   useEffect(() => {
     if (activeSourceId && tab === 'sources') sourcePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [activeSourceId, tab, loading, source, error]);
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(window.location.href); setShareMessage('Ссылка скопирована. Для доступа нужна сессия этой компании и роли.'); }
+    catch { setShareMessage('Не удалось скопировать. Ссылку можно взять из адресной строки.'); }
+  };
   return <div className="drawer-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <div ref={dialogRef} className="drawer" role="dialog" aria-modal="true" aria-labelledby="event-drawer-title">
-      <header className="drawer-head"><span className="eyebrow">СОБЫТИЕ В ВАШЕМ КОНТЕКСТЕ</span><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть событие"><Icon name="close" size={22}/></button></header>
-      <div className="drawer-scroll"><div className="event-drawer-meta"><StatusPill status={insightStatus ? (insightStatus === 'insufficient_evidence' ? 'insufficient' : 'insight') : event.extraction_status === 'extracted' || event.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><span>{formattedDate(event.published_at)}</span></div><h2 id="event-drawer-title">{event.title}</h2>
-        <div className="drawer-tabs" role="group" aria-label="Разделы события"><button type="button" className={tab === 'analysis' ? 'active' : ''} aria-pressed={tab === 'analysis'} onClick={() => setTab('analysis')}><Icon name="activity" size={17}/> Влияние на бизнес</button><button type="button" className={tab === 'sources' ? 'active' : ''} aria-pressed={tab === 'sources'} onClick={() => setTab('sources')}><Icon name="file" size={17}/> Первоисточники <span>{event.source_ids.length}</span></button></div>
+      <header className="drawer-head"><span className="eyebrow">СОБЫТИЕ В ВАШЕМ КОНТЕКСТЕ</span><div className="drawer-head-actions"><button className="icon-button" type="button" aria-label="Скопировать ссылку на событие" onClick={() => void copyLink()}><Icon name="copy" size={18}/></button><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть событие"><Icon name="close" size={22}/></button></div></header>
+      <div className="drawer-scroll">{shareMessage && <p className="share-message" role="status">{shareMessage}</p>}<div className="event-drawer-meta"><StatusPill status={insightStatus ? (insightStatus === 'insufficient_evidence' ? 'insufficient' : 'insight') : event.extraction_status === 'extracted' || event.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><span>{formattedDate(event.published_at)}</span></div><h2 id="event-drawer-title">{event.title}</h2>
+        <AccessibleTabs id="event-sections" label="Разделы события" className="drawer-tabs" value={tab} onChange={setTab} items={[{ id: 'analysis', label: 'Влияние на бизнес', icon: 'activity' }, { id: 'sources', label: `Первоисточники ${event.source_ids.length}`, icon: 'file' }]}/>
+        <div id="event-sections-panel" role="tabpanel" aria-labelledby={`event-sections-${tab}`}>
+
         <div hidden={tab !== 'analysis'}><EventInsight session={session} eventId={event.id} onInsightReady={onInsightReady}/></div>
         {tab === 'sources' && <section className="event-sources"><h3>Что произошло</h3><p className="muted">Исходная публикация и её метаданные. Откройте источник, чтобы прочитать полный сохранённый текст.</p><div className="source-row">{event.source_ids.map((id, index) => <button className={`source-button ${activeSourceId === id ? 'active' : ''}`} type="button" key={id} aria-expanded={activeSourceId === id} aria-controls="active-source-panel" onClick={() => { setActiveSourceId(id); onSource(id); }}><Icon name="file" size={18}/><span>{event.sources[index]?.title || `Источник ${index + 1}`}</span><Icon name="chevron" size={16}/></button>)}</div>
         {activeSourceId && <div id="active-source-panel" ref={sourcePanelRef} className="source-panel" role="region" aria-label="Текст первоисточника" aria-live="polite">{loading && <div className="source-loading"><span className="spinner"/> Загружаем текст источника…</div>}{error && <Notice kind="error">{error}</Notice>}{source && source.id === activeSourceId && <section className="source-reader"><div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div><p className="source-full-text">{source.text}</p><div className="source-footer"><span><Icon name="alert" size={15}/>{source.url_verified ? 'Текст загружен по ссылке' : 'Ссылка не верифицирована'}</span>{source.url && /^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть оригинал</a>}</div></section>}</div>}
         <details className="event-metadata-details"><summary>Даты и сведения о событии</summary><div className="drawer-metadata"><div><span>Дата публикации</span><strong>{formattedDate(event.published_at)}</strong></div><div><span>Дата события</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Не установлена'}</strong></div><div><span>ID события</span><strong className="mono wrap-text">{event.id}</strong></div><div><span>Статус извлечения</span><strong>{event.extraction_status}</strong></div></div></details></section>}
+        </div>
       </div>
     </div>
   </div>;
@@ -219,9 +231,15 @@ function App() {
   const [session, setSession] = useState<DemoSession | null>(readSession);
   const activeSessionToken = useRef(session?.token ?? null);
   activeSessionToken.current = session?.token ?? null;
-  const [screen, setScreen] = useState<Screen>('dashboard');
+  const { route, navigate, closeEvent } = useWorkspaceNavigation();
+  const screen = route.screen;
+  const setScreen = useCallback((screen: Screen) => navigate({ screen, eventId: null }), [navigate]);
+  const reading = useReadingState(session);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [eventLoading, setEventLoading] = useState(false);
   const personalFeed = usePersonalFeed(session);
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
+  const feedFilter = route.filter;
+  const setFeedFilter = (filter: FeedFilter) => navigate({ filter });
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [health, setHealth] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -245,10 +263,11 @@ function App() {
   const latestSourceRequest = useRef(0);
 
   const logOut = useCallback(() => {
+    activeSessionToken.current = null; setSearchOpen(false);
     latestSourceRequest.current += 1;
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    setSession(null); setProfile(null); setEvents([]); setEventsHasMore(false); setInsightsByEvent({}); setCompanies([]); setSelectedEvent(null); setError(null); setJobIds([]); setJobs({}); setJobsError(null); setScreen('dashboard');
-  }, []);
+    setSession(null); setProfile(null); setEvents([]); setEventsHasMore(false); setInsightsByEvent({}); setCompanies([]); setSelectedEvent(null); setError(null); setJobIds([]); setJobs({}); setJobsError(null); navigate({ screen: 'dashboard', filter: 'all', eventId: null }, true);
+  }, [navigate]);
 
   const safeError = useCallback((e: unknown): string => {
     if (e instanceof ApiError && e.status === 401) { logOut(); return 'Демосессия истекла. Подключись снова.'; }
@@ -271,7 +290,7 @@ function App() {
       setInsightsByEvent({}); setJobIds([]); setJobs({}); setJobsError(null);
       setSelectedEvent(null); setSource(null); setSourceError(null); setError(null);
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
-      setSession(next); setFeedFilter('all'); setScreen('dashboard'); setRelogin(false);
+      setSession(next); setSearchOpen(false); if (session) navigate({ screen: 'dashboard', filter: 'all', eventId: null }, true); setRelogin(false);
     } catch (e) { setSessionError(safeError(e)); } finally { setSessionBusy(false); }
   };
 
@@ -401,20 +420,33 @@ function App() {
     catch (e) { if (request === latestSourceRequest.current) setSourceError(safeError(e)); }
     finally { if (request === latestSourceRequest.current) setSourceLoading(false); }
   }, [safeError, session]);
-  const openEvent = useCallback((event: Event) => {
-    // Source loading is explicit: clicking "Источник 1" must visibly open it.
-    // Invalidate an outstanding response from a previously opened event.
-    latestSourceRequest.current += 1;
-    setSelectedEvent(event);
-    setSource(null);
-    setSourceLoading(false);
-    setSourceError(null);
-  }, []);
-  const openEventId = useCallback(async (id: string) => {
+  const openEvent = useCallback((event: Event) => navigate({ eventId: event.id }), [navigate]);
+  const openEventId = useCallback((id: string) => navigate({ eventId: id }), [navigate]);
+  useEffect(() => {
+    latestSourceRequest.current++;
+    setSelectedEvent(null); setSource(null); setSourceLoading(false); setSourceError(null);
+    if (!session || !route.eventId) { setEventLoading(false); return; }
+    let active = true;
+    setEventLoading(true);
+    void api.event(route.eventId, session.token).then(event => {
+      if (active && activeSessionToken.current === session.token) { setSelectedEvent(event); reading.markRead(event.id); }
+    }).catch(error => {
+      if (active) { setError(safeError(error)); navigate({ eventId: null }, true); }
+    }).finally(() => { if (active) setEventLoading(false); });
+    return () => { active = false; };
+  }, [route.eventId, session?.token, reading.markRead, navigate, safeError]);
+  useEffect(() => {
     if (!session) return;
-    try { const event = await api.event(id, session.token); openEvent(event); }
-    catch (e) { setError(safeError(e)); }
-  }, [openEvent, safeError, session]);
+    const keydown = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"]')) return;
+      const editing = event.target instanceof HTMLElement && (event.target.matches('input, textarea, select') || event.target.isContentEditable);
+      if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') || (event.key === '/' && !editing)) {
+        event.preventDefault(); setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [session]);
 
   useEffect(() => {
     if (!personalFeed.feed) return;
@@ -426,7 +458,7 @@ function App() {
     setInsightsByEvent(current => current[eventId] === status ? current : { ...current, [eventId]: status });
   }, []);
 
-  const selectFeedFilter = (filter: FeedFilter) => { setFeedFilter(filter); setScreen('insights'); };
+  const selectFeedFilter = (filter: FeedFilter) => navigate({ screen: 'insights', filter, eventId: null });
 
   const company = useMemo(() => companies.find(item => item.id === session?.company_id), [companies, session]);
   const completed = jobIds.filter(id => jobs[id]?.status === 'succeeded').length;
@@ -441,15 +473,16 @@ function App() {
       <nav className="nav-menu" aria-label="Навигация">{NAV.map(link => <button type="button" key={link.key} onClick={() => setScreen(link.key)} className={`nav-link ${screen === link.key ? 'active' : ''}`} aria-current={screen === link.key ? 'page' : undefined}><Icon name={link.icon} size={19}/><span>{link.label}</span>{screen === link.key && <span className="nav-active-bar"/>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="sidebar-note"><span className="sidebar-note-dot"/>В КОНТЕКСТЕ ВАШЕГО БИЗНЕСА<strong>Видеть главное.<br/>Действовать осознанно.</strong><span>Персональный взгляд на события и их последствия.</span></div><button className="sidebar-logout" type="button" onClick={logOut}><Icon name="logout" size={18}/> Завершить сессию</button></div>
     </aside>
-    <a className="skip-link" href="#page-main">К содержимому</a><main className="main" id="page-main">
-      <header className="topbar"><div className="breadcrumb"><span>Alphich</span><Icon name="chevron" size={15}/><strong>{NAV.find(x => x.key === screen)?.label}</strong></div><div className="topbar-right"><span className={`online-badge online-${health}`}><span className="online-dot"/>{health === 'online' ? 'Сервис доступен' : health === 'offline' ? 'Нет связи' : 'Подключаемся'}</span><div className="user-badge"><span className="avatar">{session.role === 'cfo' ? 'Ф' : 'Г'}</span><span>{session.company_id}<small>{session.role === 'cfo' ? 'Финансовый директор' : 'Генеральный директор'}</small></span><button type="button" className="switch-session" onClick={() => setRelogin(true)}>Сменить</button></div></div></header>
+    <a className="skip-link" href="#page-main">К содержимому</a><main className="main" id="page-main" tabIndex={-1}>
+      <header className="topbar"><div className="breadcrumb"><span>Alphich</span><Icon name="chevron" size={15}/><strong>{NAV.find(x => x.key === screen)?.label}</strong></div><div className="topbar-right"><button type="button" className="global-search-button" onClick={() => setSearchOpen(true)} aria-label="Открыть быстрый поиск"><Icon name="search" size={17}/><span>Поиск</span><kbd>⌘ K</kbd></button><span className={`online-badge online-${health}`}><span className="online-dot"/>{health === 'online' ? 'Сервис доступен' : health === 'offline' ? 'Нет связи' : 'Подключаемся'}</span><div className="user-badge"><span className="avatar">{session.role === 'cfo' ? 'Ф' : 'Г'}</span><span>{session.company_id}<small>{session.role === 'cfo' ? 'Финансовый директор' : 'Генеральный директор'}</small></span><button type="button" className="switch-session" onClick={() => setRelogin(true)}>Сменить</button></div></div></header>
       <div className="page-content">
+        {eventLoading && <Notice><span className="spinner tiny"/> Открываем событие…</Notice>}
         {error && <div className="global-error"><Notice kind="error" onClose={() => setError(null)}>{error}</Notice></div>}
         {jobsError && <div className="global-error"><Notice kind="error" onClose={() => setJobsError(null)}>Не удалось обновить историю задач: {jobsError}</Notice></div>}
         {screen === 'dashboard' && <>
           <div className="briefing-date"><span className="eyebrow">ВАШ ДЕЛОВОЙ БРИФИНГ</span><span>{new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
           <DashboardSummary session={session} data={personalFeed} industry={profile?.industry.okved_name || company?.okved_name || null} onFilter={selectFeedFilter} onEvent={id => void openEventId(id)} onProfile={() => setScreen('profile')}/>
-          <div className="briefing-layout"><div className="briefing-main"><InsightFeed key={session.token} session={session} data={personalFeed} filter={feedFilter} onFilterChange={setFeedFilter} onEvent={id => void openEventId(id)} compact onAll={() => setScreen('insights')}/></div><aside className="briefing-aside" aria-label="Контекст и навигация">
+          <div className="briefing-layout"><div className="briefing-main"><InsightFeed key={session.token} session={session} data={personalFeed} reading={reading} filter={feedFilter} onFilterChange={setFeedFilter} onEvent={id => void openEventId(id)} compact onAll={() => setScreen('insights')}/></div><aside className="briefing-aside" aria-label="Контекст и навигация">
             <div className="focus-card"><div className="eyebrow">ВАША ОПТИКА</div><div className="focus-icon"><Icon name="briefcase" size={22}/></div><h2>{session.role === 'cfo' ? 'Финансовый фокус' : 'Стратегический фокус'}</h2><p>{session.role === 'cfo' ? 'Влияние событий на финансирование, издержки и денежные потоки компании.' : 'Изменения на рынках, возможности для бизнеса и условия для решений.'}</p><div className="focus-fact"><span>Деятельность</span><strong>{profile?.industry.okved_name || company?.okved_name || 'Не указана'}</strong></div><div className="focus-fact"><span>Регион регистрации</span><strong>{profile?.region_registration || 'Не указан'}</strong></div><button type="button" className="text-button" onClick={() => setScreen('profile')}>Посмотреть профиль <Icon name="arrow" size={16}/></button></div>
 
             <button type="button" className="add-news-card" onClick={() => setScreen('publish')}><Icon name="plus" size={20}/><span><strong>Есть важная новость?</strong><small>Добавьте её для разбора</small></span><Icon name="arrow" size={17}/></button>
@@ -458,12 +491,13 @@ function App() {
         </>}
         {screen === 'publish' && <><div className="page-title"><div className="eyebrow">СОБЫТИЕ В ВАШЕМ КОНТЕКСТЕ</div><h1>Новая публикация<span>.</span></h1><p>Сохраните публикацию. Откройте готовое событие, чтобы запросить персональный разбор.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>Мы сохраним текст и источник, затем подготовим событие. Откройте его и нажмите «Разобрать влияние», чтобы получить аналитику для своей компании.</p><span>Каждый существенный вывод можно проверить по источникам.</span></div></div></div></>}
         {screen === 'events' && <><div className="page-title"><div className="eyebrow">НОВОСТНОЙ КОНТЕКСТ</div><h1>События<span>.</span></h1><p>Сохранённые события компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
-        {screen === 'insights' && <InsightFeed key={session.token} session={session} data={personalFeed} filter={feedFilter} onFilterChange={setFeedFilter} onEvent={id => void openEventId(id)}/>}
+        {screen === 'insights' && <InsightFeed key={session.token} session={session} data={personalFeed} reading={reading} filter={feedFilter} onFilterChange={setFeedFilter} onEvent={id => void openEventId(id)}/>}
         {screen === 'profile' && <><div className="page-title"><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h1>Анализ компании<span>.</span></h1><p>Что известно о бизнесе, какие механизмы влияния проверить и какие данные нужны для решения.</p></div><CompanyAnalysis key={session.token} session={session}/><details><summary>Исходный профиль компании</summary><Profile profile={profile}/></details></>}
         <footer className="app-footer"><span>ALPHICH · ОТ СОБЫТИЯ К РЕШЕНИЮ</span><span>Демо хакатона · Обезличенные данные</span></footer>
       </div>
     </main>
-    {selectedEvent && <EventDrawer key={`${session.token}:${selectedEvent.id}`} session={session} event={selectedEvent} insightStatus={insightsByEvent[selectedEvent.id]} onInsightReady={markInsightReady} source={source} loading={sourceLoading} error={sourceError} onClose={() => { latestSourceRequest.current += 1; setSelectedEvent(null); }} onSource={id => void openSource(id)}/>}
+    {searchOpen && !selectedEvent && <QuickSearch key={session.token} items={personalFeed.feed?.items ?? []} events={events} onClose={() => setSearchOpen(false)} onScreen={setScreen} onEvent={openEventId}/>}
+    {selectedEvent && <EventDrawer key={`${session.token}:${selectedEvent.id}`} session={session} event={selectedEvent} insightStatus={insightsByEvent[selectedEvent.id]} onInsightReady={markInsightReady} source={source} loading={sourceLoading} error={sourceError} onClose={closeEvent} onSource={id => void openSource(id)}/>}
   </div>;
 }
 

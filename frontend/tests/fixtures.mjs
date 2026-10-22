@@ -8,7 +8,7 @@ export function insight(index=0) {
 export function profile(company='DEMO_A') { return { id:company, role:'cfo', profile_version:'synthetic-v1', industry:{okved_code:'42',okved_name:company==='DEMO_A'?'Строительство инженерных сооружений':'Разработка программного обеспечения'}, region_registration:'Москва', city_registration:'Москва', revenue_raw:'20000000', revenue_unit:null, client_type:'CLIENT', products:{CL_PRODUCT_LOA_MARK:true}, fts_flag:false, fts_countries:[], features:[], quality_flags:[], limitations:['Единица выручки не подтверждена.'] }; }
 export const context = { company_id:'DEMO_A', profile_version:'synthetic-v1', context_hash:'fixture', observed:[{code:'industry',value:{code:'42',name:'Строительство инженерных сооружений'},evidence_ids:['e2'],meaning:'Деятельность используется для отбора новостей.'},{code:'registration',value:'Москва',evidence_ids:[],meaning:'Регистрация не подтверждает географию операций.'},{code:'loan_flag',value:true,evidence_ids:[],meaning:'Условия кредита неизвестны.'},{code:'deposit_flag',value:false,evidence_ids:[],meaning:'Депозит не указан в профиле.'}], hypotheses:[{id:'h1',status:'hypothesis',basis_feature_ids:['e2'],possible_problem:'Изменение стоимости финансирования',mechanism:'Если кредит имеет плавающую ставку, изменение условий может повлиять на расходы.',check_data:'Проверьте договор и структуру ставок.',decision:'Нужно ли пересмотреть план денежных потоков?'}], missing_data:[{id:'m1',question:'Какие ставки установлены по договорам?',purpose:'Оценить применимость механизма.'}], market_position:{market_share:null,status:'unknown',reason:'Доля рынка не установлена по доступным данным.'},group_policy:'Группа не подтверждает общие обязательства.' };
 export async function mockApi(page, options={}) {
-  const state={requests:[],company:'DEMO_A',...options};
+  const state={requests:[],company:'DEMO_A',feedback:{},...options};
   await page.route('**/api/v1/**',async route=>{
     const req=route.request(), path=new URL(req.url()).pathname.replace('/api/v1',''), method=req.method();
     state.requests.push({path,method,headers:req.headers(),body:req.postDataJSON()});
@@ -33,6 +33,12 @@ export async function mockApi(page, options={}) {
     if(path.endsWith('/questions')) return send({id:'question-1',status:'succeeded',stage:'finished',result_type:'answer',result_id:'answer-1',error:null},202);
     if(path.startsWith('/answers/')) return send({...insight(),id:'answer-1',insight_id:'insight-1',question:'Какие данные нужны для решения?'});
     if(path.endsWith('/insights') && method==='POST') return send({id:'analysis-job',status:'succeeded',stage:'finished',result_type:'insight',result_id:'insight-1',error:null},202);
+    if(path.endsWith('/feedback')) {
+      if(state.feedbackUnavailable) return send({detail:'Not Found'},404);
+      const key=req.headers()['x-demo-session']+':'+path;
+      if(method==='PUT') state.feedback[key]={...req.postDataJSON(),updated_at:Math.floor(Date.now()/1000)};
+      return send({feedback:state.feedback[key] ?? null});
+    }
     if(path.startsWith('/insights/')) return send(insight());
     if(path==='/publications') return send({id:'publication-job',status:'queued',stage:'queued',result_type:'event',result_id:null,error:null},202);
     return send({detail:`Unhandled test endpoint: ${method} ${path}`},404);

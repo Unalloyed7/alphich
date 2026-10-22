@@ -15,7 +15,7 @@ async function setup(options={},viewport={width:1440,height:1050}) {
   const errors=[];page.on('pageerror',e=>errors.push(e.message));const state=await mockApi(page,options);await page.goto(baseURL);return {context,page,state,errors};
 }
 async function login(page) {await page.getByRole('button',{name:'Перейти к аналитике'}).click();await page.locator('.briefing-layout').waitFor();await page.locator('.feed-skeleton').waitFor({state:'hidden'});}
-async function screenshot(page,name){if(screenshotDir){await fs.mkdir(screenshotDir,{recursive:true});await page.screenshot({path:path.join(screenshotDir,name),fullPage:true});}}
+async function screenshot(page,name){if(screenshotDir){await fs.mkdir(screenshotDir,{recursive:true});await page.screenshot({path:path.join(screenshotDir,name),fullPage:!(await page.getByRole('dialog').count())});}}
 async function accessible(page){const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),[]);}
 async function cardCount(page,count) {await page.waitForFunction(expected=>document.querySelectorAll('.brief-card').length===expected,count);assert.equal(await page.locator('.brief-card').count(),count);}
 async function noOverflow(page) {assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
@@ -36,9 +36,9 @@ test('Briefing prioritizes insights, filters correctly, and never starts paid wo
 test('Event interpretation, evidence, original source, question, focus trap and return focus',async()=>{
  const {context,page,state,errors}=await setup();try {
   await login(page);const opener=page.locator('.brief-card h3 button').first();await opener.click();const dialog=page.getByRole('dialog');await dialog.waitFor();await page.getByRole('heading',{name:'Что проверить дальше'}).waitFor();await screenshot(page,'event-synthetic.png');
-  await page.getByRole('button',{name:'Обоснование',exact:true}).click();await dialog.getByRole('button',{name:'Источник 1',exact:true}).first().click();await page.getByText('Подтверждающий фрагмент из тестового документа.',{exact:true}).waitFor();await page.getByRole('button',{name:'Закрыть подтверждающий фрагмент'}).click();
-  await page.getByRole('button',{name:'Первоисточники',exact:false}).click();await page.getByRole('button',{name:'Тестовый новостной источник',exact:true}).click();await page.getByText('Полный текст тестового первоисточника.',{exact:false}).waitFor();assert.equal(await page.evaluate(()=>window.injected),undefined);
-  await page.getByRole('button',{name:'Влияние на бизнес',exact:true}).click();await page.getByRole('button',{name:'Спросить аналитика',exact:true}).click();await page.getByRole('button',{name:'Какие данные нужны для решения?',exact:true}).click();assert.equal(state.requests.filter(r=>r.path.endsWith('/questions')).length,0);
+  await page.getByRole('tab',{name:'Обоснование',exact:true}).click();await dialog.getByRole('button',{name:'Источник 1',exact:true}).first().click();await page.getByText('Подтверждающий фрагмент из тестового документа.',{exact:true}).waitFor();await page.getByRole('button',{name:'Закрыть подтверждающий фрагмент'}).click();
+  await page.getByRole('tab',{name:'Первоисточники',exact:false}).click();await page.getByRole('button',{name:'Тестовый новостной источник',exact:true}).click();await page.getByText('Полный текст тестового первоисточника.',{exact:false}).waitFor();assert.equal(await page.evaluate(()=>window.injected),undefined);
+  await page.getByRole('tab',{name:'Влияние на бизнес',exact:true}).click();await page.getByRole('tab',{name:'Спросить аналитика',exact:true}).click();await page.getByRole('button',{name:'Какие данные нужны для решения?',exact:true}).click();assert.equal(state.requests.filter(r=>r.path.endsWith('/questions')).length,0);
   await page.getByRole('button',{name:'Задать вопрос',exact:true}).click();await page.getByRole('heading',{name:'Какие данные нужны для решения?',exact:true}).waitFor();const question=state.requests.find(r=>r.path.endsWith('/questions'));assert.ok(question.headers['idempotency-key']);assert.equal(question.headers['x-demo-session'],'test-DEMO_A');await accessible(page);
   await page.getByRole('button',{name:'Закрыть событие'}).focus();await page.keyboard.press('Shift+Tab');assert.equal(await page.locator(':focus').evaluate(el=>!!el.closest('[role=dialog]')),true);
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal(await opener.evaluate(el=>document.activeElement===el),true);assert.deepEqual(errors,[]);
@@ -49,6 +49,8 @@ test('Responsive layouts and primary screens meet automated WCAG checks',async()
  const {context,page,errors}=await setup();try {
   await accessible(page);await login(page);await accessible(page);
   for(const width of [1440,1024,768,390,320]) {await page.setViewportSize({width,height:844});await noOverflow(page);if(width===390){await screenshot(page,'mobile-synthetic.png');await accessible(page);}}
+  await page.getByRole('button',{name:'Открыть быстрый поиск',exact:true}).click();await page.getByRole('dialog',{name:'Быстрый поиск'}).waitFor();await noOverflow(page);await accessible(page);await screenshot(page,'mobile-search.png');await page.getByRole('button',{name:'Закрыть поиск'}).click();
+  await page.locator('.brief-card h3 button').first().click();await page.getByRole('heading',{name:'Помог ли разбор?'}).waitFor();await noOverflow(page);await accessible(page);await screenshot(page,'mobile-event.png');await page.getByRole('button',{name:'Закрыть событие'}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Моя компания',exact:true}).click();await page.getByRole('heading',{name:'Что может влиять на бизнес'}).waitFor();await page.getByText('Признак отсутствует',{exact:true}).waitFor();await noOverflow(page);await accessible(page);
   await page.getByRole('button',{name:'Добавить новость',exact:true}).click();await page.getByRole('heading',{name:'Добавить публикацию',exact:true}).waitFor();await noOverflow(page);await accessible(page);assert.deepEqual(errors,[]);
  } finally {await context.close();}
@@ -104,4 +106,51 @@ test('Dashboard distinguishes empty, unavailable and ungraded data',async()=>{
    if(options.legacy) {assert.equal(await page.getByTestId('summary-total').innerText(),'03');assert.equal(await page.getByTestId('summary-critical').innerText(),'00');await page.locator('.pulse-legend').getByText('Прочие',{exact:false}).waitFor();assert.equal(await page.locator('.widget-actions button').count(),0);}
   } finally {await context.close();}
  }
+});
+
+test('Bookmarks and reading state survive reloads and stay within the company and role',async()=>{
+ const {context,page,state}=await setup();try {
+  await login(page);await cardCount(page,3);
+  await page.getByRole('button',{name:'Добавить в избранное:',exact:false}).first().click();
+  await page.getByRole('button',{name:'Избранное',exact:true}).click();await cardCount(page,1);
+  await page.reload();await cardCount(page,1);assert.equal(await page.getByRole('button',{name:'Убрать из избранного:',exact:false}).first().getAttribute('aria-pressed'),'true');
+  await page.locator('.brief-card h3 button').first().click();await page.getByRole('dialog').waitFor();assert.ok(page.url().includes('event=event-1'));
+  assert.equal(await page.locator(':focus').evaluate(el=>!!el.closest('[role=dialog]')),true);
+  await page.goBack();await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.goForward();await page.getByRole('dialog').waitFor();await page.getByRole('button',{name:'Закрыть событие'}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.getByRole('button',{name:'Непрочитанные',exact:true}).click();await cardCount(page,2);
+  await page.getByRole('button',{name:'Сменить',exact:true}).click();await page.getByLabel('Идентификатор компании').fill('DEMO_B');await page.getByRole('combobox',{name:'Ваша роль'}).selectOption('ceo');await login(page);await cardCount(page,3);
+  await page.getByRole('button',{name:'Избранное',exact:true}).click();assert.equal(await page.locator('.brief-card').count(),0);
+  assert.equal(state.requests.filter(r=>r.method==='POST' && r.path!=='/demo-session').length,0);
+ } finally {await context.close();}
+});
+
+test('Quick search works with keyboard, explicit scope, empty results and accessible focus',async()=>{
+ const {context,page}=await setup();try {
+  await login(page);await page.keyboard.press('/');const search=page.getByRole('dialog',{name:'Быстрый поиск'});await search.waitFor();
+  const input=page.getByRole('combobox',{name:'Событие или раздел'});await input.fill('Стоимость');assert.equal(await page.getByRole('listbox',{name:'Результаты быстрого поиска'}).getByRole('option').count(),1);await accessible(page);await screenshot(page,'quick-search.png');
+  await input.press('Enter');await search.waitFor({state:'hidden'});await page.getByRole('dialog').waitFor();assert.ok(page.url().includes('event=event-2'));
+  await page.keyboard.press('Escape');await page.getByRole('dialog').waitFor({state:'hidden'});
+  await page.keyboard.press('Control+k');await search.waitFor();await input.fill('совпадений_точно_нет');await page.getByText('Ничего не найдено',{exact:true}).waitFor();await input.fill('');await input.press('ArrowDown');await input.press('Enter');await page.getByRole('heading',{name:'Важное для бизнеса.'}).waitFor();assert.ok(page.url().includes('/insights'));
+ } finally {await context.close();}
+});
+
+test('A deep event link survives reload; tab arrows, provenance and audit stay understandable',async()=>{
+ const {context,page}=await setup();try {
+  await login(page);await page.goto(baseURL+'/#/insights?event=event-1');await page.getByRole('dialog').waitFor();await page.getByRole('heading',{name:'Что проверить дальше'}).waitFor();await page.getByText('Дата материала: 20 октября 2026 г. · стр. 2',{exact:true}).waitFor();
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:undefined}));await page.getByRole('button',{name:'Скопировать ссылку на событие'}).click();await page.getByText('Не удалось скопировать. Ссылку можно взять из адресной строки.',{exact:true}).waitFor();
+  await page.getByRole('tab',{name:'Коротко',exact:true}).focus();await page.keyboard.press('ArrowRight');assert.equal(await page.getByRole('tab',{name:'Обоснование',exact:true}).getAttribute('aria-selected'),'true');
+  await page.getByRole('button',{name:'Выводы AI',exact:false}).first().click();assert.equal(await page.locator('.insight-claim').count(),1);await page.getByRole('button',{name:'Показать журнал анализа'}).click();await page.getByRole('heading',{name:'Как подготовлен разбор'}).waitFor();await page.getByText('Выполнен поиск аналитики банка',{exact:true}).waitFor();
+  await page.reload();await page.getByRole('dialog').waitFor();await page.getByRole('heading',{name:'Что проверить дальше'}).waitFor();await page.getByRole('button',{name:'Закрыть событие'}).click();await page.getByRole('dialog').waitFor({state:'hidden'});assert.ok(page.url().includes('/insights'));assert.equal(page.url().includes('event='),false);
+ } finally {await context.close();}
+});
+
+test('Feedback is saved explicitly, restored, and has an honest unavailable state',async()=>{
+ const {context,page,state}=await setup();try {
+  await login(page);await page.locator('.brief-card h3 button').first().click();await page.getByRole('heading',{name:'Помог ли разбор?'}).waitFor();await page.getByRole('radio',{name:'Есть неточность',exact:true}).check();
+  assert.equal(state.requests.filter(r=>r.method==='PUT').length,0);await page.getByLabel('Что стоит учесть',{exact:false}).fill('Нужно проверить условия договора.');await page.getByRole('button',{name:'Сохранить оценку',exact:true}).click();await page.getByText('Оценка сохранена для проверки качества.',{exact:true}).waitFor();
+  const write=state.requests.find(r=>r.method==='PUT');assert.equal(write.body.value,'needs_review');assert.equal(write.headers['x-demo-session'],'test-DEMO_A');await screenshot(page,'feedback.png');await accessible(page);
+  await page.reload();await page.getByRole('radio',{name:'Есть неточность',exact:true}).waitFor();assert.equal(await page.getByRole('radio',{name:'Есть неточность',exact:true}).isChecked(),true);assert.equal(await page.getByLabel('Что стоит учесть',{exact:false}).inputValue(),'Нужно проверить условия договора.');
+ } finally {await context.close();}
+ const other=await setup({feedbackUnavailable:true});try {await login(other.page);await other.page.locator('.brief-card h3 button').first().click();await other.page.getByText('Оценка разбора пока недоступна на этом сервере.',{exact:true}).waitFor();assert.equal(await other.page.getByRole('radio',{name:'Полезно',exact:true}).isDisabled(),true);} finally {await other.context.close();}
 });

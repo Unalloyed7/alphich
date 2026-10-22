@@ -13,11 +13,11 @@ from app.core import Company
 from app.news import Event, Job, JobView, SourceDocument, new_id, view_job
 from . import AGENT_ROLES
 from .provider import call_role, hashed
-from .schemas import InsightRequest, QuestionRequest
+from .schemas import FeedbackRequest, InsightRequest, QuestionRequest
 from .service import company_profile, normalized_event
 from .settings import AnalysisError, Settings
 from .gateway import inspect_gateway
-from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, CostReceipt, Insight, LLMCall
+from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, CostReceipt, Insight, InsightFeedback, LLMCall
 from . import news_index as _news_index  # Register additive persistent index tables at startup.
 from .automation import AutomationRecord, AutomationConfig
 
@@ -161,6 +161,43 @@ def register_routes(app, get_db, current_session, factory):
         allowed_evidence(insight.evidence, config())
         from .service import public_insight_payload
         return public_insight_payload(insight)
+
+    def feedback_view(row):
+        return None if row is None else {"value": row.value, "comment": row.comment,
+            "updated_at": row.updated_at}
+
+    @app.get("/api/v1/insights/{insight_id}/feedback")
+    def read_feedback(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
+        insight = authorized(db.get(Insight, insight_id), demo)
+        allowed_evidence(insight.evidence, config())
+        return {"feedback": feedback_view(db.get(InsightFeedback, (demo.token_hash, insight_id)))}
+
+    @app.put("/api/v1/insights/{insight_id}/feedback")
+    def save_feedback(insight_id: str, payload: FeedbackRequest,
+                      demo=Depends(current_session), db=Depends(get_db)):
+        insight = authorized(db.get(Insight, insight_id), demo)
+        allowed_evidence(insight.evidence, config())
+        now = int(time.time())
+        row = db.get(InsightFeedback, (demo.token_hash, insight_id))
+        if row is None:
+            row = InsightFeedback(session_hash=demo.token_hash, insight_id=insight_id,
+                company_id=demo.company_id, role=demo.role, value=payload.value,
+                comment=payload.comment.strip(), context={"event_id": insight.event_id,
+                    "event_version": insight.payload.get("event_version"),
+                    "profile_version": insight.payload.get("profile_version"),
+                    "run_id": insight.run_id, "versions": insight.snapshot.get("versions", {})},
+                created_at=now, updated_at=now)
+            try:
+                with db.begin_nested():
+                    db.add(row)
+                    db.flush()
+            except IntegrityError:
+                row = db.get(InsightFeedback, (demo.token_hash, insight_id))
+                if row is None:
+                    raise HTTPException(409, "Feedback changed concurrently; retry") from None
+        row.value, row.comment, row.updated_at = payload.value, payload.comment.strip(), now
+        db.commit()
+        return {"feedback": feedback_view(row)}
 
     @app.get("/api/v1/insights/{insight_id}/quality")
     def insight_quality(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
