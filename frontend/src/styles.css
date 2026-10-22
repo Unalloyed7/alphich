@@ -1,16 +1,16 @@
 :root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: #232422;
-  background: #f6f5f1;
+  background: #f3f4f6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --red: #d92e22;
   --red-deep: #cb291f;
   --dark: #232422;
-  --muted: #606b56;
-  --line: #e4e4dc;
-  --bg: #f6f5f1;
+  --muted: #596577;
+  --line: #e4e6eb;
+  --bg: #f3f4f6;
   --white: #fff;
   --shadow: 0 5px 20px #23242203;
 }
@@ -96,7 +96,7 @@ summary {
 .sidebar {
   width: 224px;
   flex-shrink: 0;
-  background: #fafaf7;
+  background: #fafbfc;
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -135,7 +135,7 @@ summary {
 }
 .brand-name small {
   display: block;
-  color: #606b56;
+  color: #5d6574;
   font-size: 8px;
   letter-spacing: 1.3px;
   margin-top: 1px;
@@ -143,7 +143,7 @@ summary {
 }
 .sidebar-category {
   margin: 0 12px 15px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 9px;
   letter-spacing: 1.35px;
   font-weight: 650;
@@ -157,7 +157,7 @@ summary {
   position: relative;
   background: none;
   border: 0;
-  color: #606b56;
+  color: #5d6574;
   text-align: left;
   display: flex;
   align-items: center;
@@ -172,7 +172,7 @@ summary {
   color: var(--dark);
 }
 .nav-link.active {
-  background: #ecece4;
+  background: #eceef2;
   color: #242620;
   font-weight: 650;
 }
@@ -199,7 +199,7 @@ summary {
 }
 .sidebar-note {
   padding: 17px 12px 23px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 8px;
   letter-spacing: .8px;
 }
@@ -235,7 +235,7 @@ summary {
   gap: 10px;
   width: 100%;
   padding: 22px 12px 0;
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
 }
 .sidebar-logout:hover {
@@ -259,7 +259,7 @@ summary {
   align-items: center;
   gap: 11px;
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
 }
 .breadcrumb strong {
   font-weight: 500;
@@ -275,7 +275,7 @@ summary {
   align-items: center;
   gap: 8px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   white-space: nowrap;
 }
 .online-dot {
@@ -302,7 +302,7 @@ summary {
 }
 .user-badge small {
   display: block;
-  color: #606b56;
+  color: #5d6574;
   font-weight: 400;
   font-size: 10px;
   margin-top: 2px;
@@ -319,7 +319,7 @@ summary {
 }
 .switch-session {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   background: transparent;
   border: 1px solid #d9dcd0;
   border-radius: 5px;
@@ -338,7 +338,7 @@ summary {
   letter-spacing: 1.5px;
   font-size: 9px;
   font-weight: 650;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.5;
 }
 .briefing-date {
@@ -349,7 +349,7 @@ summary {
 }
 .briefing-date > span:last-child {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
 }
 .hero {
   min-height: 280px;
@@ -379,7 +379,7 @@ summary {
 }
 .hero p {
   font-size: 13px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.7;
   margin: 0;
 }
@@ -389,7 +389,7 @@ summary {
   gap: 7px;
   font-size: 8px;
   letter-spacing: 1.3px;
-  color: #606b56;
+  color: #5d6574;
   margin-top: 25px;
 }
 .hero-signature > span {
@@ -469,7 +469,7 @@ summary {
   position: absolute;
   bottom: 3px;
   left: 53px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 8px;
   letter-spacing: 1.6px;
 }
@@ -495,13 +495,13 @@ summary {
   white-space: nowrap;
 }
 .context-strip > span > span {
-  color: #606b56;
+  color: #5d6574;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .context-strip svg {
-  color: #606b56;
+  color: #5d6574;
 }
 .context-strip button {
   display: flex;
@@ -532,7 +532,7 @@ summary {
 .focus-card {
   border: 1px solid #dfe2d4;
   border-radius: 10px;
-  background: #eaece1;
+  background: #eef0f5;
   padding: 23px;
 }
 .focus-card .eyebrow {
@@ -540,7 +540,7 @@ summary {
 }
 .focus-icon {
   margin: 23px 0 13px;
-  color: #606b56;
+  color: #5d6574;
 }
 .focus-card h2 {
   font-size: 23px;
@@ -550,7 +550,7 @@ summary {
   line-height: 1.2;
 }
 .focus-card > p {
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
   line-height: 1.8;
   margin: 0 0 24px;
@@ -562,7 +562,7 @@ summary {
 }
 .focus-fact span {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .focus-fact strong {
   font-size: 12px;
@@ -597,7 +597,7 @@ summary {
   align-items: start;
 }
 .how-card li > span {
-  color: #606b56;
+  color: #5d6574;
   font-size: 10px;
   padding-top: 2px;
 }
@@ -607,7 +607,7 @@ summary {
 }
 .how-card p {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   margin: 3px 0 0;
 }
 .add-news-card {
@@ -633,7 +633,7 @@ summary {
 }
 .add-news-card small {
   display: block;
-  color: #606b56;
+  color: #5d6574;
   font-size: 10px;
   margin-top: 3px;
 }
@@ -673,7 +673,7 @@ summary {
   content: '+';
   font-size: 20px;
   margin-left: auto;
-  color: #606b56;
+  color: #5d6574;
 }
 .operations-details[open] > summary:after {
   content: '−';
@@ -732,7 +732,7 @@ summary {
   border-radius: 5px;
   background: #f0f1e9;
   padding: 4px 8px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 11px;
 }
 .event-list {
@@ -762,7 +762,7 @@ summary {
   gap: 10px;
 }
 .event-tag {
-  color: #606b56;
+  color: #5d6574;
   font-size: 8px;
   font-weight: 600;
   letter-spacing: 1.2px;
@@ -782,7 +782,7 @@ summary {
 }
 .event-card p {
   margin: 0 0 14px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 11px;
 }
 .view-action {
@@ -790,7 +790,7 @@ summary {
   align-items: center;
   gap: 8px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .status-pill {
   display: inline-flex;
@@ -800,7 +800,7 @@ summary {
   border-radius: 4px;
   font-size: 10px;
   background: #f0f1ea;
-  color: #606b56;
+  color: #5d6574;
   white-space: nowrap;
 }
 .status-dot {
@@ -811,19 +811,19 @@ summary {
 }
 .status-succeeded, .status-analyzed, .status-insight {
   background: #eaf1e5;
-  color: #606b56;
+  color: #5d6574;
 }
 .status-queued, .status-running, .status-insufficient {
   background: #fff2dd;
-  color: #606b56;
+  color: #5d6574;
 }
 .status-failed {
   background: #fff0eb;
-  color: #606b56;
+  color: #5d6574;
 }
 .status-raw {
   background: #eeeee8;
-  color: #606b56;
+  color: #5d6574;
 }
 .empty-state {
   text-align: center;
@@ -833,7 +833,7 @@ summary {
   flex-direction: column;
   justify-content: center;
   gap: 10px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
 }
 .empty-state h3 {
@@ -854,7 +854,7 @@ summary {
   place-items: center;
   border-radius: 50%;
   background: #f1f1e9;
-  color: #606b56;
+  color: #5d6574;
 }
 .job-list {
   display: grid;
@@ -877,15 +877,15 @@ summary {
   width: 30px;
   height: 30px;
   flex-shrink: 0;
-  color: #606b56;
+  color: #5d6574;
 }
 .job-status-icon.succeeded {
   background: #edf2e8;
-  color: #606b56;
+  color: #5d6574;
 }
 .job-status-icon.failed {
   background: #ffefe8;
-  color: #606b56;
+  color: #5d6574;
 }
 .job-details {
   display: grid;
@@ -902,7 +902,7 @@ summary {
 }
 .job-error {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   overflow-wrap: anywhere;
 }
 .job-open {
@@ -912,7 +912,7 @@ summary {
   padding: 8px;
 }
 .job-empty {
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
   line-height: 1.9;
   padding: 14px 0 23px;
@@ -922,7 +922,7 @@ summary {
   padding-top: 17px;
   margin-top: 13px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -935,7 +935,7 @@ summary {
 }
 .job-source-title {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -966,7 +966,7 @@ summary {
   gap: 10px;
   background: #f1f3eb;
   border: 1px solid #e2e6d8;
-  color: #606b56;
+  color: #5d6574;
   border-radius: 7px;
   padding: 12px 14px;
   font-size: 12px;
@@ -983,7 +983,7 @@ summary {
 }
 .notice-success {
   background: #edf4e8;
-  color: #606b56;
+  color: #5d6574;
   border-color: #d8e5cc;
 }
 .notice .icon-button {
@@ -992,7 +992,7 @@ summary {
 .icon-button {
   border: 0;
   background: transparent;
-  color: #606b56;
+  color: #5d6574;
   padding: 8px;
   border-radius: 5px;
   display: grid;
@@ -1020,7 +1020,7 @@ summary {
 }
 .page-title p {
   font-size: 13px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.8;
   max-width: 650px;
   margin: 0;
@@ -1035,7 +1035,7 @@ summary {
 .panel-heading p {
   line-height: 1.8;
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
   max-width: 540px;
   margin: 10px 0 0;
 }
@@ -1061,7 +1061,7 @@ summary {
   color: var(--red);
 }
 .field label .optional {
-  color: #606b56;
+  color: #5d6574;
   font-weight: 400;
   font-size: 10px;
 }
@@ -1084,13 +1084,13 @@ summary {
   line-height: 1.75;
 }
 .field input::placeholder, .field textarea::placeholder {
-  color: #606b56;
+  color: #5d6574;
 }
 .field-help {
   display: flex;
   justify-content: space-between;
   margin-top: 8px;
-  color: #606b56;
+  color: #5d6574;
   font-size: 10px;
 }
 .form-grid {
@@ -1111,7 +1111,7 @@ summary {
   align-items: start;
   gap: 8px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   max-width: 350px;
   line-height: 1.65;
 }
@@ -1145,7 +1145,7 @@ summary {
   gap: 12px;
 }
 .tip-panel > svg {
-  color: #606b56;
+  color: #5d6574;
 }
 .tip-panel h3 {
   font-size: 16px;
@@ -1154,7 +1154,7 @@ summary {
 }
 .tip-panel p {
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.85;
   margin: 0;
 }
@@ -1162,7 +1162,7 @@ summary {
   border-top: 1px solid #d6ddc9;
   padding-top: 16px;
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.65;
 }
 .profile-facts {
@@ -1178,7 +1178,7 @@ summary {
 }
 .profile-facts span {
   display: block;
-  color: #606b56;
+  color: #5d6574;
   font-size: 11px;
 }
 .profile-facts strong {
@@ -1190,7 +1190,7 @@ summary {
 }
 .profile-facts small {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   overflow-wrap: anywhere;
 }
 .profile-column-grid {
@@ -1206,7 +1206,7 @@ summary {
 }
 .profile-column-grid p {
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.8;
 }
 .feature-tags {
@@ -1216,14 +1216,14 @@ summary {
 }
 .feature-tag {
   background: #f1f3e9;
-  color: #606b56;
+  color: #5d6574;
   border-radius: 4px;
   padding: 7px 9px;
   font-size: 11px;
 }
 .feature-tag.active {
   background: #e7f0dd;
-  color: #606b56;
+  color: #5d6574;
 }
 .limitations {
   padding-top: 22px;
@@ -1233,11 +1233,11 @@ summary {
   margin: 8px 0;
   font-size: 12px;
   line-height: 1.75;
-  color: #606b56;
+  color: #5d6574;
 }
 .loading-panel {
   min-height: 100px;
-  color: #606b56;
+  color: #5d6574;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -1250,7 +1250,7 @@ summary {
   justify-content: space-between;
   gap: 15px;
   font-size: 8px;
-  color: #606b56;
+  color: #5d6574;
   letter-spacing: .9px;
 }
 .event-toolbar {
@@ -1262,7 +1262,7 @@ summary {
 }
 .event-toolbar label {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
 }
 .event-toolbar input {
   min-width: 170px;
@@ -1274,7 +1274,7 @@ summary {
   font-size: 12px;
 }
 .event-counter {
-  color: #606b56;
+  color: #5d6574;
   font-size: 10px;
 }
 .event-pagination {
@@ -1287,7 +1287,7 @@ summary {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 45% 55%;
-  background: #fafaf7;
+  background: #fafbfc;
 }
 .onboarding-art {
   background: #252923;
@@ -1387,7 +1387,7 @@ summary {
 }
 .onboarding-desc {
   font-size: 13px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.9;
   max-width: 460px;
 }
@@ -1411,13 +1411,13 @@ summary {
   margin: 10px 0 20px;
 }
 .quick-company span {
-  color: #606b56;
+  color: #5d6574;
   font-size: 10px;
   margin-right: 1px;
 }
 .quick-company button {
   font-family: ui-monospace,monospace;
-  color: #606b56;
+  color: #5d6574;
   border: 1px solid #dce3d2;
   background: transparent;
   padding: 5px 8px;
@@ -1439,7 +1439,7 @@ summary {
   margin: 19px 0 0;
   font-size: 11px;
   line-height: 1.8;
-  color: #606b56;
+  color: #5d6574;
 }
 /* The event drawer keeps the reading width comfortable and the source one click away. */
 .drawer-backdrop {
@@ -1478,7 +1478,7 @@ summary {
   align-items: center;
   gap: 15px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   flex-wrap: wrap;
 }
 .drawer-scroll > h2 {
@@ -1504,7 +1504,7 @@ summary {
   border-bottom: 2px solid transparent;
   padding: 0 0 14px;
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
 }
 .drawer-tabs button.active {
   border-color: var(--red);
@@ -1512,7 +1512,7 @@ summary {
 }
 .drawer-tabs button > span {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .event-sources h3 {
   font-size: 19px;
@@ -1535,7 +1535,7 @@ summary {
 }
 .drawer-metadata span {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .drawer-metadata strong {
   font-size: 12px;
@@ -1566,7 +1566,7 @@ summary {
 }
 .source-button svg:last-child {
   margin-left: auto;
-  color: #606b56;
+  color: #5d6574;
 }
 .source-button:hover, .source-button.active {
   border-color: #a6b694;
@@ -1580,7 +1580,7 @@ summary {
   align-items: center;
   gap: 10px;
   margin: 17px 0;
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
 }
 .source-reader {
@@ -1617,7 +1617,7 @@ summary {
   gap: 12px;
   align-items: center;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   flex-wrap: wrap;
 }
 .source-footer span, .source-footer a {
@@ -1634,7 +1634,7 @@ summary {
   border-top: 1px solid var(--line);
   padding-top: 18px;
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
 }
 @media(min-width:1600px) {
   .hero {

@@ -17,7 +17,7 @@ export async function mockApi(page, options={}) {
     if(path==='/demo-session') {state.company=req.postDataJSON().company_id;return send({token:`test-${state.company}`,company_id:state.company,role:req.postDataJSON().role,expires_at:Date.now()/1000+7200,demo_only:true});}
     if(state.expired) return send({detail:'Session expired'},401);
     if(path==='/llm/status') return send({...status,configured:!state.unconfigured});
-    if(path.endsWith('/feed')) {if(state.feedError)return send({detail:'Тестовый сбой ленты'},503);return send({items:state.empty?[]:events.map((event,i)=>({event_id:event.id,event_version:1,title:event.title,relevance_grade:i===0?5:4,relevance_assessment:insight(i).relevance_assessment,reasons:insight(i).relevance_reasons,insight:insight(i)})),limitations:['bounded_candidate_pool','machine_relevance_not_human_review']});}
+    if(path.endsWith('/feed')) {if(state.feedError)return send({detail:'Тестовый сбой ленты'},503);return send({items:state.empty?[]:events.map((event,i)=>({event_id:event.id,event_version:1,title:event.title,relevance_grade:state.legacy?undefined:i===0?5:4,relevance_assessment:state.legacy?undefined:insight(i).relevance_assessment,reasons:insight(i).relevance_reasons,insight:insight(i)})),limitations:['bounded_candidate_pool','machine_relevance_not_human_review']});}
     if(path.endsWith('/profile')) return send(profile(state.company));
     if(path==='/companies') return send({items:[{id:state.company,okved_name:profile(state.company).industry.okved_name,region:'Москва',revenue_raw:'20000000',revenue_unit:null,profile_version:'synthetic-v1'}]});
     if(path.endsWith('/business-context')) return send(context);
