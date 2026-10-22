@@ -1,4 +1,4 @@
-# Alphich frontend (P0)
+# Alphich frontend
 
 React + TypeScript + Vite UI. The UI performs real requests to the backend (no demo/mock event generator):
 
@@ -53,13 +53,55 @@ Then, in another terminal:
 
 ```sh
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 Open http://127.0.0.1:5173. Vite proxies `/api` to the API at `127.0.0.1:8000`, so no CORS or frontend API keys are needed. Docker uses an Nginx reverse proxy with the same paths. `npm run build` validates TypeScript and builds the optimized frontend.
 
-Direct dependencies are pinned. A complete transitive `package-lock.json` should be generated with `npm install --package-lock-only` and committed as soon as npm registry access is available (this development environment cannot resolve the registry). Update Dockerfile to `npm ci` once lockfile is present.
+Runtime and development dependencies are pinned in `package.json` and `package-lock.json`.
+Docker uses `npm ci` and includes `public/` (the application favicon).
+
+## Redesigned briefing UI
+
+The overview starts with personalized insights, followed by company context. Publication processing
+is available under a disclosure. The full feed supports importance/bank-position filters,
+search and sorting. Event analysis has separate summary, evidence and question views; original
+news sources remain accessible. The layout supports desktop and phone navigation.
+
+Detailed repository review, design rationale and integration findings: [frontend-redesign.md](../docs/frontend-redesign.md).
+
+### Browser verification
+
+Start Vite in one terminal:
+
+```sh
+npm ci
+npm run dev -- --port 5174
+```
+
+Run in another terminal (from `frontend`):
+
+```sh
+npx playwright install chromium
+npm run test:ui
+```
+
+Alternatively use an installed Chrome:
+
+```sh
+PLAYWRIGHT_CHANNEL=chrome npm run test:ui
+```
+
+`UI_BASE_URL` overrides `http://127.0.0.1:5174`. Set `UI_SCREENSHOT_DIR` to a local directory
+if screenshots are needed. Browser tests use synthetic intercepted API responses, never the
+live analysis gateway or paid model requests. They cover filters/search, evidence, raw sources,
+question submission, publication/generation/discovery actions, company switching, responsive
+layouts at 320/390/768/1024/1440 px, focus trapping and automated WCAG checks.
+
+A running backend must match the checked-out repository. Older containers can lack
+`/discovery` and relevance fields. Rebuild services together when preparing the integrated demo;
+the UI displays unavailable states without inventing missing grades or results.
 
 ## Safety and data boundaries
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { analysisApi } from './api';
 import type { DemoSession } from './types';
 import './companyAnalysis.css';
+import { Icon } from './Icon';
 
 export interface BusinessContext {
   company_id: string; profile_version: string; context_hash: string;
@@ -22,6 +23,7 @@ const labels: Record<string, string> = {
 
 function valueText(value: unknown): string {
   if (value === true) return 'Есть признак';
+  if (value === false) return 'Признак отсутствует';
   if (value === null || value === undefined) return 'Не установлено';
   if (Array.isArray(value)) return value.map(String).join(', ') || 'Не указано';
   if (typeof value === 'object') {
@@ -53,20 +55,20 @@ export function CompanyAnalysis({ session }: { session: DemoSession }) {
       <p>Факты из профиля и гипотезы для проверки. Эти гипотезы используются при подготовке новостного анализа.</p></div></div>
     <h3>Что известно из данных</h3>
     <div className="business-observed">{context.observed.map(item => <article key={item.code}>
-      <span>{labels[item.code] ?? item.code}</span><strong>{valueText(item.value)}</strong><p>{item.meaning}</p>
+      <span>{labels[item.code] ?? item.code}</span><strong>{valueText(item.value)}</strong><details><summary>Что это означает</summary><p>{item.meaning}</p></details>
     </article>)}</div>
     <h3>Возможные проблемы и решения</h3>
     <p className="muted">Применимость к этой компании требует подтверждения. Гипотеза не означает, что проблема уже возникла.</p>
     {context.hypotheses.length === 0 && <p>Данных недостаточно для предметной бизнес-гипотезы. Начните с вопросов ниже.</p>}
     <div className="business-hypotheses">{context.hypotheses.map(item => <article key={item.id}>
       <span className="business-hypothesis-badge">Гипотеза · нужно подтвердить</span><h4>{item.possible_problem}</h4>
-      <dl><dt>Как передаётся влияние</dt><dd>{item.mechanism}</dd><dt>Какие данные запросить</dt><dd>{item.check_data}</dd>
+      <details className="hypothesis-details"><summary>Механизм влияния и возможное решение <Icon name="chevron" size={15}/></summary><dl><dt>Как передаётся влияние</dt><dd>{item.mechanism}</dd><dt>Какие данные запросить</dt><dd>{item.check_data}</dd>
         <dt>Какое решение от них зависит</dt><dd>{item.decision}</dd></dl>
       <p className="business-basis">Основание в профиле: {context.observed.filter(o => o.evidence_ids.some(id => item.basis_feature_ids.includes(id)))
-        .map(o => `${labels[o.code] ?? o.code}: ${valueText(o.value)}`).join('; ')}</p>
+        .map(o => `${labels[o.code] ?? o.code}: ${valueText(o.value)}`).join('; ')}</p></details>
     </article>)}</div>
-    <h3>Что уточнить {session.role === 'cfo' ? 'финансовому директору' : 'руководителю'}</h3>
-    <ol className="business-questions">{context.missing_data.map(item => <li key={item.id}><strong>{item.question}</strong><p>{item.purpose}</p></li>)}</ol>
+    <details className="business-missing"><summary>Вопросы для уточнения · {context.missing_data.length}</summary><h3>Что уточнить {session.role === 'cfo' ? 'финансовому директору' : 'руководителю'}</h3>
+    <ol className="business-questions">{context.missing_data.map(item => <li key={item.id}><strong>{item.question}</strong><p>{item.purpose}</p></li>)}</ol></details>
     <div className="business-boundaries"><h3>Положение на рынке и границы анализа</h3><p>{context.market_position.reason}</p><p>{context.group_policy}</p>
       <p>Денежный эффект не рассчитан: нужны подтверждённые объёмы, период, валюта и условия договоров.</p></div>
   </section>;
