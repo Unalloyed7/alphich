@@ -87,3 +87,6 @@ export interface AuditRun {
   verification?: { status?: string; issues?: string[] };
   llm_calls: Array<{ model: string; status: string; cost_rub: string | null; input_tokens: number | null; output_tokens: number | null }>;
 }
+
+export type FeedbackValue = 'useful' | 'not_relevant' | 'needs_review';
+export interface InsightFeedback { value: FeedbackValue; comment: string; updated_at: number; }

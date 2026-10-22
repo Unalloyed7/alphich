@@ -71,6 +71,12 @@ news sources remain accessible. The layout supports desktop and phone navigation
 
 Detailed repository review, design rationale and integration findings: [frontend-redesign.md](../docs/frontend-redesign.md).
 
+The decision workspace adds bookmarked/unread filters, keyboard quick search (Ctrl/Cmd+K or `/`),
+event deep links and browser history, a breakdown of claim origins, dated bank citations,
+readable audit steps and explicit server-saved feedback. Search covers loaded data only.
+Bookmarks and reading state stay in this browser tab, scoped by company and role; feedback
+belongs to the current demo session and saved insight. See [criteria mapping and limits](../docs/frontend-decision-workspace.md).
+
 ### Browser verification
 
 Start Vite in one terminal:
@@ -95,12 +101,12 @@ PLAYWRIGHT_CHANNEL=chrome npm run test:ui
 
 `UI_BASE_URL` overrides `http://127.0.0.1:5174`. Set `UI_SCREENSHOT_DIR` to a local directory
 if screenshots are needed. Browser tests use synthetic intercepted API responses, never the
-live analysis gateway or paid model requests. They cover dashboard values and navigation, missing/empty/ungraded data, filters/search, evidence, raw sources,
+live analysis gateway or paid model requests. The 11 scenarios cover dashboard values and navigation, missing/empty/ungraded data, filters/search, bookmarks, deep links, browser history, explicit feedback, evidence, raw sources,
 question submission, publication/generation/discovery actions, company switching, responsive
 layouts at 320/390/768/1024/1440 px, focus trapping and automated WCAG checks.
 
 A running backend must match the checked-out repository. Older containers can lack
-`/discovery` and relevance fields. Rebuild services together when preparing the integrated demo;
+`/discovery`, feedback routes and relevance fields. Rebuild services together when preparing the integrated demo;
 the UI displays unavailable states without inventing missing grades or results.
 
 ## Safety and data boundaries

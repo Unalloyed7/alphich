@@ -23,6 +23,8 @@ def test_frontend_routes_are_present_in_openapi():
         ("/api/v1/companies/{company_id}/feed", "get"),
         ("/api/v1/companies/{company_id}/insights", "post"),
         ("/api/v1/insights/{insight_id}", "get"),
+        ("/api/v1/insights/{insight_id}/feedback", "get"),
+        ("/api/v1/insights/{insight_id}/feedback", "put"),
         ("/api/v1/insights/{insight_id}/questions", "post"),
         ("/api/v1/answers/{answer_id}", "get"),
         ("/api/v1/evidence/{evidence_id}", "get"),

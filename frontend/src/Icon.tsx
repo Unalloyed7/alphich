@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type IconName = 'grid' | 'plus' | 'list' | 'briefcase' | 'chevron' | 'arrow' | 'refresh' | 'check' | 'clock' | 'link' | 'file' | 'alert' | 'close' | 'send' | 'logout' | 'activity' | 'copy' | 'search';
+export type IconName = 'grid' | 'plus' | 'list' | 'briefcase' | 'chevron' | 'arrow' | 'refresh' | 'check' | 'clock' | 'link' | 'file' | 'alert' | 'close' | 'send' | 'logout' | 'activity' | 'copy' | 'search' | 'bookmark' | 'eye' | 'shield' | 'thumbs';
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -21,6 +21,10 @@ export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
     logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></>,
     activity: <><path d="M3 12h4l3-7 4 14 3-7h4"/></>,
     copy: <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
+    bookmark: <path d="M6 3h12v18l-6-4-6 4z"/>,
+    eye: <><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></>,
+    shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8 12 3 3 5-6"/></>,
+    thumbs: <><path d="M7 10v11H3V10h4Zm0 1 5-8h2v7h6l-1 11H7"/></>,
     search: <><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;

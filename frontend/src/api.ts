@@ -31,6 +31,8 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
         const detail = (payload as { detail: unknown }).detail;
         const known: Record<string, string> = {
           'Company is not on the server demo allowlist': 'Компания недоступна для демонстрации. Проверьте её идентификатор.',
+          'Demo session required': 'Войдите в рабочее пространство.',
+          'Demo session expired or invalid': 'Сессия истекла. Войдите снова.',
           llm_not_configured: 'Аналитический сервис ещё не настроен.',
           budget_exceeded: 'Достигнут общий лимит аналитики. Попробуйте позже.',
           'Not Found': 'Данные или функция недоступны на этом сервере.',
@@ -67,6 +69,12 @@ export const api = {
 /** Analysis operations are served by the existing intelligence router.
  * Every call uses the same demo token as ingestion. No provider key reaches the browser. */
 export const analysisApi = {
+  feedback: (id: string, token: string) =>
+    request<{ feedback: import('./analysis').InsightFeedback | null }>(`/insights/${encodeURIComponent(id)}/feedback`, {}, token),
+  saveFeedback: (id: string, value: import('./analysis').FeedbackValue, comment: string, token: string) =>
+    request<{ feedback: import('./analysis').InsightFeedback }>(`/insights/${encodeURIComponent(id)}/feedback`, {
+      method: 'PUT', body: JSON.stringify({ value, comment }),
+    }, token),
   businessContext: (companyId: string, token: string) =>
     request<import('./CompanyAnalysis').BusinessContext>(`/companies/${encodeURIComponent(companyId)}/business-context`, {}, token),
   discoveryLatest: (companyId: string, token: string) =>
