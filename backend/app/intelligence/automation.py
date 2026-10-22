@@ -152,6 +152,10 @@ def dispatch_once(factory, settings, config=None, *, now=None, event_ids=None):
             with factory.begin() as db:
                 event = db.get(Event, event_id)
                 source = db.get(SourceDocument, event.source_id)
+                from app.rss import RssSourcePolicy
+                policy = db.get(RssSourcePolicy, source.id)
+                if policy is not None and policy.suppress_automatic_ai:
+                    continue  # A raw test collection is analyzed only on an explicit AI request.
                 # A spoofed source kind is not collector provenance.
                 from .article_cache import _public_snapshot
                 if _public_snapshot(db, source) is None:

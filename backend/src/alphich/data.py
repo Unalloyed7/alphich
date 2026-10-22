@@ -1,7 +1,7 @@
 """Prepare auditable company contexts without loading payment CSV into a list.
 
 Money is kept as Decimal internally and serialized as decimal strings. The
-organizer files do not establish a currency, a period, or a revenue unit.
+organizer webinar establishes revenue in RUB for 2025 and YTD payments in RUB.
 """
 
 from __future__ import annotations
@@ -18,9 +18,10 @@ from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterator
+from .organizer_semantics import VERSION as SEMANTICS_VERSION, SOURCE_REF, PAYMENT_PERIOD, revenue_metadata
 
 SCHEMA_VERSION = "company-context-v1"
-METHOD_VERSION = "company-features-v1"
+METHOD_VERSION = "company-features-v2-webinar"
 PROFILE_FILE = "df_Uid_data_hack.csv"
 PAYMENT_FILE = "df_Uid_payment_hack.csv"
 LINK_FILE = "df_Fid_Uid_link_hack.csv"
@@ -121,7 +122,9 @@ def parse_company(record: int, row: dict[str, str]) -> Company:
         issues.append("fts_flag_without_country")
     if fts is False and countries:
         issues.append("fts_country_without_flag")
-    revenue = decimal_value(row["REVENUE_COMPANY"], "REVENUE_COMPANY") if row["REVENUE_COMPANY"] else None
+    revenue_info = revenue_metadata(row["REVENUE_COMPANY"])
+    issues.extend(revenue_info["quality_flags"])
+    revenue = Decimal(revenue_info["amount"]) if revenue_info["amount"] is not None else None
     if revenue is None:
         issues.append("missing:REVENUE_COMPANY")
     for name in ("MAINOKVED_CODE", "MAINOKVED_NAME", "REGION", "GROUP_ID"):
@@ -135,7 +138,9 @@ def parse_company(record: int, row: dict[str, str]) -> Company:
         "registration_city": row["CITY"] or None,
         "group_id": row["GROUP_ID"] or None,
         "revenue_raw": decimal_text(revenue) if revenue is not None else None,
-        "revenue_unit": None,
+        "revenue_unit": "RUB", "revenue_currency": "RUB", "revenue_period": "2025",
+        "revenue_scope": revenue_info["scope"], "semantics_source_ref": SOURCE_REF,
+        "group_semantics": "ownership_or_management_link_not_shared_debt_or_operations",
         "snapshot_at": None,
         "employees_fns_band": row["AMOUNT_WORKERS_FNS_GRADATION"] or None,
         "products": products,
@@ -238,7 +243,7 @@ def summarize_flow(flow: Flow, owner: Company, companies: dict[str, Company], to
         {"code": code, "name": name, "amount_raw": decimal_text(value), "share_of_all_flow": ratio(value, amount)}
         for (code, name), value in sorted(sectors.items(), key=lambda item: (-item[1], item[0]))
     ]
-    limitations = ["payment_period_unknown", "payment_currency_unknown", "payment_purpose_unknown"]
+    limitations = ["payment_period_end_and_year_unknown", "payment_purpose_unknown"]
     if not flow.edges:
         limitations.append("no_observed_payments")
     elif not amount:
@@ -246,7 +251,8 @@ def summarize_flow(flow: Flow, owner: Company, companies: dict[str, Company], to
     if flow.exact_duplicate_rows or flow.repeated_pair_rows:
         limitations.append("repeated_payment_rows_demo_policy")
     return {
-        "amount_raw": decimal_text(amount), "currency": None, "period": None,
+        "amount_raw": decimal_text(amount), "currency": "RUB", "period": dict(PAYMENT_PERIOD),
+        "semantics_source_ref": SOURCE_REF,
         "payment_count": sum(edge.count for edge in flow.edges.values()),
         "counterparty_count": len(flow.edges), "unknown_profile_counterparty_count": unknown_count,
         "known_profile_amount_share": ratio(known_amount, amount),
@@ -317,7 +323,8 @@ def load_payments(path: Path, companies: dict[str, Company], selected: set[str])
               "raw_valid_amount": decimal_text(raw_amount), "raw_self_amount": decimal_text(self_amount),
               "raw_self_amount_share": ratio(self_amount, raw_amount),
               "duplicate_policy": "identical_normalized_rows_once_other_repeated_pairs_sum_with_warning",
-              "currency": None, "period": None, "fingerprint": "sha256_normalized_values"}
+              "currency": "RUB", "period": dict(PAYMENT_PERIOD), "semantics_source_ref": SOURCE_REF,
+              "fingerprint": "sha256_normalized_values"}
     return flows, report, quarantine
 
 
@@ -368,7 +375,7 @@ def prepare_data(input_dir: Path, output_dir: Path, company_ids: list[str] | Non
         raise DataError(f"Output already exists: {output_dir}. Choose a new directory to preserve the previous snapshot.")
     paths = {name: input_dir / name for name in (PROFILE_FILE, PAYMENT_FILE, LINK_FILE)}
     hashes = {name: sha256_file(path) for name, path in paths.items()}
-    dataset_version = stable_hash(hashes)
+    dataset_version = stable_hash({"inputs": hashes, "organizer_semantics": SEMANTICS_VERSION})
     companies, profile_report, quarantine = load_companies(paths[PROFILE_FILE])
     if company_ids:
         selected = set(company_ids)
@@ -408,13 +415,18 @@ def prepare_data(input_dir: Path, output_dir: Path, company_ids: list[str] | Non
                     feature(company_id, "group_profile_count", group_sizes[profile["group_id"]] if profile["group_id"] else None,
                             [PROFILE_FILE], "usable_profiles_in_same_declared_group"),
                     feature(company_id, "person_links", links[company_id], [LINK_FILE], "shared_person_no_role_inferred")]
+        for name in ("revenue_raw", "revenue_unit", "revenue_currency", "revenue_period", "revenue_scope", "group_id"):
+            if profile.get(name) is not None:
+                item = feature(company_id, name, profile[name], [PROFILE_FILE], "source_field_with_organizer_clarification")
+                item["semantics_source_ref"] = SOURCE_REF
+                features.append(item)
         for direction in ("incoming", "outgoing"):
             value = summarize_flow(flows[company_id][direction], company, companies, top_n)
             features.append(feature(company_id, f"payment_{direction}", value, [PAYMENT_FILE, PROFILE_FILE],
                                     "nonself_all_flow_denominator_normalized_duplicates_once"))
         return {"schema_version": SCHEMA_VERSION, "company_id": company_id, "profile_version": dataset_version,
                 "context_version": context_version, "profile": profile, "features": features,
-                "limitations": ["company_snapshot_date_unknown", "revenue_unit_unknown", "market_share_unavailable",
+                "limitations": ["company_snapshot_date_unknown", "revenue_company_or_group_scope_unknown", "market_share_unavailable",
                                 "credit_terms_unknown", "person_link_role_unknown"]}
 
     report = {"schema_version": SCHEMA_VERSION, "dataset_version": dataset_version,
@@ -433,7 +445,8 @@ def prepare_data(input_dir: Path, output_dir: Path, company_ids: list[str] | Non
                     "inputs": [{"name": name, "sha256": digest} for name, digest in sorted(hashes.items())],
                     "selection": config,
                     "files": {path.name: sha256_file(path) for path in sorted(staging.iterdir())},
-                    "money_encoding": "decimal_string", "money_currency": None, "payment_period": None}
+                    "money_encoding": "decimal_string", "money_currency": "RUB", "payment_period": dict(PAYMENT_PERIOD),
+                    "organizer_semantics": SEMANTICS_VERSION, "semantics_source_ref": SOURCE_REF}
         write_json(staging / "manifest.json", manifest)
         os.rename(staging, output_dir)
     return report

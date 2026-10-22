@@ -1,0 +1,136 @@
+<View style="max-width: 1200px; margin: 0 auto;">
+  <Header value="Обучающий пример для Qwen: компания → новость → проверенная оценка и доказательства" />
+  <View style="padding: 12px; background: #f4f6fa; border-radius: 8px;">
+    <Header value="Контекст оценки" size="4" />
+    <Text name="assessment_context" value="$assessment_context" />
+    <Header value="Источник и дата новости" size="4" />
+    <Text name="news_meta" value="$news_meta" />
+  </View>
+
+  <View style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 16px;">
+    <View style="flex: 1 1 340px; min-width: 280px;">
+      <Header value="Компания и исходные факты с ID" size="3" />
+      <View style="max-height: 700px; overflow-y: auto; white-space: pre-wrap;">
+        <Text name="company_profile" value="$company_profile" />
+      </View>
+    </View>
+    <View style="flex: 2 1 520px; min-width: 280px;">
+      <Header value="Полный текст новости" size="3" />
+      <View style="max-height: 700px; overflow-y: auto; white-space: pre-wrap;">
+        <Text name="news_text" value="$news_text" />
+      </View>
+    </View>
+  </View>
+
+  <Header value="Входит ли этот пример в проверенный датасет?" size="3" />
+  <Text name="review_instructions" value="accept — проверьте и заполните весь ответ ниже; unusable — повреждённый или непроверяемый пример, он не попадёт в обучение. Недостаток сведений о применимости сам по себе не делает пример unusable: укажите ограничение и недостающие данные. Пропуск задания не означает оценку 0. Предварительный ответ модели нужно проверить целиком, включая объяснение и цитаты." />
+  <Choices name="review_status" toName="news_text" choice="single" required="true" requiredMessage="Выберите accept или unusable.">
+    <Choice value="accept" />
+    <Choice value="unusable" />
+  </Choices>
+
+  <!-- Completeness and evidence checks are enforced by the strict importer.
+       Teacher fields are deliberately not required here: an unusable task must
+       be submittable without inventing grades or explanations. -->
+  <View visibleWhen="choice-selected" whenTagName="review_status" whenChoiceValue="accept">
+    <Header value="Бизнес-релевантность: 0–5" size="3" />
+    <Text name="grade_rubric" value="0 — связь не установлена. 1 — слабая тематическая связь или чужой локальный кейс. 2 — смежная тема или небольшой отдельный кейс. 3 — профильная тема, но масштаб, география или применимость требуют подтверждения. 4 — существенное событие для подтверждённой деятельности и применимого рынка. 5 — доказанная прямая обязанность или критическое событие с конкретным действием. Для 4–5 одновременно нужны applicable, material и confirmed; законопроект не выше 3. Совпадение отраслевых слов не доказывает значимость. Регион регистрации не доказывает географию операций." />
+    <Choices name="grade" toName="news_text" choice="single" showInline="true">
+      <Choice value="0" />
+      <Choice value="1" />
+      <Choice value="2" />
+      <Choice value="3" />
+      <Choice value="4" />
+      <Choice value="5" />
+    </Choices>
+
+    <Header value="Тип влияния" size="4" />
+    <Text name="impact_help" value="none — влияния не установлено; risk — риск; opportunity — возможность; regulation — регулирование; demand — спрос; costs — затраты; competition — конкуренция; mixed — несколько связанных каналов." />
+    <Choices name="impact_type" toName="news_text" choice="single" showInline="true">
+      <Choice value="none" />
+      <Choice value="risk" />
+      <Choice value="opportunity" />
+      <Choice value="regulation" />
+      <Choice value="demand" />
+      <Choice value="costs" />
+      <Choice value="competition" />
+      <Choice value="mixed" />
+    </Choices>
+
+    <Header value="Объяснение: событие → механизм → последствие для этой компании → ограничения" size="4" />
+    <TextArea name="reason" toName="news_text" rows="5" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="Краткое проверяемое объяснение, до 2000 знаков. Если меняете оценку модели, исправьте и её объяснение." />
+
+    <Header value="Цитаты из новости" size="4" />
+    <Text name="quote_help" value="До 4 точных непрерывных цитат, каждая до 1500 знаков; одна цитата на строку. Если внутри самой цитаты есть перенос строки, используйте JSON-массив строк с экранированием переноса как \n. Кавычки и текст не исправляйте. Для оценки выше 0 нужна хотя бы одна цитата. Пустое поле или [] означает отсутствие цитат." />
+    <TextArea name="news_quotes" toName="news_text" rows="5" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="Точная цитата из новости&#10;Вторая точная цитата" />
+
+    <Header value="ID подтверждающих фактов компании" size="4" />
+    <Text name="fact_help" value="Копируйте ID из профиля слева, до 12 ID, по одному на строку или JSON-массивом. Для оценки выше 0 нужны факты компании. Одна регистрация или выручка не обосновывают оценку 4–5. Не добавляйте факты из памяти или внешних источников." />
+    <TextArea name="company_fact_ids" toName="news_text" rows="4" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="ID исходного факта компании" />
+
+    <Header value="География влияния" size="4" />
+    <Text name="geography_help" value="applicable — применимость рынка подтверждена; outside — событие вне подтверждённого рынка компании; unknown — связь не установлена." />
+    <Choices name="geography" toName="news_text" choice="single" showInline="true">
+      <Choice value="applicable" />
+      <Choice value="outside" />
+      <Choice value="unknown" />
+    </Choices>
+
+    <Header value="Масштаб для компании" size="4" />
+    <Text name="scale_help" value="material — существенный; limited — ограниченный; unknown — недостаточно данных. Не вычисляйте денежные потери без подтверждённых исходных данных." />
+    <Choices name="scale" toName="news_text" choice="single" showInline="true">
+      <Choice value="material" />
+      <Choice value="limited" />
+      <Choice value="unknown" />
+    </Choices>
+
+    <Header value="Применимость к деятельности компании" size="4" />
+    <Text name="applicability_help" value="confirmed — подтверждена фактами; conditional — зависит от непроверенных условий; none — связь не установлена." />
+    <Choices name="applicability" toName="news_text" choice="single" showInline="true">
+      <Choice value="confirmed" />
+      <Choice value="conditional" />
+      <Choice value="none" />
+    </Choices>
+
+    <Header value="Статус события" size="4" />
+    <Text name="event_help" value="effective — состоялось или действует; announced — объявлено; proposal — предложение или законопроект; historical — историческое событие; unknown — статус неясен." />
+    <Choices name="event_status" toName="news_text" choice="single" showInline="true">
+      <Choice value="effective" />
+      <Choice value="announced" />
+      <Choice value="proposal" />
+      <Choice value="historical" />
+      <Choice value="unknown" />
+    </Choices>
+
+    <Header value="Конкретное действие компании" size="4" />
+    <TextArea name="required_action" toName="news_text" rows="3" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="Для оценки 5 обязательно; до 1000 знаков. Пустое поле → null. Для архива не призывайте срочно действовать сегодня." />
+
+    <Header value="Каких сведений не хватает" size="4" />
+    <TextArea name="missing_information" toName="news_text" rows="4" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="По одному вопросу или недостающему факту на строку; до 12 пунктов по 500 знаков. Пустое поле или [] → пустой список." />
+
+    <Header value="Актуальность на дату оценки — отдельно от бизнес-релевантности" size="3" />
+    <Text name="temporal_help" value="current — актуальность на дату оценки подтверждается источником; expired — период или эффект уже истёк; unknown — нет подтверждения. Возраст статьи сам по себе не уменьшает grade. Для архива оценивайте условную применимость к предоставленному профилю, не утверждая, что профиль существовал на дату события. Без даты публикации выбирайте unknown. Для current/expired нужны точные временные цитаты. Свежая публикация не делает прошлую статистику или истёкший прогноз текущими." />
+    <Choices name="timeliness" toName="news_text" choice="single" showInline="true">
+      <Choice value="current" />
+      <Choice value="expired" />
+      <Choice value="unknown" />
+    </Choices>
+
+    <Header value="Обоснование актуальности" size="4" />
+    <TextArea name="temporal_reason" toName="news_text" rows="3" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="Объясните выбранный статус или почему актуальность не установлена; до 1000 знаков." />
+
+    <Header value="Точные временные цитаты из новости" size="4" />
+    <TextArea name="temporal_quotes" toName="news_text" rows="4" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="До 4 цитат, одна на строку или JSON-массивом. Пустое поле или [] → пустой список." />
+
+    <Header value="Начало действия: YYYY-MM-DD, только если эта ISO-дата дословно есть в temporal_quotes" size="4" />
+    <TextArea name="valid_from" toName="news_text" rows="1" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="Иначе оставьте пустым → null" />
+
+    <Header value="Конец действия: YYYY-MM-DD, только если эта ISO-дата дословно есть в temporal_quotes" size="4" />
+    <TextArea name="valid_until" toName="news_text" rows="1" maxSubmissions="1" editable="true" transcription="true" showSubmitButton="false" placeholder="Иначе оставьте пустым → null" />
+
+    <Text name="submission_help" value="Перед Submit проверьте все поля. Импортёр не принимает неполные или противоречивые ответы, выдуманные цитаты и неизвестные ID фактов. Непроверенное предсказание модели не становится человеческой разметкой автоматически." />
+  </View>
+  <View visibleWhen="choice-selected" whenTagName="review_status" whenChoiceValue="unusable">
+    <Text name="unusable_help" value="После Submit этот пример будет исключён из обучающего экспорта. Оценку 0 для исключения ставить не нужно." />
+  </View>
+</View>

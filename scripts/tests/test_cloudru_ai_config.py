@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CloudruAIConfigTests(unittest.TestCase):
-    def test_demo_overlay_applies_explicit_100_rub_cap_and_preserves_secrets_and_proxy(self):
+    def test_demo_overlay_applies_shared_500_rub_cap_and_preserves_secrets_and_proxy(self):
         if not shutil.which('docker'):
             self.skipTest('Docker Compose CLI is not installed')
         version = subprocess.run(['docker', 'compose', 'version'], capture_output=True)
@@ -48,7 +48,7 @@ class CloudruAIConfigTests(unittest.TestCase):
                 env = config['services'][service]['environment']
                 self.assertEqual(env['LLM_API_KEY'], 'test-only-key')
                 self.assertEqual(env['HTTPS_PROXY'], 'http://test-proxy:1080')
-                self.assertEqual(env['LLM_DAILY_LIMIT_RUB'], '100')
+                self.assertEqual(env['LLM_DAILY_LIMIT_RUB'], '500')
                 self.assertEqual(env['LLM_APPLY_CONFIGURED_BUDGET'], '1')
                 self.assertEqual(env['AI_AUTOMATION_ENABLED'], '0')
                 self.assertEqual(env['LLM_PRICES_CONFIRMED'], '0')
@@ -56,7 +56,7 @@ class CloudruAIConfigTests(unittest.TestCase):
                     settings = Settings.from_env()
                 settings.require_ready()
                 self.assertEqual(settings.budget_mode, 'gateway_receipt')
-                self.assertEqual(settings.daily_limit_micros, 100_000_000)
+                self.assertEqual(settings.daily_limit_micros, 500_000_000)
 
 
 if __name__ == '__main__':

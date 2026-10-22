@@ -90,7 +90,7 @@ def test_access_denied_for_foreign_company_and_unknown_credentials(store, tmp_pa
         own = client.get("/api/v1/companies/U_A/profile", headers=headers)
         assert own.status_code == 200
         info = own.json()
-        assert info["revenue_unit"] is None
+        assert info["revenue_unit"] == "RUB"
         assert info["features"][0]["id"].startswith("feature_")
         assert client.get("/api/v1/companies/U_B/profile", headers=headers).status_code == 403
         assert client.get("/api/v1/companies/U_A/profile", headers={"X-Demo-Session": "wrong"}).status_code == 401

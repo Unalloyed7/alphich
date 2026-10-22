@@ -18,7 +18,7 @@ function dateLabel(value?: string | null): string {
 
 const claimKinds: Record<Claim['kind'], string> = {
   news_fact: 'Факт новости', company_fact: 'Признак компании', bank_view: 'Позиция Альфа-Банка',
-  model_inference: 'Интерпретация AI',
+  model_inference: 'Вывод AI · не официальная позиция банка',
 };
 
 function BudgetStatus({ value }: { value: LlmStatus | null }) {

@@ -4,7 +4,7 @@ from .inputs import industry_matches
 from .profiles import normalize_company
 from .payments import METHOD, validate_payment_feature
 
-VERSION = "business-context-v2"
+VERSION = "business-context-v3-webinar"
 
 # Activity suggests questions; it does not prove a problem or a business model.
 LENSES = {
@@ -86,13 +86,21 @@ def business_context(profile):
     if company["fts_flag"] is True:
         observe("customs_countries", company["countries"], company["bindings"]["fts"],
                 "Страны в сведениях ФТС; направление, товары, валюты и действующие сделки не подтверждены.")
+    revenue_metadata = {}
+    for name in ("revenue_unit", "revenue_currency", "revenue_period", "revenue_scope"):
+        values = {f["value"] for f in company["features"].values() if f["name"] == name and isinstance(f["value"], str)}
+        revenue_metadata[name] = next(iter(values)) if len(values) == 1 else None
     for f in company["features"].values():
         if f["name"] == "revenue_raw" and f["value"] is not None:
-            observe("revenue_raw", f["value"], [f["id"]],
-                "Исходное значение выручки. Единица, валюта и период не подтверждены; денежный масштаб и эффект по нему не рассчитываются.")
+            basis = [f["id"]] + [item["id"] for item in company["features"].values()
+                                   if item["name"] in revenue_metadata and item["value"] == revenue_metadata[item["name"]]]
+            observe("revenue_raw", f["value"], basis,
+                ("Отчётная выручка в рублях за 2025 год. При неизвестном охвате компания/группа это не выручка отдельного юрлица; значения участников не суммируются. Сам показатель не устанавливает прибыль, долг или эффект новости."
+                 if revenue_metadata["revenue_currency"] == "RUB" and revenue_metadata["revenue_unit"] == "RUB" and revenue_metadata["revenue_period"] == "2025"
+                 else "Исходное значение выручки без подтверждённых единиц и периода не устанавливает денежный масштаб и эффект."))
         if f["name"] == "group_id" and f["value"]:
             observe("group_membership", f["value"], [f["id"]],
-                    "Общий GROUP_ID; не доказывает контроль, консолидированный бюджет, гарантию или общий долг.")
+                    "Группировка по признакам владения или управления; конкретный вид связи, общий бюджет, гарантия, операционная зависимость или общий долг не установлены.")
         if f["name"] not in {"payment_incoming", "payment_outgoing"}:
             continue
         if f.get("method") != METHOD:
@@ -101,7 +109,9 @@ def business_context(profile):
         v = f["value"]
         observe(f["name"], {k: v.get(k) for k in ("payment_count", "counterparty_count", "top_counterparty_share",
                 "known_profile_amount_share", "within_known_group_amount_share", "known_sectors")}, [f["id"]],
-                "Структура наблюдаемого платёжного потока; не состав клиентов или поставщиков. Период, валюта и назначение неизвестны.")
+                ("Потоки в рублях с 1 января; год и конец периода неизвестны. Это финансовое взаимодействие, а не установленный состав клиентов или поставщиков; назначение платежей неизвестно."
+                 if v.get("currency") == "RUB" else
+                 "Структура наблюдаемого платёжного потока; не состав клиентов или поставщиков. Период, валюта и назначение неизвестны."))
         if v.get("top_counterparty_share") is not None and v["top_counterparty_share"] >= .5:
             hypotheses.append({"id": f["name"] + "_concentration", "status": "requires_confirmation",
                 "basis_feature_ids": [f["id"]], "possible_problem": "Если крупнейший поток отражает регулярную операционную связь, его концентрация может быть существенна для бизнеса.",

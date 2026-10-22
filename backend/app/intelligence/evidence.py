@@ -8,6 +8,8 @@ from .financial_grounding import unsupported_financing_stability
 
 LABELS = {"group_id": "Группа из исходного профиля", "okved_code": "ОКВЭД", "okved_name": "Основная деятельность", "region_registration": "Регион регистрации",
           "revenue_raw": "Выручка в исходных единицах", "fts_countries": "Страны в сведениях ФТС",
+          "revenue_unit": "Единица выручки", "revenue_currency": "Валюта выручки",
+          "revenue_period": "Отчётный год выручки", "revenue_scope": "Охват показателя выручки (юрлицо или группа)",
           "CL_PRODUCT_LOA_MARK": "Кредитный продукт", "CL_PRODUCT_DEP_MARK": "Депозитный продукт",
           "CL_PRODUCT_LEA_MARK": "Лизинговый продукт", "CL_PRODUCT_GAR_MARK": "Гарантийный продукт",
           "CL_PRODUCT_RKO_MARK": "Расчётное обслуживание", "CL_PRODUCT_ZPP_MARK": "Зарплатный проект",
@@ -24,11 +26,14 @@ def company_evidence(profile):
             label = "Входящие" if feature["name"] == "payment_incoming" else "Исходящие"
             sectors = "; ".join(f"{s.get('code')}: {str(s.get('name') or '')[:70]}, доля {s.get('share_of_all_flow')}"
                                 for s in value.get("known_sectors", [])[:3])
-            text = (f"{label} платежи: сумма в исходных единицах {value.get('amount_raw')}; "
+            clarified = value.get("currency") == "RUB" and isinstance(value.get("period"), dict)
+            temporal = ("Валюта — рубли; период с 1 января, год и конец периода неизвестны. Назначение платежей неизвестно. "
+                        if clarified else "Валюта, период и назначение платежей неизвестны. ")
+            text = (f"{label} платежи: сумма {'в рублях' if clarified else 'в исходных единицах'} {value.get('amount_raw')}; "
                     f"количество платежей {value.get('payment_count')}; контрагентов {value.get('counterparty_count')}; "
                     f"доля крупнейшего {value.get('top_counterparty_share')}; "
                     f"покрытие известными профилями {value.get('known_profile_amount_share')}. "
-                    "Доли от 0 до 1. Валюта, период и назначение платежей неизвестны. "
+                    f"Доли от 0 до 1. {temporal}"
                     f"До трёх отраслей известных контрагентов: {sectors or 'нет данных'}.")
         else:
             text = None

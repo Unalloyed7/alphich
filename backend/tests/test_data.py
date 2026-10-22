@@ -70,8 +70,10 @@ class PrepareDataTests(unittest.TestCase):
         self.assertIsNone(flow["known_profile_amount_share"])
         self.assertIsNone(flow["top_counterparty_share"])
         self.assertIn("no_observed_payments", flow["limitations"])
-        self.assertIsNone(flow["currency"])
-        self.assertIsNone(flow["period"])
+        self.assertEqual(flow["currency"], "RUB")
+        self.assertEqual(flow["period"]["start_month_day"], "01-01")
+        self.assertIsNone(flow["period"]["year"])
+        self.assertIsNone(flow["period"]["end"])
 
     def test_bad_money_and_fractional_payment_counts_are_quarantined(self):
         self.assertEqual(self.report["payments"]["invalid_rows"], 3)
@@ -159,7 +161,7 @@ class PrepareDataTests(unittest.TestCase):
         self.assertEqual(report["selected_company_ids"], ["S_MISSING"])
         context = json.loads((output / "contexts.jsonl").read_text())
         self.assertIsNone(context["profile"]["revenue_raw"])
-        self.assertIsNone(context["profile"]["revenue_unit"])
+        self.assertEqual(context["profile"]["revenue_unit"], "RUB")
 
 
 if __name__ == "__main__":

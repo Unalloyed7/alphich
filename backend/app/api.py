@@ -18,11 +18,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import Base, Company, DemoSession, feature_evidence, make_session_factory
+from alphich.organizer_semantics import revenue_metadata
 from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
                       digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
 from app.intelligence.routes import register_routes
 from app.intelligence.service import event_payload
 from app import rss as _rss  # Register additive collector tables in the shared metadata.
+from app.news_collection import register_collection_routes
+from app.rss_status import register_status_route
 
 
 class DemoSessionRequest(BaseModel):
@@ -101,7 +104,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
             return {"items": []}
         records = db.scalars(select(Company).where(Company.id.in_(ids)).order_by(Company.id)).all()
         return {"items": [{"id": c.id, "okved_name": c.okved_name, "region": c.region,
-                            "revenue_raw": c.revenue_raw, "revenue_unit": None,
+                            "revenue_raw": revenue_metadata(c.revenue_raw)["amount"], "revenue_unit": "RUB",
                             "profile_version": c.profile_version} for c in records]}
 
     @app.get("/api/v1/companies/{company_id}/profile")
@@ -111,17 +114,20 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         company = db.get(Company, company_id)
         if company is None:
             raise HTTPException(404, "Company profile not found")
+        revenue = revenue_metadata(company.revenue_raw)
         return {"id": company.id, "role": demo.role, "profile_version": company.profile_version,
                 "industry": {"okved_code": company.okved_code, "okved_name": company.okved_name},
                 "group_id": company.group_id, "region_registration": company.region,
-                "city_registration": company.city, "revenue_raw": company.revenue_raw,
-                "revenue_unit": None, "client_type": company.client_type,
+                "city_registration": company.city, "revenue_raw": revenue["amount"],
+                "revenue_unit": revenue["unit"], "revenue_currency": revenue["currency"],
+                "revenue_period": revenue["period"], "revenue_scope": revenue["scope"],
+                "client_type": company.client_type,
                 "products": company.products, "fts_flag": company.fts_flag,
                 "fts_countries": company.countries, "features": feature_evidence(company),
                 "quality_flags": company.quality_flags,
                 "limitations": [
                     "This is an anonymized synthetic company profile.",
-                    "Revenue currency and snapshot date have not been confirmed.",
+                    "Revenue is RUB for 2025; company/group scope and profile snapshot date are unknown.",
                     "Registration region is not proof of geographic operations.",
                     "FTS countries do not establish trade direction or transaction currency.",
                     "Credit flag does not disclose debt amount, contract rate, or maturity.",
@@ -283,6 +289,8 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
                 "note": ("Article text extracted from a fetched RSS link. Fetching does not verify factual accuracy."
                          if collected else "User-submitted text. URL is not fetched or independently verified.")}
 
+    register_collection_routes(app, get_db, current_session)
+    register_status_route(app, get_db, current_session)
     register_routes(app, get_db, current_session, session_factory)
     return app
 

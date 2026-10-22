@@ -33,6 +33,9 @@ export interface CompanyProfile {
   city_registration: string | null;
   revenue_raw: string | null;
   revenue_unit: string | null;
+  revenue_currency?: string | null;
+  revenue_period?: string | null;
+  revenue_scope?: string | null;
   client_type: string | null;
   products: Record<string, unknown>;
   fts_flag: boolean | null;
@@ -94,5 +97,51 @@ export interface SourceDetail extends SourceSummary {
   text: string;
   company_id: string;
   version: number;
+  note: string;
+}
+
+export interface NewsSearchItem {
+  article_id: string;
+  source_id: string;
+  job_id: string;
+  event_id: string | null;
+  title: string;
+  url: string;
+  published_at: string | null;
+}
+
+export interface NewsSearchRun {
+  id: string;
+  company_id: string;
+  status: 'queued' | 'collecting' | 'waiting_ingestion' | 'succeeded' | 'partial' | 'failed' | 'cancelled';
+  requested_count: number;
+  collected_count: number;
+  checked_sources: number;
+  total_sources: number;
+  created_at: number;
+  updated_at: number;
+  deadline_at: number;
+  stop_reason: string | null;
+  errors: string[];
+  items: NewsSearchItem[];
+  newly_downloaded: number;
+  reused: number;
+}
+
+export interface NewsCollectionStatus {
+  enabled: boolean;
+  state: 'running' | 'stale' | 'unknown' | 'disabled';
+  heartbeat_at: number | null;
+  poll_minutes: number | null;
+  feeds: Array<{
+    id: string;
+    url: string;
+    poll_seconds: number;
+    next_poll_at: number | null;
+    last_checked_at: number | null;
+    last_success_at: number | null;
+    failures: number;
+    last_error: string | null;
+  }>;
   note: string;
 }

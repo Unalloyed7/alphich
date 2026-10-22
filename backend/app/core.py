@@ -1,6 +1,6 @@
 """Persistent company profile store and reproducible CSV ingestion.
 
-Money and date units are intentionally NOT inferred from anonymous CSV data.
+Organizer field meanings are bound to the supplied webinar clarification.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine, delete, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from alphich.organizer_semantics import VERSION as SEMANTICS_VERSION, SOURCE_REF, revenue_metadata
 
 
 class Base(DeclarativeBase):
@@ -107,6 +108,8 @@ def profile_payload(company_id: str, row: dict[str, str | None], row_numbers: li
     countries = sorted({c.strip() for c in (country_raw or "").replace("|", ",").split(",") if c.strip()})
     fts = flag(row.get("FTS_FLAG"))
     issues: list[str] = []
+    revenue = revenue_metadata(row.get("REVENUE_COMPANY"))
+    issues.extend(revenue["quality_flags"])
     if fts is False and countries:
         issues.append("fts_country_without_flag")
     if fts is True and not countries:
@@ -114,13 +117,13 @@ def profile_payload(company_id: str, row: dict[str, str | None], row_numbers: li
     for key in (*PRODUCT_COLUMNS, "FTS_FLAG"):
         if row.get(key) is not None and flag(row[key]) is None:
             issues.append(f"unrecognized_boolean:{key}")
-    canonical = json.dumps({"row": row, "source_rows": row_numbers}, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    canonical = json.dumps({"row": row, "source_rows": row_numbers, "semantics": SEMANTICS_VERSION}, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return dict(
         id=company_id, profile_version=hashlib.sha256(canonical).hexdigest(),
         source_rows=row_numbers, group_id=row.get("GROUP_ID"),
         okved_code=row.get("MAINOKVED_CODE"), okved_name=row.get("MAINOKVED_NAME"),
         region=row.get("REGION"), city=row.get("CITY"),
-        revenue_raw=row.get("REVENUE_COMPANY"), client_type=row.get("CL_TYPE"),
+        revenue_raw=revenue["amount"], client_type=row.get("CL_TYPE"),
         products={k: flag(row.get(k)) for k in PRODUCT_COLUMNS},
         fts_flag=fts, countries=countries, quality_flags=issues,
     )
@@ -177,19 +180,22 @@ def import_companies(csv_file: str | Path, session_factory, *, replace: bool = F
 
 def feature_evidence(company: Company) -> list[dict]:
     """Version-bound, reviewable facts; no unsupported financial inference."""
+    revenue = revenue_metadata(company.revenue_raw)
     values: list[tuple[str, object]] = [
         ("okved_code", company.okved_code), ("okved_name", company.okved_name),
-        ("region_registration", company.region), ("revenue_raw", company.revenue_raw),
+        ("region_registration", company.region), ("revenue_raw", revenue["amount"]),
         ("group_id", company.group_id),
         ("fts_countries", company.countries),
     ] + [(key, value) for key, value in company.products.items()]
+    if revenue["amount"] is not None:
+        values.extend(("revenue_" + key, revenue[key]) for key in ("unit", "currency", "period", "scope"))
     out = []
     for name, value in values:
         if value is None or value == []:
             continue
-        feature_id = "feature_" + hashlib.sha256(f"{company.id}:{company.profile_version}:{name}".encode()).hexdigest()[:24]
+        feature_id = "feature_" + hashlib.sha256(f"{company.id}:{company.profile_version}:{SEMANTICS_VERSION}:{name}".encode()).hexdigest()[:24]
         out.append({"id": feature_id, "name": name, "value": value,
-                    "unit": None, "method": "direct_source_field",
-                    "source_refs": [f"df_Uid_data_hack.csv:row:{r}" for r in company.source_rows],
+                    "unit": "RUB" if name == "revenue_raw" else None, "method": "source_field_with_organizer_clarification",
+                    "source_refs": [*[f"df_Uid_data_hack.csv:row:{r}" for r in company.source_rows], SOURCE_REF],
                     "profile_version": company.profile_version})
     return out

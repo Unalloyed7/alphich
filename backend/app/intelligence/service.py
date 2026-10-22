@@ -8,6 +8,7 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core import feature_evidence
+from alphich.organizer_semantics import revenue_metadata
 from app.news import Event, SourceDocument, new_id, serialize_event
 from . import AGENT_ROLES, VERSION
 from .agent import Tools, analyze
@@ -19,12 +20,16 @@ from .storage import AnalysisLease, AnalysisRun, Answer, Extraction, Insight, LL
 
 def company_profile(company, role, payment_context=None):
     from .payments import enrich_payments
+    revenue = revenue_metadata(company.revenue_raw)
     profile = {"id": company.id, "role": role, "profile_version": company.profile_version,
             "industry": {"okved_code": company.okved_code, "okved_name": company.okved_name},
             "region_registration": company.region, "city_registration": company.city,
             "products": company.products, "fts_flag": company.fts_flag, "fts_countries": company.countries,
             "features": feature_evidence(company), "quality_flags": company.quality_flags,
-            "limitations": ["company_snapshot_date_unknown", "revenue_unit_unknown",
+            "revenue_raw": revenue["amount"], "revenue_unit": revenue["unit"],
+            "revenue_currency": revenue["currency"], "revenue_period": revenue["period"],
+            "revenue_scope": revenue["scope"],
+            "limitations": ["company_snapshot_date_unknown", "revenue_company_or_group_scope_unknown",
                             "contract_balances_rates_and_maturities_unknown", "registration_is_not_operations"]}
     return enrich_payments(profile, payment_context)
 

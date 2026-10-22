@@ -10,14 +10,16 @@ import hashlib
 import json
 import logging
 import os
+import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import Integer, String, Text, select, update
+from sqlalchemy import Boolean, Integer, String, Text, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -84,8 +86,9 @@ class FeedConfig(BaseModel):
             'paths': self.article_path_prefixes, 'max_items': self.max_items, 'format': self.format}, sort_keys=True))
 
 
-def load_config(path=DEFAULT_CONFIG):
+def load_config(path=None):
     try:
+        path = path or os.getenv('RSS_CONFIG', str(DEFAULT_CONFIG))
         raw = json.loads(Path(path).read_text())
         if not isinstance(raw, dict) or set(raw) != {'version', 'feeds'} or raw['version'] != 1:
             raise ValueError()
@@ -94,6 +97,11 @@ def load_config(path=DEFAULT_CONFIG):
             raise ValueError()
         for feed in feeds:
             public_url(feed.url, feed.hosts)
+        override = os.getenv('RSS_POLL_MINUTES', '').strip()
+        if override:
+            if not override.isdigit() or not 1 <= int(override) <= 1440:
+                raise ValueError()
+            feeds = [feed.model_copy(update={'poll_seconds': int(override) * 60}) for feed in feeds]
         return feeds
     except (ValueError, OSError, TypeError, KeyError, CollectionError):
         raise CollectionError('invalid_rss_config') from None
@@ -150,6 +158,20 @@ class FeedSelection(Base):
     configuration_hash: Mapped[str] = mapped_column(String(64))
 
 
+class CollectorHeartbeat(Base):
+    __tablename__ = 'rss_collector_heartbeats'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    seen_at: Mapped[int] = mapped_column(Integer)
+    enabled: Mapped[bool] = mapped_column(Boolean)
+
+
+class RssSourcePolicy(Base):
+    """A raw test import must not implicitly start automatic paid analysis."""
+    __tablename__ = 'rss_source_policies'
+    source_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    suppress_automatic_ai: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 def target_companies(explicit=None):
     allowed = {s.strip() for s in os.getenv('DEMO_COMPANY_IDS', '').split(',') if s.strip()}
     targets = set(explicit or [s.strip() for s in os.getenv('RSS_COMPANY_IDS', '').split(',') if s.strip()] or allowed)
@@ -158,7 +180,7 @@ def target_companies(explicit=None):
     return sorted(targets)
 
 
-def _claim(factory, feed, now, force):
+def _claim(factory, feed, now, force, force_cooldown_seconds=0):
     token = new_id('rss')
     with factory.begin() as db:
         if db.get(FeedState, feed.id) is None:
@@ -169,7 +191,10 @@ def _claim(factory, feed, now, force):
             except IntegrityError:
                 pass
         changed = db.execute(update(FeedState).where(FeedState.id == feed.id, FeedState.lease_until <= now,
-            True if force else FeedState.next_poll_at <= now).values(
+            True if force else or_(FeedState.next_poll_at <= now,
+                                   FeedState.last_checked_at + feed.poll_seconds <= now),
+            or_(FeedState.last_checked_at.is_(None), FeedState.last_checked_at <= now - force_cooldown_seconds)
+            if force_cooldown_seconds else True).values(
                 lease_token=token, lease_until=now + (feed.max_items + 1) * TIMEOUT + 90,
                 last_checked_at=now))
         if changed.rowcount != 1:
@@ -193,6 +218,8 @@ def _store_article(factory, feed, token, item, url, downloaded, now):
     body = article_text(downloaded.body, downloaded.url, downloaded.headers.get('content-type', ''))
     published = item.published_at or article_publication_date(downloaded.body)
     payload = PublicationInput(title=item.title, text=body, source_url=downloaded.url, published_at=published)
+    if payload.published_at is not None and payload.published_at.timestamp() > now:
+        raise CollectionError('article_future_publication')
     with factory.begin() as db:
         _active(db, feed, token, now)
         if db.get(RssArticle, article_id) is None:
@@ -208,70 +235,98 @@ def _store_article(factory, feed, token, item, url, downloaded, now):
     return article_id
 
 
-def _deliver(factory, feed, token, article_id, targets, now):
-    created = 0
+def _deliver(factory, feed, token, article_id, targets, now, *, suppress_automatic_ai=False):
     with factory.begin() as db:
         _active(db, feed, token, now)
-        article = db.scalar(select(RssArticle).where(RssArticle.id == article_id).with_for_update())
-        public_url(article.final_url, feed.hosts)
-        if not feed.accepts_path(article.url) or not feed.accepts_path(article.final_url):
-            raise CollectionError('article_path_not_allowed')
-        membership_key = (feed.id, hashed(feed.url), article_id)
-        if db.get(RssFeedArticle, membership_key) is None:
-            db.add(RssFeedArticle(feed_id=feed.id, feed_url_hash=hashed(feed.url), article_id=article_id, seen_at=now))
-        for company_id in targets:
-            if db.get(RssDelivery, (article_id, company_id)) is not None:
-                continue
-            if db.get(Company, company_id) is None:
-                raise CollectionError('rss_company_not_imported')
-            # Existing tenant boundaries are unchanged; no private publication is made public.
-            source = db.scalar(select(SourceDocument).where(SourceDocument.company_id == company_id,
-                SourceDocument.content_hash == article.content_hash).with_for_update())
-            if source is None:
-                source = SourceDocument(id=new_id('src'), company_id=company_id, kind='rss_article',
-                    title=article.title, body=article.body, source_url=article.final_url,
-                    published_at=article.published_at, received_at=iso(now), fetched_at=article.fetched_at,
-                    content_hash=article.content_hash, extraction_status='raw_only',
-                    completeness='extracted_article_text', version=1)
-                try:
-                    with db.begin_nested():
-                        db.add(source)
-                        db.flush()
-                except IntegrityError:
-                    source = db.scalar(select(SourceDocument).where(SourceDocument.company_id == company_id,
-                        SourceDocument.content_hash == article.content_hash).with_for_update())
-                    if source is None:
-                        raise
-            # Public background ingestion has no demo-session token; jobs are operational,
-            # while completed events are visible through the normal company events API.
-            owner = hashed('rss-system:' + company_id)
-            key = 'rss:' + source.id
-            job = db.scalar(select(Job).where(Job.owner_session_hash == owner,
-                Job.operation == 'publication_ingest', Job.idempotency_key == key))
-            if job is None:
-                payload = PublicationInput(title=source.title, text=source.body,
-                    source_url=source.source_url, published_at=source.published_at)
-                job = Job(id=new_id('job'), owner_session_hash=owner, company_id=company_id,
-                    operation='publication_ingest', idempotency_key=key, request_hash=digest_request(payload),
-                    source_id=source.id, status='queued', stage='waiting', result_type='event',
-                    attempt_count=0, created_at=now, available_at=now)
-                db.add(job)
-                db.flush()
-            db.add(RssDelivery(article_id=article_id, company_id=company_id, source_id=source.id, job_id=job.id))
-            created += 1
+        return _deliver_in_transaction(db, feed, article_id, targets, now,
+                                       suppress_automatic_ai=suppress_automatic_ai)
+
+
+def enqueue_cached(factory, feed, article_id, targets, now=None, *, suppress_automatic_ai=True):
+    """Reuse a verified current feed snapshot, preserving company boundaries and deduplication."""
+    now = int(time.time()) if now is None else int(now)
+    allowed = target_companies(targets)
+    with factory.begin() as db:
+        if db.get(RssFeedArticle, (feed.id, hashed(feed.url), article_id)) is None:
+            raise CollectionError('article_not_in_configured_feed')
+        return _deliver_in_transaction(db, feed, article_id, allowed, now,
+                                       suppress_automatic_ai=suppress_automatic_ai)
+
+
+def _deliver_in_transaction(db, feed, article_id, targets, now, *, suppress_automatic_ai=False):
+    created = 0
+    article = db.scalar(select(RssArticle).where(RssArticle.id == article_id).with_for_update())
+    if article is None:
+        raise CollectionError('article_not_found')
+    public_url(article.final_url, feed.hosts)
+    if not feed.accepts_path(article.url) or not feed.accepts_path(article.final_url):
+        raise CollectionError('article_path_not_allowed')
+    membership_key = (feed.id, hashed(feed.url), article_id)
+    if db.get(RssFeedArticle, membership_key) is None:
+        db.add(RssFeedArticle(feed_id=feed.id, feed_url_hash=hashed(feed.url), article_id=article_id, seen_at=now))
+    for company_id in targets:
+        if db.get(RssDelivery, (article_id, company_id)) is not None:
+            continue
+        if db.get(Company, company_id) is None:
+            raise CollectionError('rss_company_not_imported')
+        # Existing tenant boundaries are unchanged; no private publication is made public.
+        source = db.scalar(select(SourceDocument).where(SourceDocument.company_id == company_id,
+            SourceDocument.content_hash == article.content_hash).with_for_update())
+        source_created = False
+        if source is None:
+            source = SourceDocument(id=new_id('src'), company_id=company_id, kind='rss_article',
+                title=article.title, body=article.body, source_url=article.final_url,
+                published_at=article.published_at, received_at=iso(now), fetched_at=article.fetched_at,
+                content_hash=article.content_hash, extraction_status='raw_only',
+                completeness='extracted_article_text', version=1)
+            try:
+                with db.begin_nested():
+                    db.add(source)
+                    db.flush()
+                    source_created = True
+            except IntegrityError:
+                source = db.scalar(select(SourceDocument).where(SourceDocument.company_id == company_id,
+                    SourceDocument.content_hash == article.content_hash).with_for_update())
+                if source is None:
+                    raise
+        if source_created and suppress_automatic_ai:
+            db.add(RssSourcePolicy(source_id=source.id, suppress_automatic_ai=True))
+        # Public background ingestion has no demo-session token; jobs are operational,
+        # while completed events are visible through the normal company events API.
+        owner = hashed('rss-system:' + company_id)
+        key = 'rss:' + source.id
+        job = db.scalar(select(Job).where(Job.owner_session_hash == owner,
+            Job.operation == 'publication_ingest', Job.idempotency_key == key))
+        if job is None:
+            payload = PublicationInput(title=source.title, text=source.body,
+                source_url=source.source_url, published_at=source.published_at)
+            job = Job(id=new_id('job'), owner_session_hash=owner, company_id=company_id,
+                operation='publication_ingest', idempotency_key=key, request_hash=digest_request(payload),
+                source_id=source.id, status='queued', stage='waiting', result_type='event',
+                attempt_count=0, created_at=now, available_at=now)
+            db.add(job)
+            db.flush()
+        db.add(RssDelivery(article_id=article_id, company_id=company_id, source_id=source.id, job_id=job.id))
+        created += 1
     return created
 
 
-def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=False):
+def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=False,
+              sample_seed=None, max_articles=None, exclude_article_ids=frozenset(), force_cooldown_seconds=0):
     now = int(clock())
-    claimed = _claim(factory, feed, now, force)
+    if max_articles is not None and (type(max_articles) is not int or not 1 <= max_articles <= 100):
+        raise CollectionError('invalid_article_limit')
+    claimed = _claim(factory, feed, now, force, force_cooldown_seconds)
     result = {'feed_id': feed.id, 'status': 'not_due', 'downloaded': 0, 'queued': 0, 'reused': 0,
-              'feed_items': 0, 'filtered': 0, 'rejected': 0, 'errors': []}
+              'feed_items': 0, 'filtered': 0, 'rejected': 0, 'errors': [], 'article_ids': []}
     if claimed is None:
         return result
     token, validators = claimed
+    if sample_seed is not None:
+        validators = {}  # A random selection needs the listing, not a cached 304 prefix.
     fetcher = fetcher or PublicFetcher()
     response = None
+    backlog = False
     try:
         response = fetcher.get(feed.url, feed.hosts, validators)
         if response.status == 304:
@@ -282,6 +337,8 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                         RssFeedArticle.feed_id == feed.id, RssFeedArticle.feed_url_hash == hashed(feed.url))
                     .order_by(RssFeedArticle.seen_at.desc(), RssFeedArticle.article_id).limit(1000)))
             for article_id, original, final in cached_rows:
+                if article_id in exclude_article_ids:
+                    continue
                 try:
                     public_url(original, feed.hosts)
                     public_url(final, feed.hosts)
@@ -291,13 +348,19 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                 if not feed.accepts_path(original) or not feed.accepts_path(final):
                     result['filtered'] += 1
                     continue
-                result['queued'] += _deliver(factory, feed, token, article_id, targets, int(clock()))
+                result['queued'] += _deliver(factory, feed, token, article_id, targets, int(clock()),
+                                             suppress_automatic_ai=sample_seed is not None)
                 result['reused'] += 1
+                result['article_ids'].append(article_id)
+                if max_articles is not None and len(result['article_ids']) >= max_articles:
+                    break
                 if result['reused'] >= feed.max_items:
                     break
             result['status'] = 'not_modified'
         elif response.status == 200:
             items = discover_items(response.body, response.url, feed.format)
+            if sample_seed is not None:
+                random.Random(str(sample_seed)).shuffle(items)
             result['feed_items'] = len(items)
             seen = set()
             for item in items:
@@ -307,12 +370,15 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                     result['rejected'] += 1
                     continue
                 article_id = hashed(url)
+                if article_id in exclude_article_ids:
+                    continue
                 if not feed.accepts_path(url):
                     result['filtered'] += 1
                     continue
                 if article_id in seen:
                     continue
-                if len(seen) >= feed.max_items:
+                if max_articles is not None and len(result['article_ids']) >= max_articles:
+                    backlog = True
                     break
                 seen.add(article_id)
                 try:
@@ -325,6 +391,10 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                             continue
                         result['reused'] += 1
                     else:
+                        # Known URLs must not consume the download quota and hide new publications.
+                        if result['downloaded'] >= feed.max_items:
+                            backlog = True
+                            break
                         downloaded = fetcher.get(url, feed.hosts)
                         if downloaded.status != 200:
                             raise CollectionError('article_http_' + str(downloaded.status))
@@ -334,10 +404,15 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                             continue
                         article_id = _store_article(factory, feed, token, item, url, downloaded, int(clock()))
                         result['downloaded'] += 1
-                    result['queued'] += _deliver(factory, feed, token, article_id, targets, int(clock()))
+                    result['queued'] += _deliver(factory, feed, token, article_id, targets, int(clock()),
+                                                 suppress_automatic_ai=sample_seed is not None)
+                    result['article_ids'].append(article_id)
                 except CollectionError as error:
                     if error.code == 'rss_lease_lost':
                         raise
+                    if error.code == 'article_future_publication':
+                        result['rejected'] += 1
+                        continue
                     result['errors'].append(error.code)
             result['status'] = 'partial' if result['errors'] else 'collected'
         else:
@@ -360,7 +435,7 @@ def poll_feed(factory, feed, targets, *, fetcher=None, clock=time.time, force=Fa
                 state.next_poll_at = now + (min(feed.poll_seconds, 30 * 2 ** min(state.failures, 10)) if failed else feed.poll_seconds)
                 state.lease_token, state.lease_until = None, 0
                 # A partial feed must be downloaded again: an ETag must not hide failed articles.
-                if failed:
+                if failed or backlog or sample_seed is not None:
                     state.etag = state.last_modified = None
                 elif response is not None:
                     selection = db.get(FeedSelection, feed.id)
@@ -391,6 +466,55 @@ def collect_once(factory, feeds, targets, **kwargs):
     return [poll_feed(factory, feed, allowed, **kwargs) for feed in feeds]
 
 
+def collector_enabled():
+    flag = os.getenv('RSS_ENABLED', '1')
+    if flag not in {'0', '1'}:
+        raise CollectionError('invalid_rss_enabled')
+    return flag == '1'
+
+
+def touch_heartbeat(factory, *, now=None, enabled=True):
+    now = int(time.time()) if now is None else int(now)
+    with factory.begin() as db:
+        record = db.get(CollectorHeartbeat, 'main')
+        if record is None:
+            try:
+                with db.begin_nested():
+                    db.add(CollectorHeartbeat(id='main', seen_at=now, enabled=enabled))
+                    db.flush()
+            except IntegrityError:
+                pass
+        db.execute(update(CollectorHeartbeat).where(CollectorHeartbeat.id == 'main')
+                   .values(seen_at=now, enabled=enabled))
+
+
+def scheduler_tick(factory, feeds, targets, executor, inflight, *, now=None, enabled=True):
+    """Schedule each due feed independently: a slow publisher never blocks all other feeds."""
+    now = int(time.time()) if now is None else int(now)
+    reports = []
+    for ident, future in list(inflight.items()):
+        if future.done():
+            try:
+                reports.extend(future.result())
+            except Exception:
+                reports.append({'feed_id': ident, 'status': 'failed', 'errors': ['rss_internal_error']})
+            del inflight[ident]
+    touch_heartbeat(factory, now=now, enabled=enabled)
+    if enabled:
+        with factory() as db:
+            states = {s.id: (s.next_poll_at, s.lease_until, s.last_checked_at) for s in db.scalars(
+                select(FeedState).where(FeedState.id.in_([f.id for f in feeds])))}
+        for feed in feeds:
+            if feed.id in inflight:
+                continue
+            next_poll, lease_until, checked = states.get(feed.id, (0, 0, None))
+            if checked is not None:
+                next_poll = min(next_poll, checked + feed.poll_seconds)
+            if next_poll <= now and lease_until <= now:
+                inflight[feed.id] = executor.submit(collect_once, factory, [feed], targets)
+    return reports
+
+
 def main():
     parser = argparse.ArgumentParser(description='Collect configured RSS/Atom news without LLM calls')
     parser.add_argument('--config', default=os.getenv('RSS_CONFIG', str(DEFAULT_CONFIG)))
@@ -398,13 +522,17 @@ def main():
     parser.add_argument('--once', action='store_true', help='Collect due feeds once and exit')
     parser.add_argument('--force', action='store_true', help='Ignore poll time for --once; active leases remain enforced')
     parser.add_argument('--status', action='store_true', help='Read collection state without HTTP requests')
+    parser.add_argument('--workers', type=int, default=int(os.getenv('RSS_COLLECTOR_WORKERS', '3')))
     args = parser.parse_args()
     if args.force and not args.once:
         parser.error('--force requires --once')
+    if not 1 <= args.workers <= 10:
+        parser.error('--workers must be 1..10')
     logging.basicConfig(level=logging.INFO)
     try:
         feeds = load_config(args.config)
         targets = [] if args.status else target_companies(args.company_id)
+        enabled = collector_enabled()
     except CollectionError as error:
         print(json.dumps({'status': 'failed', 'error': error.code}))
         return 2
@@ -419,12 +547,20 @@ def main():
                     'error': state.last_error if state else None}
                     for feed in feeds for state in [db.get(FeedState, feed.id)]], ensure_ascii=False))
             return 0
-        while True:
+        if args.once:
+            if not enabled:
+                print(json.dumps({'status': 'disabled'}))
+                return 0
             report = collect_once(factory, feeds, targets, force=args.force)
             print(json.dumps(report, ensure_ascii=False), flush=True)
-            if args.once:
-                return 2 if any(r['status'] in {'failed', 'partial', 'waiting_for_company_import'} for r in report) else 0
-            time.sleep(15)
+            return 2 if any(r['status'] in {'failed', 'partial', 'waiting_for_company_import'} for r in report) else 0
+        with ThreadPoolExecutor(max_workers=args.workers, thread_name_prefix='rss') as executor:
+            inflight = {}
+            while True:
+                report = scheduler_tick(factory, feeds, targets, executor, inflight, enabled=enabled)
+                if report:
+                    print(json.dumps(report, ensure_ascii=False), flush=True)
+                time.sleep(15)
     except KeyboardInterrupt:
         return 0
     finally:
