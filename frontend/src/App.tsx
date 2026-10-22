@@ -2,38 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { api, analysisApi, ApiError } from './api';
 import { EventInsight, InsightFeed } from './InsightUI';
 import { CompanyAnalysis } from './CompanyAnalysis';
+import { Icon, type IconName } from './Icon';
 import { mergeRecentEvents } from './recentEvents';
 import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
 
 type Screen = 'dashboard' | 'publish' | 'events' | 'insights' | 'profile';
-type IconName = 'grid' | 'plus' | 'list' | 'briefcase' | 'chevron' | 'arrow' | 'refresh' | 'check' | 'clock' | 'link' | 'file' | 'alert' | 'close' | 'send' | 'logout' | 'activity' | 'copy' | 'search';
 const SESSION_STORAGE_KEY = 'alphich.demo-session.v1';
 const EVENTS_PAGE_SIZE = 20;
 const RSS_EVENT_REFRESH_MS = 15_000;
-
-function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
-  const paths: Record<IconName, ReactNode> = {
-    grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
-    plus: <><path d="M12 5v14M5 12h14"/></>,
-    list: <><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></>,
-    briefcase: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M2 12h20"/></>,
-    chevron: <path d="m9 18 6-6-6-6"/>,
-    arrow: <><path d="M4 12h16M14 6l6 6-6 6"/></>,
-    refresh: <><path d="M20 11a8 8 0 1 0-2 6"/><path d="M20 4v7h-7"/></>,
-    check: <path d="m5 12 4 4L19 6"/>,
-    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
-    link: <><path d="M10 13a5 5 0 0 0 7 .5l3-3a5 5 0 0 0-7-7l-2 2"/><path d="M14 11a5 5 0 0 0-7-.5l-3 3a5 5 0 0 0 7 7l2-2"/></>,
-    file: <><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v6h5M9 13h8M9 17h8"/></>,
-    alert: <><path d="m12 3 10 18H2z"/><path d="M12 9v5M12 18h.01"/></>,
-    close: <path d="M18 6 6 18M6 6l12 12"/>,
-    send: <><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></>,
-    logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></>,
-    activity: <><path d="M3 12h4l3-7 4 14 3-7h4"/></>,
-    copy: <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
-    search: <><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></>,
-  };
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
-}
 
 function readSession(): DemoSession | null {
   try {
@@ -63,41 +39,42 @@ function Notice({ kind = 'info', children, onClose }: { kind?: 'info' | 'error' 
 }
 
 function StatusPill({ status }: { status: Job['status'] | 'raw' | 'analyzed' | 'insight' | 'insufficient' }) {
-  const labels: Record<string, string> = { queued: 'В очереди', running: 'В работе', succeeded: 'Сохранено', failed: 'Ошибка', raw: 'Без AI-анализа', analyzed: 'Факты извлечены', insight: 'AI-карточка готова', insufficient: 'Недостаточно данных' };
+  const labels: Record<string, string> = { queued: 'В очереди', running: 'В работе', succeeded: 'Сохранено', failed: 'Ошибка', raw: 'Ожидает разбора', analyzed: 'Факты извлечены', insight: 'Разбор готов', insufficient: 'Недостаточно данных' };
   return <span className={`status-pill status-${status}`}><span className="status-dot"/>{labels[status]}</span>;
 }
 
 const NAV: { key: Screen; label: string; icon: IconName }[] = [
   { key: 'dashboard', label: 'Обзор', icon: 'grid' },
-  { key: 'publish', label: 'Новая публикация', icon: 'plus' },
-  { key: 'events', label: 'События', icon: 'list' },
-  { key: 'insights', label: 'Аналитика', icon: 'activity' },
-  { key: 'profile', label: 'Анализ компании', icon: 'briefcase' },
+  { key: 'insights', label: 'Моя аналитика', icon: 'activity' },
+  { key: 'events', label: 'Все события', icon: 'list' },
+  { key: 'profile', label: 'Моя компания', icon: 'briefcase' },
+  { key: 'publish', label: 'Добавить новость', icon: 'plus' },
 ];
 
-function SessionGate({ onConnect, busy, error }: {
-  onConnect: (company: string, role: Role) => Promise<void>; busy: boolean; error: string | null;
+function SessionGate({ onConnect, busy, error, initialSession, onCancel }: {
+  onConnect: (company: string, role: Role) => Promise<void>; busy: boolean; error: string | null; initialSession?: DemoSession | null; onCancel?: () => void;
 }) {
-  const [companyId, setCompanyId] = useState('DEMO_A');
-  const [role, setRole] = useState<Role>('cfo');
+  const [companyId, setCompanyId] = useState(initialSession?.company_id ?? 'DEMO_A');
+  const [role, setRole] = useState<Role>(initialSession?.role ?? 'cfo');
   const submit = (e: FormEvent) => { e.preventDefault(); void onConnect(companyId.trim(), role); };
   return <div className="onboarding">
-    <div className="onboarding-art"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-logo">a<span>.</span></div><div className="art-caption">YOUR BUSINESS.<br/>IN CONTEXT.</div></div>
+    <div className="onboarding-art"><div className="onboarding-wordmark">alphich<span>●</span></div><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-logo">α</div><div className="art-caption"><span>ОТ СОБЫТИЯ — К РЕШЕНИЮ</span><strong>Большая картина.<br/>Ваш контекст.</strong><p>Новости × ваш бизнес × аналитика банка</p></div></div>
     <div className="onboarding-content">
-      <div className="eyebrow"><span className="eyebrow-line"/> ALPHICH / РАБОЧЕЕ ПРОСТРАНСТВО</div>
+      <div className="eyebrow"><span className="eyebrow-line"/> ПЕРСОНАЛЬНАЯ БИЗНЕС-АНАЛИТИКА</div>
       <h1>Новости, которые<br/><em>имеют значение.</em></h1>
-      <p className="onboarding-desc">Единое пространство для проверки новостного конвейера, данных компании и источников. Демо-сервис для команды хакатона.</p>
+      <p className="onboarding-desc">Поймите, как события влияют на ваш бизнес. Главное, возможные последствия и следующие шаги — с опорой на источники.</p>
       <form onSubmit={submit} className="connect-form">
-        <div className="form-title">Войти в демо-пространство</div>
+        <div className="form-title">Откройте свой бизнес-контекст</div>
         <label htmlFor="company-id">Идентификатор компании</label>
         <input id="company-id" value={companyId} onChange={(e) => setCompanyId(e.target.value)} placeholder="DEMO_A или U_9250" required maxLength={100} spellCheck={false}/>
         <div className="quick-company"><span>Примеры:</span>{['DEMO_A', 'DEMO_B', 'U_9250'].map((id) => <button key={id} type="button" onClick={() => setCompanyId(id)}>{id}</button>)}</div>
         <label htmlFor="company-role">Ваша роль</label>
         <select id="company-role" value={role} onChange={(e) => setRole(e.target.value as Role)}><option value="cfo">Финансовый директор (CFO)</option><option value="ceo">Генеральный директор (CEO)</option></select>
         {error && <Notice kind="error">{error}</Notice>}
-        <button type="submit" className="primary-button connect-button" disabled={busy || !companyId.trim()}>{busy ? 'Подключение…' : <>Открыть рабочее пространство <Icon name="arrow"/></>}</button>
+        <button type="submit" className="primary-button connect-button" disabled={busy || !companyId.trim()}>{busy ? 'Подключение…' : <>Перейти к аналитике <Icon name="arrow"/></>}</button>
       </form>
-      <p className="helper-message">Используй ID из `DEMO_COMPANY_IDS`. Компания должна быть предварительно импортирована в БД. Доступ предоставляется только на время демосессии.</p>
+      {onCancel && <button type="button" className="text-button session-cancel" onClick={onCancel}>Вернуться к обзору</button>}
+      <p className="helper-message">Демонстрационный доступ к обезличенному профилю. Если компания недоступна, уточните её идентификатор у команды проекта.</p>
     </div>
   </div>;
 }
@@ -119,10 +96,10 @@ function PublishForm({ onPublish, busy }: { onPublish: (data: PublicationPayload
   };
   return <div className="panel publisher-panel">
     <form onSubmit={(e) => { void submit(e); }}>
-      <div className="panel-heading"><div><div className="eyebrow">НОВЫЕ ДАННЫЕ</div><h2>Добавить публикацию</h2><p>Вставь любую новую экономическую новость. Текст будет сохранён вместе с источником, а worker создаст событие.</p></div><span className="panel-heading-icon"><Icon name="file" size={25}/></span></div>
+      <div className="panel-heading"><div><div className="eyebrow">НОВЫЕ ДАННЫЕ</div><h2>Добавить публикацию</h2><p>Добавьте текст новости, чтобы сохранить событие и затем оценить его влияние на вашу компанию.</p></div><span className="panel-heading-icon"><Icon name="file" size={25}/></span></div>
       {message && <Notice kind="success" onClose={() => setMessage(null)}>{message}</Notice>}
       <div className="field"><label htmlFor="news-title">Заголовок <span>*</span></label><input id="news-title" value={title} onChange={e => { setTitle(e.target.value); setMessage(null); }} minLength={6} maxLength={300} required placeholder="Например: Банк России сохранил ключевую ставку"/></div>
-      <div className="field"><label htmlFor="news-body">Текст публикации <span>*</span></label><textarea id="news-body" value={text} onChange={e => { setText(e.target.value); setMessage(null); }} minLength={30} maxLength={100000} required rows={9} placeholder="Вставь полный текст публикации или доступный фрагмент (от 30 символов)…"/><div className="field-help"><span>Минимум 30 символов</span><span>{text.length.toLocaleString('ru-RU')} / 100 000</span></div></div>
+      <div className="field"><label htmlFor="news-body">Текст публикации <span>*</span></label><textarea id="news-body" value={text} onChange={e => { setText(e.target.value); setMessage(null); }} minLength={30} maxLength={100000} required rows={9} placeholder="Вставьте полный текст публикации или доступный фрагмент (от 30 символов)…"/><div className="field-help"><span>Минимум 30 символов</span><span>{text.length.toLocaleString('ru-RU')} / 100 000</span></div></div>
       <div className="form-grid"><div className="field"><label htmlFor="news-url">Ссылка на источник <span className="optional">необязательно</span></label><input id="news-url" type="url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.org/news"/></div><div className="field"><label htmlFor="news-date">Дата публикации <span className="optional">необязательно</span></label><input id="news-date" type="datetime-local" value={date} onChange={e => setDate(e.target.value)}/></div></div>
       <div className="form-footer"><div className="footer-note"><Icon name="alert" size={16}/><span>Ссылка сохраняется как непроверенная; загрузки статьи по URL пока нет. Дата — локальное время устройства.</span></div><button className="primary-button" type="submit" disabled={busy || title.trim().length < 6 || text.trim().length < 30}>{busy ? 'Отправка…' : <>Отправить на обработку <Icon name="send" size={17}/></>}</button></div>
     </form>
@@ -161,7 +138,7 @@ function EventsList({ items, insightsByEvent, loading, onReload, onOpen, onPubli
       <span className="event-counter" aria-live="polite">Найдено: {visible.length} из {items.length}{hasMore ? ' · Есть более старые' : ''}</span>
     </div>}
     {loading && items.length === 0 ? <div className="empty-state"><span className="spinner"/> Загружаем события…</div> : items.length === 0 ?
-      <div className="empty-state"><div className="empty-icon"><Icon name="file" size={27}/></div><h3>Пока нет событий</h3><p>Добавь первую публикацию. После обработки worker она появится здесь автоматически.</p><button className="secondary-button" type="button" onClick={onPublish}><Icon name="plus" size={16}/> Добавить публикацию</button></div> : visible.length === 0 ?
+      <div className="empty-state"><div className="empty-icon"><Icon name="file" size={27}/></div><h3>Пока нет событий</h3><p>Добавьте первую публикацию. После обработки она появится здесь автоматически.</p><button className="secondary-button" type="button" onClick={onPublish}><Icon name="plus" size={16}/> Добавить публикацию</button></div> : visible.length === 0 ?
       <div className="empty-state"><h3>Совпадений нет</h3><p>Поиск выполняется только среди загруженных событий. Можно загрузить более старые.</p><button type="button" className="ghost-button" onClick={() => setSearch('')}>Сбросить поиск</button></div> :
       <div className="event-list">{visible.map(item => <EventCard key={item.id} item={item} onOpen={onOpen} insightStatus={insightsByEvent[item.id]}/>)}</div>}
     {hasMore && onMore && <div className="event-pagination"><button className="secondary-button" type="button" disabled={loading || moreLoading} onClick={onMore}>{moreLoading ? 'Загружаем…' : 'Показать ещё события'}</button></div>}
@@ -169,11 +146,11 @@ function EventsList({ items, insightsByEvent, loading, onReload, onOpen, onPubli
 }
 
 function JobList({ ids, jobs, onEvent }: { ids: string[]; jobs: Record<string, Job>; onEvent: (id: string) => void }) {
-  return <div className="panel jobs-panel"><div className="section-header"><div><div className="eyebrow">ОЧЕРЕДЬ WORKER</div><h2>Последние задачи</h2></div><span className="count-badge">{ids.length}</span></div>
-    {ids.length === 0 ? <div className="job-empty">Отправь публикацию — здесь появится задача и её статус.</div> :
+  return <div className="panel jobs-panel"><div className="section-header"><div><div className="eyebrow">ОБРАБОТКА ПУБЛИКАЦИЙ</div><h2>Статус обработки</h2></div><span className="count-badge">{ids.length}</span></div>
+    {ids.length === 0 ? <div className="job-empty">После добавления новости здесь появится статус её обработки.</div> :
       <div className="job-list">{ids.slice(0, 6).map(id => { const job = jobs[id]; return <div className="job-item" key={id}>
         <div className={`job-status-icon ${job?.status ?? 'queued'}`}><Icon name={job?.status === 'succeeded' ? 'check' : job?.status === 'failed' ? 'alert' : 'clock'} size={18}/></div>
-        <div className="job-details"><span className="job-title">{job ? jobLabel(job) : 'Загружаем статус…'}</span>{job?.source_title && <span className="job-source-title" title={job.source_title}>{job.source_title}</span>}<span className="mono job-id">{id}</span>{job?.error && <span className="job-error">Код ошибки: {job.error}</span>}</div>
+        <div className="job-details"><span className="job-title">{job ? jobLabel(job) : 'Загружаем статус…'}</span>{job?.source_title && <span className="job-source-title" title={job.source_title}>{job.source_title}</span>}{job?.error && <span className="job-error">Код ошибки: {job.error}</span>}</div>
         {job?.status === 'succeeded' && job.result_id ? <button type="button" className="job-open" onClick={() => onEvent(job.result_id!)} aria-label="Открыть событие"><Icon name="arrow" size={17}/></button> : job?.status === 'running' || job?.status === 'queued' ? <span className="spinner tiny"/> : null}
       </div>; })}</div>}
     <div className="jobs-note"><span className="pulse-circle"/> Статусы обновляются автоматически</div>
@@ -183,10 +160,11 @@ function JobList({ ids, jobs, onEvent }: { ids: string[]; jobs: Record<string, J
 function Profile({ profile }: { profile: CompanyProfile | null }) {
   if (!profile) return <div className="panel loading-panel">Загрузка профиля компании…</div>;
   const products = Object.entries(profile.products ?? {});
+  const productLabels: Record<string, string> = { CL_PRODUCT_RKO_MARK: 'Расчётно-кассовое обслуживание', CL_PRODUCT_GAR_MARK: 'Банковские гарантии', CL_PRODUCT_LOA_MARK: 'Кредитные продукты', CL_PRODUCT_LEA_MARK: 'Лизинг', CL_PRODUCT_DEP_MARK: 'Депозиты', CL_PRODUCT_ZPP_MARK: 'Зарплатный проект', FACTORING_MARK: 'Факторинг' };
   return <div className="panel profile-panel">
     <div className="panel-heading"><div><div className="eyebrow">ДАННЫЕ КОМПАНИИ</div><h2>Профиль {profile.id}</h2><p>Обезличенные исходные данные. Показатели, единицы и ограничения не домысливаются.</p></div><span className="panel-heading-icon"><Icon name="briefcase" size={25}/></span></div>
-    <div className="profile-facts"><div><span>Основная деятельность</span><strong>{profile.industry.okved_name || 'Не указана'}</strong><small>ОКВЭД {profile.industry.okved_code || '—'}</small></div><div><span>Регион регистрации</span><strong>{profile.region_registration || 'Не указан'}</strong><small>{profile.city_registration || 'Город не указан'}</small></div><div><span>Выручка (исходное значение)</span><strong>{profile.revenue_raw || 'Нет данных'}</strong><small>Единица измерения не подтверждена</small></div><div><span>Тип клиента</span><strong>{profile.client_type || 'Не указан'}</strong><small>Версия профиля: {profile.profile_version.slice(0, 14)}</small></div></div>
-    <div className="profile-column-grid"><div><h3>Банковские продукты</h3>{products.length ? <div className="feature-tags">{products.map(([key, value]) => <span className={`feature-tag ${value === true ? 'active' : ''}`} key={key}>{key}: {value === null ? 'неизвестно' : typeof value === 'boolean' ? value ? 'есть' : 'нет' : String(value)}</span>)}</div> : <p className="muted">Нет данных</p>}</div><div><h3>Страны в данных ФТС</h3><p>{profile.fts_countries?.length ? profile.fts_countries.join(', ') : 'Нет подтверждённого списка'}</p><h3>Доказуемые признаки</h3><p>{profile.features?.length ?? 0} идентификаторов с привязкой к версии данных</p></div></div>
+    <div className="profile-facts"><div><span>Основная деятельность</span><strong>{profile.industry.okved_name || 'Не указана'}</strong><small>ОКВЭД {profile.industry.okved_code || '—'}</small></div><div><span>Регион регистрации</span><strong>{profile.region_registration || 'Не указан'}</strong><small>{profile.city_registration || 'Город не указан'}</small></div><div><span>Выручка (исходное значение)</span><strong>{profile.revenue_raw || 'Нет данных'}</strong><small>{profile.revenue_unit || 'Единица измерения не подтверждена'}</small></div><div><span>Тип клиента</span><strong>{profile.client_type || 'Не указан'}</strong><small>Версия профиля: {profile.profile_version.slice(0, 14)}</small></div></div>
+    <div className="profile-column-grid"><div><h3>Банковские продукты</h3>{products.length ? <div className="feature-tags">{products.map(([key, value]) => <span className={`feature-tag ${value === true ? 'active' : ''}`} key={key}>{productLabels[key] ?? key}: {value === null ? 'неизвестно' : typeof value === 'boolean' ? value ? 'есть' : 'нет' : String(value)}</span>)}</div> : <p className="muted">Нет данных</p>}</div><div><h3>Страны в данных ФТС</h3><p>{profile.fts_countries?.length ? profile.fts_countries.join(', ') : 'Нет подтверждённого списка'}</p><h3>Доказуемые признаки</h3><p>{profile.features?.length ?? 0} идентификаторов с привязкой к версии данных</p></div></div>
     {profile.quality_flags.length > 0 && <Notice kind="info"><strong>Особенности данных:</strong> {profile.quality_flags.join(', ')}</Notice>}
     <div className="limitations"><h3>Ограничения интерпретации</h3>{profile.limitations.map((entry, index) => <p key={index}>— {entry}</p>)}</div>
   </div>;
@@ -196,57 +174,40 @@ function EventDrawer({ session, event, insightStatus, onInsightReady, source, lo
   session: DemoSession; event: Event; insightStatus?: string; onInsightReady: (id: string, status: string) => void;
   source: SourceDetail | null; loading: boolean; error: string | null; onClose: () => void; onSource: (id: string) => void;
 }) {
+  const [tab, setTab] = useState<'analysis' | 'sources'>('analysis');
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const sourcePanelRef = useRef<HTMLDivElement>(null);
-
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
-    const onEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onEscape);
-    return () => window.removeEventListener('keydown', onEscape);
-  }, [onClose]);
-
-  // An expanded source can be below the fold in the drawer. Bring loading,
-  // errors, and the original article into view after their state is rendered.
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); closeRef.current(); }
+      if (e.key !== 'Tab') return;
+      const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, textarea, select, summary, [tabindex="0"]') ?? [])].filter(el => el.getClientRects().length > 0);
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = previousOverflow; if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, []);
   useEffect(() => {
-    if (activeSourceId) sourcePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [activeSourceId, loading, source, error]);
-
+    if (activeSourceId && tab === 'sources') sourcePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [activeSourceId, tab, loading, source, error]);
   return <div className="drawer-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="drawer" role="dialog" aria-modal="true" aria-label="Информация о событии">
-      <header className="drawer-head"><span className="eyebrow">ПОДРОБНОСТИ СОБЫТИЯ</span><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></header>
-      <div className="drawer-scroll">
-        <StatusPill status={insightStatus ? (insightStatus === 'insufficient_evidence' ? 'insufficient' : 'insight') : event.extraction_status === 'extracted' || event.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><h2>{event.title}</h2>
-        <div className="drawer-metadata">
-          <div><span>Публикация</span><strong>{formattedDate(event.published_at)}</strong></div>
-          <div><span>Событие</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Дата события не установлена'}</strong></div>
-          <div><span>ID события</span><strong className="mono wrap-text">{event.id}</strong></div>
-          <div><span>AI-извлечение</span><strong>{event.extraction_status}</strong></div>
-        </div>
-        <Notice>Исходная публикация сохранена отдельно от аналитики. Подтверждённые выводы, если они сформированы, находятся в разделе ниже и имеют ссылки на доказательства.</Notice>
-        <h3 className="drawer-section-title">Первоисточники ({event.source_ids.length})</h3>
-        <div className="source-row">
-          {event.source_ids.map((id, index) => <button
-            className={`source-button ${activeSourceId === id ? 'active' : ''}`}
-            type="button"
-            key={id}
-            aria-expanded={activeSourceId === id}
-            aria-controls="active-source-panel"
-            onClick={() => {
-              setActiveSourceId(id);
-              onSource(id);
-            }}
-          ><Icon name="file" size={18}/> Источник {index + 1} <span className="source-button-hint">{activeSourceId === id ? 'Открыт' : 'Просмотреть'}</span><Icon name="chevron" size={16}/></button>)}
-        </div>
-        {activeSourceId && <div id="active-source-panel" ref={sourcePanelRef} className="source-panel" role="region" aria-label="Текст первоисточника" aria-live="polite">
-          {loading && <div className="source-loading"><span className="spinner"/> Загружаем текст источника…</div>}
-          {error && <Notice kind="error">{error}</Notice>}
-          {source && source.id === activeSourceId && <section className="source-reader">
-            <div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div>
-            <p className="source-full-text">{source.text}</p>
-            <div className="source-footer"><span><Icon name="alert" size={15}/> {source.url_verified ? 'Текст загружен по ссылке' : 'Ссылка не верифицирована'}</span>{source.url && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть внешний адрес</a>}</div>
-          </section>}
-        </div>}
-        <EventInsight session={session} eventId={event.id} onInsightReady={onInsightReady}/>
+    <div ref={dialogRef} className="drawer" role="dialog" aria-modal="true" aria-labelledby="event-drawer-title">
+      <header className="drawer-head"><span className="eyebrow">СОБЫТИЕ В ВАШЕМ КОНТЕКСТЕ</span><button className="icon-button" type="button" onClick={onClose} aria-label="Закрыть событие"><Icon name="close" size={22}/></button></header>
+      <div className="drawer-scroll"><div className="event-drawer-meta"><StatusPill status={insightStatus ? (insightStatus === 'insufficient_evidence' ? 'insufficient' : 'insight') : event.extraction_status === 'extracted' || event.extraction_status === 'partially_extracted' ? 'analyzed' : 'raw'}/><span>{formattedDate(event.published_at)}</span></div><h2 id="event-drawer-title">{event.title}</h2>
+        <div className="drawer-tabs" role="group" aria-label="Разделы события"><button type="button" className={tab === 'analysis' ? 'active' : ''} aria-pressed={tab === 'analysis'} onClick={() => setTab('analysis')}><Icon name="activity" size={17}/> Влияние на бизнес</button><button type="button" className={tab === 'sources' ? 'active' : ''} aria-pressed={tab === 'sources'} onClick={() => setTab('sources')}><Icon name="file" size={17}/> Первоисточники <span>{event.source_ids.length}</span></button></div>
+        <div hidden={tab !== 'analysis'}><EventInsight session={session} eventId={event.id} onInsightReady={onInsightReady}/></div>
+        {tab === 'sources' && <section className="event-sources"><h3>Что произошло</h3><p className="muted">Исходная публикация и её метаданные. Откройте источник, чтобы прочитать полный сохранённый текст.</p><div className="source-row">{event.source_ids.map((id, index) => <button className={`source-button ${activeSourceId === id ? 'active' : ''}`} type="button" key={id} aria-expanded={activeSourceId === id} aria-controls="active-source-panel" onClick={() => { setActiveSourceId(id); onSource(id); }}><Icon name="file" size={18}/><span>{event.sources[index]?.title || `Источник ${index + 1}`}</span><Icon name="chevron" size={16}/></button>)}</div>
+        {activeSourceId && <div id="active-source-panel" ref={sourcePanelRef} className="source-panel" role="region" aria-label="Текст первоисточника" aria-live="polite">{loading && <div className="source-loading"><span className="spinner"/> Загружаем текст источника…</div>}{error && <Notice kind="error">{error}</Notice>}{source && source.id === activeSourceId && <section className="source-reader"><div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div><p className="source-full-text">{source.text}</p><div className="source-footer"><span><Icon name="alert" size={15}/>{source.url_verified ? 'Текст загружен по ссылке' : 'Ссылка не верифицирована'}</span>{source.url && /^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть оригинал</a>}</div></section>}</div>}
+        <details className="event-metadata-details"><summary>Даты и сведения о событии</summary><div className="drawer-metadata"><div><span>Дата публикации</span><strong>{formattedDate(event.published_at)}</strong></div><div><span>Дата события</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Не установлена'}</strong></div><div><span>ID события</span><strong className="mono wrap-text">{event.id}</strong></div><div><span>Статус извлечения</span><strong>{event.extraction_status}</strong></div></div></details></section>}
       </div>
     </div>
   </div>;
@@ -465,30 +426,36 @@ function App() {
   const completed = jobIds.filter(id => jobs[id]?.status === 'succeeded').length;
   const pending = jobIds.filter(id => jobs[id]?.status === 'running' || jobs[id]?.status === 'queued').length;
 
-  if (!session || relogin) return <SessionGate onConnect={connect} busy={sessionBusy} error={sessionError}/>;
+  if (!session || relogin) return <SessionGate onConnect={connect} busy={sessionBusy} error={sessionError} initialSession={session} onCancel={session ? () => setRelogin(false) : undefined}/>;
 
   return <div className="workspace">
     <aside className="sidebar">
-      <button className="brand" type="button" onClick={() => setScreen('dashboard')} aria-label="Alphich, обзор"><span className="brand-icon">a<span>.</span></span><span className="brand-name">alphich<small>INTELLIGENCE SPACE</small></span></button>
-      <div className="sidebar-category">РАБОЧЕЕ ПРОСТРАНСТВО</div>
+      <button className="brand" type="button" onClick={() => setScreen('dashboard')} aria-label="Alphich, обзор"><span className="brand-icon">a<span>.</span></span><span className="brand-name">alphich<small>БИЗНЕС В КОНТЕКСТЕ</small></span></button>
+      <div className="sidebar-category">ВАШЕ ПРОСТРАНСТВО</div>
       <nav className="nav-menu" aria-label="Навигация">{NAV.map(link => <button type="button" key={link.key} onClick={() => setScreen(link.key)} className={`nav-link ${screen === link.key ? 'active' : ''}`} aria-current={screen === link.key ? 'page' : undefined}><Icon name={link.icon} size={19}/><span>{link.label}</span>{screen === link.key && <span className="nav-active-bar"/>}</button>)}</nav>
-      <div className="sidebar-bottom"><div className="sidebar-note"><span className="sidebar-note-dot"/>DEMO / P0<br/><strong>Аналитика по запросу</strong><span>Генерация доступна только с настроенным шлюзом и учётом общего бюджета.</span></div><button className="sidebar-logout" type="button" onClick={logOut}><Icon name="logout" size={18}/> Завершить сессию</button></div>
+      <div className="sidebar-bottom"><div className="sidebar-note"><span className="sidebar-note-dot"/>В КОНТЕКСТЕ ВАШЕГО БИЗНЕСА<strong>Видеть главное.<br/>Действовать осознанно.</strong><span>Персональный взгляд на события и их последствия.</span></div><button className="sidebar-logout" type="button" onClick={logOut}><Icon name="logout" size={18}/> Завершить сессию</button></div>
     </aside>
-    <main className="main">
-      <header className="topbar"><div className="breadcrumb"><span>Alphich</span><Icon name="chevron" size={15}/><strong>{NAV.find(x => x.key === screen)?.label}</strong></div><div className="topbar-right"><span className={`online-badge online-${health}`}><span className="online-dot"/>{health === 'online' ? 'API доступен' : health === 'offline' ? 'Нет связи с API' : 'Проверяем API'}</span><div className="user-badge"><span className="avatar">{session.role === 'cfo' ? 'Ф' : 'Г'}</span><span>{session.company_id}<small>{session.role === 'cfo' ? 'Финансовый директор' : 'Генеральный директор'}</small></span><button type="button" className="switch-session" onClick={() => setRelogin(true)}>Сменить</button></div></div></header>
+    <a className="skip-link" href="#page-main">К содержимому</a><main className="main" id="page-main">
+      <header className="topbar"><div className="breadcrumb"><span>Alphich</span><Icon name="chevron" size={15}/><strong>{NAV.find(x => x.key === screen)?.label}</strong></div><div className="topbar-right"><span className={`online-badge online-${health}`}><span className="online-dot"/>{health === 'online' ? 'Сервис доступен' : health === 'offline' ? 'Нет связи' : 'Подключаемся'}</span><div className="user-badge"><span className="avatar">{session.role === 'cfo' ? 'Ф' : 'Г'}</span><span>{session.company_id}<small>{session.role === 'cfo' ? 'Финансовый директор' : 'Генеральный директор'}</small></span><button type="button" className="switch-session" onClick={() => setRelogin(true)}>Сменить</button></div></div></header>
       <div className="page-content">
         {error && <div className="global-error"><Notice kind="error" onClose={() => setError(null)}>{error}</Notice></div>}
         {jobsError && <div className="global-error"><Notice kind="error" onClose={() => setJobsError(null)}>Не удалось обновить историю задач: {jobsError}</Notice></div>}
         {screen === 'dashboard' && <>
-          <div className="hero"><div className="hero-content"><div className="hero-overline"><span className="hero-dot"/> ЦЕНТР БИЗНЕС-АНАЛИТИКИ</div><h1>Контекст важнее<br/><em>заголовков.</em></h1><p>Все новые публикации, статусы обработки и подтверждающие материалы — в одном месте.</p><button type="button" className="hero-button" onClick={() => setScreen('publish')}>Добавить публикацию <Icon name="arrow" size={18}/></button></div><div className="hero-figure"><div className="hero-ring ring-a"/><div className="hero-ring ring-b"/><div className="hero-letter">α</div><div className="hero-figure-caption">DATA <span>→</span> CONTEXT <span>→</span> INSIGHT</div></div></div>
-          <div className="stat-grid"><div className="stat"><span><Icon name="briefcase" size={19}/> Компания</span><strong>{session.company_id}</strong><small>{company?.okved_name || 'Профиль подключён'}</small></div><div className="stat"><span><Icon name="file" size={19}/> События</span><strong>{events.length.toString().padStart(2, '0')}</strong><small>Сохранены в PostgreSQL</small></div><div className="stat"><span><Icon name="check" size={19}/> Завершено задач</span><strong>{completed.toString().padStart(2, '0')}</strong><small>Из задач этой демосессии</small></div><div className="stat"><span><Icon name="activity" size={19}/> В обработке</span><strong>{pending.toString().padStart(2, '0')}</strong><small>Статус обновляется автоматически</small></div></div>
-          <div className="dashboard-grid"><EventsList items={events.slice(0, 5)} insightsByEvent={insightsByEvent} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/></div>
+          <div className="briefing-date"><span className="eyebrow">ВАШ ДЕЛОВОЙ БРИФИНГ</span><span>{new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+          <section className="hero" aria-label="Обзор аналитики"><div className="hero-content"><h1>Меньше шума.<br/><em>Больше ясности.</em></h1><p>Что происходит в мире.<br/>Что это значит для вашего бизнеса.</p><div className="hero-signature"><span/> ВАЖНОЕ НАХОДИТ СВЯЗЬ</div></div><div className="signal-art" aria-hidden="true"><div className="signal-orbit signal-orbit-a"/><div className="signal-orbit signal-orbit-b"/><div className="signal-orbit signal-orbit-c"/><div className="signal-axis"/><span className="signal-core">α</span><span className="signal-point point-a"/><span className="signal-point point-b"/><span className="signal-point point-c"/><span className="signal-caption">СОБЫТИЕ → КОНТЕКСТ → РЕШЕНИЕ</span></div></section>
+          <div className="context-strip"><span><Icon name="briefcase" size={16}/><strong>{session.company_id}</strong><span>{company?.okved_name || 'Профиль компании'}</span></span><button type="button" onClick={() => setScreen('profile')}>Мой бизнес-контекст <Icon name="arrow" size={15}/></button></div>
+          <div className="briefing-layout"><div className="briefing-main"><InsightFeed key={session.token} session={session} onEvent={id => void openEventId(id)} compact onAll={() => setScreen('insights')}/></div><aside className="briefing-aside" aria-label="Контекст и навигация">
+            <div className="focus-card"><div className="eyebrow">ВАША ОПТИКА</div><div className="focus-icon"><Icon name="briefcase" size={22}/></div><h2>{session.role === 'cfo' ? 'Финансовый фокус' : 'Стратегический фокус'}</h2><p>{session.role === 'cfo' ? 'Влияние событий на финансирование, издержки и денежные потоки компании.' : 'Изменения на рынках, возможности для бизнеса и условия для решений.'}</p><div className="focus-fact"><span>Деятельность</span><strong>{profile?.industry.okved_name || company?.okved_name || 'Не указана'}</strong></div><div className="focus-fact"><span>Регион регистрации</span><strong>{profile?.region_registration || 'Не указан'}</strong></div><button type="button" className="text-button" onClick={() => setScreen('profile')}>Посмотреть профиль <Icon name="arrow" size={16}/></button></div>
+            <div className="how-card"><span className="eyebrow">ОТ НОВОСТИ К ДЕЙСТВИЮ</span><ol><li><span>01</span><div><strong>Событие</strong><p>Что произошло и где источник</p></div></li><li><span>02</span><div><strong>Влияние</strong><p>Почему это касается компании</p></div></li><li><span>03</span><div><strong>Следующий шаг</strong><p>Что проверить перед решением</p></div></li></ol></div>
+            <button type="button" className="add-news-card" onClick={() => setScreen('publish')}><Icon name="plus" size={20}/><span><strong>Есть важная новость?</strong><small>Добавьте её для разбора</small></span><Icon name="arrow" size={17}/></button>
+          </aside></div>
+          <details className="operations-details"><summary><Icon name="list" size={17}/><span>Последние публикации и обработка</span><span className="muted">{events.length}{eventsHasMore ? '+' : ''} событий · {pending} в работе · {completed} готово</span></summary><div className="dashboard-grid"><EventsList items={events.slice(0, 5)} insightsByEvent={insightsByEvent} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/></div></details>
         </>}
-        {screen === 'publish' && <><div className="page-title"><div className="eyebrow">NEWS INGESTION / P0</div><h1>Новая публикация<span>.</span></h1><p>Проверь полный путь от отправки текста до события в базе данных.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>FastAPI сохраняет источник и создаёт задачу. Worker забирает её из PostgreSQL и создаёт событие. Статус можно отслеживать здесь.</p><span>Время обработки обычно небольшое, но зависит от состояния worker.</span></div></div></div></>}
-        {screen === 'events' && <><div className="page-title"><div className="eyebrow">EVENT STORAGE / P0</div><h1>События<span>.</span></h1><p>Все завершённые публикации компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
+        {screen === 'publish' && <><div className="page-title"><div className="eyebrow">СОБЫТИЕ В ВАШЕМ КОНТЕКСТЕ</div><h1>Новая публикация<span>.</span></h1><p>Сохраните публикацию. Откройте готовое событие, чтобы запросить персональный разбор.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>Мы сохраним текст и источник, затем подготовим событие. Откройте его и нажмите «Разобрать влияние», чтобы получить аналитику для своей компании.</p><span>Каждый существенный вывод можно проверить по источникам.</span></div></div></div></>}
+        {screen === 'events' && <><div className="page-title"><div className="eyebrow">НОВОСТНОЙ КОНТЕКСТ</div><h1>События<span>.</span></h1><p>Сохранённые события компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
         {screen === 'insights' && <InsightFeed key={session.token} session={session} onEvent={id => void openEventId(id)}/>}
         {screen === 'profile' && <><div className="page-title"><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h1>Анализ компании<span>.</span></h1><p>Что известно о бизнесе, какие механизмы влияния проверить и какие данные нужны для решения.</p></div><CompanyAnalysis key={session.token} session={session}/><details><summary>Исходный профиль компании</summary><Profile profile={profile}/></details></>}
-        <footer className="app-footer"><span>© ALPHICH / HACKATHON PROTOTYPE</span><span>Профили обезличены · Источники требуют проверки</span></footer>
+        <footer className="app-footer"><span>ALPHICH · ОТ СОБЫТИЯ К РЕШЕНИЮ</span><span>Демо хакатона · Обезличенные данные</span></footer>
       </div>
     </main>
     {selectedEvent && <EventDrawer key={`${session.token}:${selectedEvent.id}`} session={session} event={selectedEvent} insightStatus={insightsByEvent[selectedEvent.id]} onInsightReady={markInsightReady} source={source} loading={sourceLoading} error={sourceError} onClose={() => { latestSourceRequest.current += 1; setSelectedEvent(null); }} onSource={id => void openSource(id)}/>}

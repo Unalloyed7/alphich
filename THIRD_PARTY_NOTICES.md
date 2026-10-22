@@ -30,3 +30,21 @@ snippets or hosting the documents outside the event's authorized environment.
 **LLM models and gateways**: not integrated by this increment. Future integration
 must select only a model authorized by the case and document exact model, price,
 license/terms, gateway and simulated integrations here.
+
+## Frontend and browser verification
+
+Direct versions and transitive dependencies are recorded in
+`frontend/package.json` and `frontend/package-lock.json`. Browser verification
+uses synthetic intercepted API responses. Test tooling is not imported by the
+production application.
+
+| Component | Purpose | License/reference |
+| --- | --- | --- |
+| React / React DOM 19.0.0 | Frontend rendering | MIT — https://github.com/facebook/react |
+| Vite 6.1.0 / plugin-react 4.3.4 | Frontend development and build | MIT — https://github.com/vitejs/vite |
+| TypeScript 5.7.3 | Static checks | Apache-2.0 — https://github.com/microsoft/TypeScript |
+| Playwright 1.64.1 | Browser verification | Apache-2.0 — https://github.com/microsoft/playwright |
+| @axe-core/playwright 4.14.0 | Automated accessibility checks | MPL-2.0 — https://github.com/dequelabs/axe-core-npm |
+
+The UI uses system fonts. Decorative CSS geometry and the SVG favicon are
+project assets; no external stock images or font files are bundled.
