@@ -64,7 +64,7 @@ Docker uses `npm ci` and includes `public/` (the application favicon).
 
 ## Redesigned briefing UI
 
-The overview starts with personalized insights, followed by company context. Publication processing
+The overview starts with a dark briefing summary and three interactive widgets: importance distribution, available bank views and data-check actions. Widgets and cards share one read-only feed state. Missing data is shown separately from zero values. Publication processing
 is available under a disclosure. The full feed supports importance/bank-position filters,
 search and sorting. Event analysis has separate summary, evidence and question views; original
 news sources remain accessible. The layout supports desktop and phone navigation.
@@ -95,7 +95,7 @@ PLAYWRIGHT_CHANNEL=chrome npm run test:ui
 
 `UI_BASE_URL` overrides `http://127.0.0.1:5174`. Set `UI_SCREENSHOT_DIR` to a local directory
 if screenshots are needed. Browser tests use synthetic intercepted API responses, never the
-live analysis gateway or paid model requests. They cover filters/search, evidence, raw sources,
+live analysis gateway or paid model requests. They cover dashboard values and navigation, missing/empty/ungraded data, filters/search, evidence, raw sources,
 question submission, publication/generation/discovery actions, company switching, responsive
 layouts at 320/390/768/1024/1440 px, focus trapping and automated WCAG checks.
 

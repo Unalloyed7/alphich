@@ -23,7 +23,7 @@
 }
 .insight-muted {
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
@@ -40,7 +40,7 @@
 .insight-warning {
   background: #faf3e3;
   border-color: #e9ddbc;
-  color: #606b56;
+  color: #5d6574;
 }
 /* Search is a single action, with secondary controls under disclosure. */
 .discovery-panel {
@@ -78,7 +78,7 @@
 }
 .discovery-top p {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   margin: 0;
   line-height: 1.65;
 }
@@ -101,18 +101,18 @@
   align-items: center;
   gap: 5px;
   font-size: 9px;
-  color: #606b56;
+  color: #5d6574;
   white-space: nowrap;
   padding-top: 2px;
 }
 .separator {
   padding: 0 3px;
-  color: #606b56;
+  color: #5d6574;
 }
 .discovery-options {
   text-align: right;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .discovery-options summary {
   list-style-position: inside;
@@ -139,7 +139,7 @@
 }
 .discovery-cost-note {
   font-size: 9px;
-  color: #606b56;
+  color: #5d6574;
   margin: 8px 0 0;
 }
 .discovery-progress {
@@ -161,7 +161,7 @@
 }
 .discovery-progress-heading > strong > span {
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
   letter-spacing: 0;
 }
 .discovery-progress .text-button {
@@ -187,7 +187,7 @@
 }
 .discovery-run-details {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
 }
 .discovery-results {
   list-style: none;
@@ -201,7 +201,7 @@
 }
 .discovery-results span {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .feed-section-heading {
   display: flex;
@@ -223,7 +223,7 @@
   font-size: 12px;
   line-height: 1;
   font-weight: 400;
-  color: #606b56;
+  color: #5d6574;
   border: 1px solid #dce2d0;
   border-radius: 5px;
   padding: 5px 7px;
@@ -248,7 +248,7 @@
 .filter-chips button {
   border: 1px solid #dde1d3;
   background: transparent;
-  color: #606b56;
+  color: #5d6574;
   border-radius: 5px;
   padding: 7px 11px;
   font-size: 10px;
@@ -265,7 +265,7 @@
 .feed-sort select {
   background: transparent;
   border: 0;
-  color: #606b56;
+  color: #5d6574;
   padding: 6px;
   font-size: 11px;
   max-width: 180px;
@@ -279,7 +279,7 @@
   border-radius: 6px;
   padding: 0 13px;
   margin-bottom: 20px;
-  color: #606b56;
+  color: #5d6574;
 }
 .feed-search input {
   width: 100%;
@@ -290,7 +290,7 @@
   color: #3d4d31;
 }
 .feed-search input::placeholder {
-  color: #606b56;
+  color: #5d6574;
 }
 .feed-cards {
   display: grid;
@@ -317,11 +317,11 @@
   display: inline-flex;
   gap: 7px;
   align-items: center;
-  color: #606b56;
+  color: #5d6574;
   font-size: 9px;
 }
 .priority-high {
-  color: #606b56;
+  color: #5d6574;
 }
 .priority-bars {
   display: inline-flex;
@@ -347,7 +347,7 @@
   opacity: 1;
 }
 .brief-card-number {
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -374,7 +374,7 @@
 .brief-impact {
   font-size: 12px;
   line-height: 1.85;
-  color: #606b56;
+  color: #5d6574;
   margin: 0 0 14px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -387,7 +387,7 @@
   background: #f3f5ed;
   border-radius: 5px;
   padding: 10px 12px;
-  color: #606b56;
+  color: #5d6574;
   margin-top: 14px;
   align-items: start;
 }
@@ -406,7 +406,7 @@
 .brief-reasons {
   margin-top: 14px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .brief-reasons summary {
   list-style-position: inside;
@@ -414,7 +414,7 @@
 .brief-reasons p {
   font-size: 12px;
   line-height: 1.8;
-  color: #606b56;
+  color: #5d6574;
   margin-bottom: 6px;
 }
 .brief-card-footer {
@@ -431,19 +431,19 @@
   flex-direction: column;
   gap: 4px;
   font-size: 9px;
-  color: #606b56;
+  color: #5d6574;
 }
 .brief-card-labels > span:first-child {
   display: flex;
   gap: 6px;
   align-items: center;
-  color: #606b56;
+  color: #5d6574;
 }
 .brief-card-labels > .bank-available:first-child {
-  color: #606b56;
+  color: #5d6574;
 }
 .brief-card-labels .warning-text {
-  color: #606b56;
+  color: #5d6574;
 }
 .brief-open {
   display: flex;
@@ -469,7 +469,7 @@
   border-radius: 6px;
   padding: 14px 17px;
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   margin-top: 16px;
 }
 .feed-all:hover {
@@ -478,7 +478,7 @@
 .feed-limitations {
   margin-top: 20px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .feed-limitations ul {
   line-height: 1.9;
@@ -493,7 +493,7 @@
   border-radius: 9px;
   padding: 46px 28px;
   background: #fafbf6;
-  color: #606b56;
+  color: #5d6574;
 }
 .feed-empty h3 {
   color: #4a593c;
@@ -503,14 +503,14 @@
   margin: 18px 0 10px;
 }
 .feed-empty p {
-  color: #606b56;
+  color: #5d6574;
   max-width: 410px;
   font-size: 12px;
   line-height: 1.85;
   margin: 0 0 16px;
 }
 .feed-empty > span {
-  color: #606b56;
+  color: #5d6574;
   font-size: 10px;
 }
 .feed-skeleton {
@@ -567,21 +567,21 @@
   align-items: center;
   gap: 8px 14px;
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .analysis-state {
-  color: #606b56;
+  color: #5d6574;
   border-radius: 4px;
   background: #eef4e7;
   padding: 4px 7px;
 }
 .analysis-state.state-warning {
-  color: #606b56;
+  color: #5d6574;
   background: #fbf2df;
 }
 .grade-inline strong {
   font-weight: 550;
-  color: #606b56;
+  color: #5d6574;
 }
 .analysis-headline {
   margin: 17px 0 21px;
@@ -604,7 +604,7 @@
   border: 0;
   border-radius: 5px;
   background: none;
-  color: #606b56;
+  color: #5d6574;
   padding: 9px 8px;
   font-size: 11px;
   white-space: nowrap;
@@ -634,18 +634,18 @@
   border-radius: 7px;
   background: #f1f5e9;
   margin: 22px 0;
-  color: #606b56;
+  color: #5d6574;
 }
 .bank-summary svg {
   margin-top: 3px;
 }
 .bank-summary strong {
-  color: #606b56;
+  color: #5d6574;
   font-size: 12px;
   font-weight: 550;
 }
 .bank-summary p {
-  color: #606b56;
+  color: #5d6574;
   font-size: 11px;
   line-height: 1.7;
   margin: 4px 0 0;
@@ -675,10 +675,10 @@
   margin: 9px 0;
 }
 .risk-card h4 {
-  color: #606b56;
+  color: #5d6574;
 }
 .opportunity-card h4 {
-  color: #606b56;
+  color: #5d6574;
 }
 .next-steps {
   margin: 28px 0 23px;
@@ -701,7 +701,7 @@
   align-items: start;
 }
 .next-steps li > span {
-  color: #606b56;
+  color: #5d6574;
   font-size: 13px;
   padding-top: 2px;
 }
@@ -712,7 +712,7 @@
 .next-steps small {
   display: block;
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   margin-top: 5px;
   line-height: 1.8;
 }
@@ -721,7 +721,7 @@
   margin: 18px 0;
   padding-top: 15px;
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
 }
 .analysis-details summary {
   font-size: 11px;
@@ -737,7 +737,7 @@
 .analysis-evidence-tab > p {
   font-size: 12px;
   line-height: 1.8;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-claims {
   display: grid;
@@ -758,19 +758,19 @@
 }
 .insight-claim .insight-muted {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-claim-kind {
   font-size: 8px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-claim-bank_view {
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-claim-model_inference {
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-evidence-links {
   display: flex;
@@ -785,7 +785,7 @@
   border: 1px solid #dfe8d2;
   border-radius: 5px;
   background: #f9fbf5;
-  color: #606b56;
+  color: #5d6574;
   padding: 7px 9px;
   font-size: 10px;
 }
@@ -799,7 +799,7 @@
 }
 .insight-budget {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-budget > div {
   display: grid;
@@ -825,19 +825,19 @@
 }
 .analysis-empty p {
   font-size: 13px;
-  color: #606b56;
+  color: #5d6574;
   line-height: 1.85;
   max-width: 400px;
   margin: 0 0 23px;
 }
 .analysis-empty > small {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
   margin-top: 13px;
 }
 .insight-job {
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -861,7 +861,7 @@
   background: transparent;
   border-radius: 6px;
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   padding: 9px 12px;
 }
 .question-suggestions button:hover {
@@ -870,7 +870,7 @@
 .insight-question label {
   display: block;
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
   margin-bottom: 8px;
 }
 .insight-question textarea {
@@ -893,7 +893,7 @@
 }
 .question-footer small {
   font-size: 10px;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-answer {
   margin-top: 24px;
@@ -912,7 +912,7 @@
 .insight-evidence-region .section-header {
   margin-bottom: 10px;
   font-size: 12px;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-evidence p {
   white-space: pre-wrap;
@@ -930,7 +930,7 @@
   border-radius: 7px;
   margin-top: 24px;
   font-size: 11px;
-  color: #606b56;
+  color: #5d6574;
 }
 .insight-trace details {
   padding: 7px 0;
