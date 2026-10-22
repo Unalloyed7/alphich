@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { api, analysisApi, ApiError } from './api';
+import { api, ApiError } from './api';
 import { EventInsight, InsightFeed } from './InsightUI';
 import { CompanyAnalysis } from './CompanyAnalysis';
 import { Icon, type IconName } from './Icon';
+import { DashboardSummary } from './DashboardSummary';
+import { usePersonalFeed, type FeedFilter } from './personalFeed';
 import { mergeRecentEvents } from './recentEvents';
 import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
 
@@ -218,6 +220,8 @@ function App() {
   const activeSessionToken = useRef(session?.token ?? null);
   activeSessionToken.current = session?.token ?? null;
   const [screen, setScreen] = useState<Screen>('dashboard');
+  const personalFeed = usePersonalFeed(session);
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all');
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [health, setHealth] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -267,7 +271,7 @@ function App() {
       setInsightsByEvent({}); setJobIds([]); setJobs({}); setJobsError(null);
       setSelectedEvent(null); setSource(null); setSourceError(null); setError(null);
       sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
-      setSession(next); setScreen('dashboard'); setRelogin(false);
+      setSession(next); setFeedFilter('all'); setScreen('dashboard'); setRelogin(false);
     } catch (e) { setSessionError(safeError(e)); } finally { setSessionBusy(false); }
   };
 
@@ -332,7 +336,6 @@ function App() {
       api.companies(session.token),
       api.events(session.company_id, session.token, EVENTS_PAGE_SIZE, 0),
       api.jobs(session.token),
-      analysisApi.feed(session.company_id, session.token),
     ]).then(results => {
       if (!active) return;
       if (results[0].status === 'fulfilled') setProfile(results[0].value); else setError(safeError(results[0].reason));
@@ -345,12 +348,7 @@ function App() {
         setJobIds(results[3].value.items.map(job => job.id));
         setJobs(Object.fromEntries(results[3].value.items.map(job => [job.id, job])));
       } else setJobsError(safeError(results[3].reason));
-      // Saved verified cards are separate from the raw event extraction status.
-      // Use existing feed references; loading the page never creates paid jobs.
-      if (results[4].status === 'fulfilled') {
-        setInsightsByEvent(Object.fromEntries(results[4].value.items
-          .filter(item => item.insight).map(item => [item.event_id, item.insight!.status])));
-      }
+
     });
     return () => { active = false; };
   }, [session, safeError]);
@@ -418,9 +416,17 @@ function App() {
     catch (e) { setError(safeError(e)); }
   }, [openEvent, safeError, session]);
 
+  useEffect(() => {
+    if (!personalFeed.feed) return;
+    setInsightsByEvent(Object.fromEntries(personalFeed.feed.items
+      .filter(item => item.insight).map(item => [item.event_id, item.insight!.status])));
+  }, [personalFeed.feed]);
+
   const markInsightReady = useCallback((eventId: string, status: string) => {
     setInsightsByEvent(current => current[eventId] === status ? current : { ...current, [eventId]: status });
   }, []);
+
+  const selectFeedFilter = (filter: FeedFilter) => { setFeedFilter(filter); setScreen('insights'); };
 
   const company = useMemo(() => companies.find(item => item.id === session?.company_id), [companies, session]);
   const completed = jobIds.filter(id => jobs[id]?.status === 'succeeded').length;
@@ -442,18 +448,17 @@ function App() {
         {jobsError && <div className="global-error"><Notice kind="error" onClose={() => setJobsError(null)}>Не удалось обновить историю задач: {jobsError}</Notice></div>}
         {screen === 'dashboard' && <>
           <div className="briefing-date"><span className="eyebrow">ВАШ ДЕЛОВОЙ БРИФИНГ</span><span>{new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
-          <section className="hero" aria-label="Обзор аналитики"><div className="hero-content"><h1>Меньше шума.<br/><em>Больше ясности.</em></h1><p>Что происходит в мире.<br/>Что это значит для вашего бизнеса.</p><div className="hero-signature"><span/> ВАЖНОЕ НАХОДИТ СВЯЗЬ</div></div><div className="signal-art" aria-hidden="true"><div className="signal-orbit signal-orbit-a"/><div className="signal-orbit signal-orbit-b"/><div className="signal-orbit signal-orbit-c"/><div className="signal-axis"/><span className="signal-core">α</span><span className="signal-point point-a"/><span className="signal-point point-b"/><span className="signal-point point-c"/><span className="signal-caption">СОБЫТИЕ → КОНТЕКСТ → РЕШЕНИЕ</span></div></section>
-          <div className="context-strip"><span><Icon name="briefcase" size={16}/><strong>{session.company_id}</strong><span>{company?.okved_name || 'Профиль компании'}</span></span><button type="button" onClick={() => setScreen('profile')}>Мой бизнес-контекст <Icon name="arrow" size={15}/></button></div>
-          <div className="briefing-layout"><div className="briefing-main"><InsightFeed key={session.token} session={session} onEvent={id => void openEventId(id)} compact onAll={() => setScreen('insights')}/></div><aside className="briefing-aside" aria-label="Контекст и навигация">
+          <DashboardSummary session={session} data={personalFeed} industry={profile?.industry.okved_name || company?.okved_name || null} onFilter={selectFeedFilter} onEvent={id => void openEventId(id)} onProfile={() => setScreen('profile')}/>
+          <div className="briefing-layout"><div className="briefing-main"><InsightFeed key={session.token} session={session} data={personalFeed} filter={feedFilter} onFilterChange={setFeedFilter} onEvent={id => void openEventId(id)} compact onAll={() => setScreen('insights')}/></div><aside className="briefing-aside" aria-label="Контекст и навигация">
             <div className="focus-card"><div className="eyebrow">ВАША ОПТИКА</div><div className="focus-icon"><Icon name="briefcase" size={22}/></div><h2>{session.role === 'cfo' ? 'Финансовый фокус' : 'Стратегический фокус'}</h2><p>{session.role === 'cfo' ? 'Влияние событий на финансирование, издержки и денежные потоки компании.' : 'Изменения на рынках, возможности для бизнеса и условия для решений.'}</p><div className="focus-fact"><span>Деятельность</span><strong>{profile?.industry.okved_name || company?.okved_name || 'Не указана'}</strong></div><div className="focus-fact"><span>Регион регистрации</span><strong>{profile?.region_registration || 'Не указан'}</strong></div><button type="button" className="text-button" onClick={() => setScreen('profile')}>Посмотреть профиль <Icon name="arrow" size={16}/></button></div>
-            <div className="how-card"><span className="eyebrow">ОТ НОВОСТИ К ДЕЙСТВИЮ</span><ol><li><span>01</span><div><strong>Событие</strong><p>Что произошло и где источник</p></div></li><li><span>02</span><div><strong>Влияние</strong><p>Почему это касается компании</p></div></li><li><span>03</span><div><strong>Следующий шаг</strong><p>Что проверить перед решением</p></div></li></ol></div>
+
             <button type="button" className="add-news-card" onClick={() => setScreen('publish')}><Icon name="plus" size={20}/><span><strong>Есть важная новость?</strong><small>Добавьте её для разбора</small></span><Icon name="arrow" size={17}/></button>
           </aside></div>
           <details className="operations-details"><summary><Icon name="list" size={17}/><span>Последние публикации и обработка</span><span className="muted">{events.length}{eventsHasMore ? '+' : ''} событий · {pending} в работе · {completed} готово</span></summary><div className="dashboard-grid"><EventsList items={events.slice(0, 5)} insightsByEvent={insightsByEvent} loading={eventsLoading} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/></div></details>
         </>}
         {screen === 'publish' && <><div className="page-title"><div className="eyebrow">СОБЫТИЕ В ВАШЕМ КОНТЕКСТЕ</div><h1>Новая публикация<span>.</span></h1><p>Сохраните публикацию. Откройте готовое событие, чтобы запросить персональный разбор.</p></div><div className="wide-column"><PublishForm onPublish={publish} busy={busy}/><div className="publish-aside"><JobList ids={jobIds} jobs={jobs} onEvent={id => void openEventId(id)}/><div className="tip-panel"><Icon name="activity" size={22}/><h3>Что происходит после отправки?</h3><p>Мы сохраним текст и источник, затем подготовим событие. Откройте его и нажмите «Разобрать влияние», чтобы получить аналитику для своей компании.</p><span>Каждый существенный вывод можно проверить по источникам.</span></div></div></div></>}
         {screen === 'events' && <><div className="page-title"><div className="eyebrow">НОВОСТНОЙ КОНТЕКСТ</div><h1>События<span>.</span></h1><p>Сохранённые события компании {session.company_id}. Данные сохраняются при обновлении страницы.</p></div><EventsList items={events} insightsByEvent={insightsByEvent} loading={eventsLoading} moreLoading={eventsMoreLoading} hasMore={eventsHasMore} onMore={() => void loadMoreEvents()} onReload={() => void reloadEvents(session)} onOpen={openEvent} onPublish={() => setScreen('publish')}/></>}
-        {screen === 'insights' && <InsightFeed key={session.token} session={session} onEvent={id => void openEventId(id)}/>}
+        {screen === 'insights' && <InsightFeed key={session.token} session={session} data={personalFeed} filter={feedFilter} onFilterChange={setFeedFilter} onEvent={id => void openEventId(id)}/>}
         {screen === 'profile' && <><div className="page-title"><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h1>Анализ компании<span>.</span></h1><p>Что известно о бизнесе, какие механизмы влияния проверить и какие данные нужны для решения.</p></div><CompanyAnalysis key={session.token} session={session}/><details><summary>Исходный профиль компании</summary><Profile profile={profile}/></details></>}
         <footer className="app-footer"><span>ALPHICH · ОТ СОБЫТИЯ К РЕШЕНИЮ</span><span>Демо хакатона · Обезличенные данные</span></footer>
       </div>

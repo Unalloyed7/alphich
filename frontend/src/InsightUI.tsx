@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { analysisApi, api } from './api';
 import type { Job, DemoSession } from './types';
-import type { Answer, AuditRun, Claim, Evidence, FeedItem, FeedResult, Insight, LlmStatus } from './analysis';
+import type { Answer, AuditRun, Claim, Evidence, FeedItem, Insight, LlmStatus } from './analysis';
 import { claimReferenceTexts, relevanceDescription } from './insightPresentation';
 import './insight.css';
 import { DiscoveryPanel } from './DiscoveryPanel';
 import { Icon } from './Icon';
 import { bankLabel, analysisLabel, limitationLabel } from './presentation';
+import type { FeedFilter, PersonalFeedState } from './personalFeed';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'Не удалось выполнить запрос';
@@ -180,38 +181,17 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
 }
 
 /** Top-of-funnel feed: no analysis requests or model charges on page load. */
-export function InsightFeed({ session, onEvent, compact = false, onAll }: { session: DemoSession; onEvent: (id: string) => void; compact?: boolean; onAll?: () => void }) {
-  const [feed, setFeed] = useState<FeedResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'critical' | 'bank'>('all');
+export function InsightFeed({ session, data, filter, onFilterChange, onEvent, compact = false, onAll }: {
+  session: DemoSession; data: PersonalFeedState; filter: FeedFilter; onFilterChange: (filter: FeedFilter) => void;
+  onEvent: (id: string) => void; compact?: boolean; onAll?: () => void;
+}) {
+  const { feed, loading, error, reload } = data;
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('priority');
-  const feedRequest = useRef(0);
-  const reload = useCallback(async (silent = false) => {
-    const current = ++feedRequest.current;
-    if (!silent) { setLoading(true); setError(null); }
-    try {
-      const response = await analysisApi.feed(session.company_id, session.token);
-      if (current === feedRequest.current) { setFeed(response); setError(null); }
-    } catch (e) {
-      if (current === feedRequest.current) setError(message(e));
-    } finally {
-      if (current === feedRequest.current) setLoading(false);
-    }
-  }, [session.company_id, session.token]);
   const discoveryChanged = useCallback(() => { void reload(true); }, [reload]);
-  useEffect(() => {
-    setFeed(null);
-    void reload();
-    const refresh = () => { if (document.visibilityState !== 'hidden') void reload(true); };
-    const interval = window.setInterval(refresh, 20_000);
-    document.addEventListener('visibilitychange', refresh);
-    return () => { feedRequest.current++; window.clearInterval(interval); document.removeEventListener('visibilitychange', refresh); };
-  }, [reload]);
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('ru-RU');
-    return (feed?.items ?? []).filter(item => (filter !== 'critical' || item.relevance_grade === 5) && (filter !== 'bank' || item.insight?.bank_view?.status === 'found') && (!query || [item.insight?.headline, item.title, item.relevance_assessment?.business_channel].some(value => value?.toLocaleLowerCase('ru-RU').includes(query))))
+    return (feed?.items ?? []).filter(item => (filter !== 'critical' || item.relevance_grade === 5) && (filter !== 'bank' || item.insight?.bank_view?.status === 'found') && (filter !== 'saved' || !!item.insight) && (!query || [item.insight?.headline, item.title, item.relevance_assessment?.business_channel].some(value => value?.toLocaleLowerCase('ru-RU').includes(query))))
       .sort((a, b) => sort === 'recent' ? (Date.parse(b.insight?.as_of || '') || 0) - (Date.parse(a.insight?.as_of || '') || 0) : (b.relevance_grade ?? 0) - (a.relevance_grade ?? 0));
   }, [feed, search, filter, sort]);
   const shown = compact ? visible.slice(0, 3) : visible;
@@ -219,12 +199,12 @@ export function InsightFeed({ session, onEvent, compact = false, onAll }: { sess
     {!compact && <div className="page-title"><div className="eyebrow">ПЕРСОНАЛЬНЫЙ ВЗГЛЯД</div><h1>Важное для бизнеса<span>.</span></h1><p>События с высокой значимостью для компании {session.company_id}. Отбор учитывает ваш профиль и роль.</p></div>}
     <DiscoveryPanel key={session.token} session={session} onEvent={onEvent} onChanged={discoveryChanged}/>
     <div className="feed-section-heading"><div><div className="eyebrow">ОТОБРАНО ДЛЯ ВАС</div><h2>{compact ? 'В фокусе вашего бизнеса' : 'Персональная лента'}<span className="feed-count">{feed?.items.length ?? '—'}</span></h2></div><button type="button" className="icon-button feed-refresh" aria-label="Обновить аналитику" onClick={() => void reload()} disabled={loading}><Icon name="refresh" size={18}/></button></div>
-    <div className="feed-toolbar"><div className="filter-chips" role="group" aria-label="Фильтр аналитики">{([{ id: 'all', label: 'Все важное' }, { id: 'critical', label: 'Значимость 5/5' }, { id: 'bank', label: 'С позицией банка' }] as const).map(item => <button type="button" aria-pressed={filter === item.id} className={filter === item.id ? 'active' : ''} key={item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}</div>{!compact && <label className="feed-sort"><span className="sr-only">Порядок карточек</span><select value={sort} onChange={e => setSort(e.target.value)}><option value="priority">По значимости</option><option value="recent">По дате анализа</option></select></label>}</div>
+    <div className="feed-toolbar"><div className="filter-chips" role="group" aria-label="Фильтр аналитики">{([{ id: 'all', label: 'Все важное' }, { id: 'critical', label: 'Значимость 5/5' }, { id: 'bank', label: 'С позицией банка' }, { id: 'saved', label: 'С разбором' }] as const).map(item => <button type="button" aria-pressed={filter === item.id} className={filter === item.id ? 'active' : ''} key={item.id} onClick={() => onFilterChange(item.id)}>{item.label}</button>)}</div>{!compact && <label className="feed-sort"><span className="sr-only">Порядок карточек</span><select value={sort} onChange={e => setSort(e.target.value)}><option value="priority">По значимости</option><option value="recent">По дате анализа</option></select></label>}</div>
     {!compact && <label className="feed-search"><Icon name="search" size={18}/><span className="sr-only">Поиск по персональной ленте</span><input type="search" placeholder="Найти событие или влияние на бизнес…" value={search} onChange={e => setSearch(e.target.value)}/></label>}
     {error && <div className="insight-error" role="alert">Не удалось обновить ленту: {error} <button type="button" className="text-button" onClick={() => void reload()}>Повторить</button></div>}
     {loading && !feed && <div className="feed-skeleton" role="status" aria-label="Загружаем аналитику">{[1, 2, 3].map(x => <div className="skeleton-card" key={x}><span/><span/><span/></div>)}</div>}
     {!loading && !error && feed && feed.items.length === 0 && <div className="feed-empty"><div className="empty-icon"><Icon name="activity" size={28}/></div><h3>Сначала — важное для вас</h3><p>Пока нет событий со значимостью 4–5 из 5. Запустите подбор выше: мы проверим публикации и найдём связь с вашим бизнесом.</p><span>Сохранённые публикации доступны в разделе «Все события».</span></div>}
-    {!!feed?.items.length && shown.length === 0 && <div className="feed-empty"><Icon name="search" size={26}/><h3>Под этот фильтр ничего не нашлось</h3><p>Попробуйте посмотреть все важные события.</p><button className="secondary-button" type="button" onClick={() => { setFilter('all'); setSearch(''); }}>Сбросить фильтры</button></div>}
+    {!!feed?.items.length && shown.length === 0 && <div className="feed-empty"><Icon name="search" size={26}/><h3>Под этот фильтр ничего не нашлось</h3><p>Попробуйте посмотреть все важные события.</p><button className="secondary-button" type="button" onClick={() => { onFilterChange('all'); setSearch(''); }}>Сбросить фильтры</button></div>}
     <div className="feed-cards">{shown.map((item: FeedItem, index) => {
       const reasons = (item.reasons ?? item.relevance_reasons ?? []).map(relevanceDescription).filter((text): text is string => !!text);
       return <article key={`${item.event_id}:${item.event_version}`} className={`brief-card ${index === 0 && filter === 'all' && sort === 'priority' ? 'brief-card-featured' : ''}`}>

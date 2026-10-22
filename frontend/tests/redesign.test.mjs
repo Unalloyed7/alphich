@@ -75,3 +75,33 @@ test('Generation, discovery and publication are explicit actions; company switch
   const stored=JSON.parse(await page.evaluate(()=>sessionStorage.getItem('alphich.demo-session.v1')));assert.equal(stored.company_id,'DEMO_B');assert.equal(stored.role,'ceo');
  } finally {await context.close();}
 });
+
+test('Dashboard widgets use feed values and navigate to matching events',async()=>{
+ const {context,page,state}=await setup();try {
+  await login(page);await page.getByTestId('summary-total').filter({hasText:'03'}).waitFor();
+  assert.equal(await page.getByTestId('summary-critical').innerText(),'01');
+  assert.equal(await page.getByTestId('summary-saved').innerText(),'03');
+  assert.equal(await page.getByTestId('summary-bank').innerText(),'1 из 3');
+  assert.equal(await page.locator('.widget-actions button').count(),1); // repeated advice is shown once
+  const reads=state.requests.filter(r=>r.path.endsWith('/feed')).length;
+  await page.getByRole('button',{name:'Открыть события с позицией банка',exact:true}).click();await cardCount(page,1);
+  assert.equal(await page.getByRole('button',{name:'С позицией банка',exact:true}).getAttribute('aria-pressed'),'true');
+  assert.equal(state.requests.filter(r=>r.path.endsWith('/feed')).length,reads); // same data source across views
+  await page.getByRole('button',{name:'Обзор',exact:true}).click();
+  await page.getByRole('button',{name:'Открыть события со значимостью 5 из 5',exact:true}).click();await cardCount(page,1);
+  assert.equal(await page.getByRole('button',{name:'Значимость 5/5',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('button',{name:'Обзор',exact:true}).click();await page.locator('.widget-actions button').first().click();await page.getByRole('dialog').waitFor();await page.getByRole('heading',{name:'Что проверить дальше'}).waitFor();
+  assert.equal(state.requests.filter(r=>r.method==='POST' && r.path!=='/demo-session').length,0);
+ } finally {await context.close();}
+});
+
+test('Dashboard distinguishes empty, unavailable and ungraded data',async()=>{
+ for(const options of [{empty:true},{feedError:true},{legacy:true}]) {
+  const {context,page}=await setup(options);try {
+   await login(page);
+   if(options.empty) {assert.equal(await page.getByTestId('summary-total').innerText(),'00');assert.equal(await page.getByTestId('summary-bank').innerText(),'0 из 0');assert.equal(await page.locator('.widget-actions button').count(),0);}
+   if(options.feedError) {assert.equal(await page.getByTestId('summary-total').innerText(),'—');assert.equal(await page.getByTestId('summary-critical').innerText(),'—');}
+   if(options.legacy) {assert.equal(await page.getByTestId('summary-total').innerText(),'03');assert.equal(await page.getByTestId('summary-critical').innerText(),'00');await page.locator('.pulse-legend').getByText('Прочие',{exact:false}).waitFor();assert.equal(await page.locator('.widget-actions button').count(),0);}
+  } finally {await context.close();}
+ }
+});
