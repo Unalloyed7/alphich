@@ -51,11 +51,13 @@ def encoder_for(settings):
 
 class CachedNewsEncoder:
     """Cache namespace includes company AND embedding space; no cross-tenant reads."""
-    def __init__(self, factory, encoder, company_id, *, writable=False):
+    def __init__(self, factory, encoder, company_id, *, writable=False, source_bindings=None):
         self.factory, self.encoder, self.company_id = factory, encoder, company_id
         self.writable = writable
         self.space_id, self.dimension = encoder.space_id, encoder.dimension
         self.hits = self.misses = 0
+        self.source_misses = 0
+        self.source_bindings = source_bindings
 
     def count_tokens(self, text):
         return self.encoder.count_tokens(text)
@@ -65,6 +67,60 @@ class CachedNewsEncoder:
 
     def key(self, text):
         return hashed([INDEX_VERSION, self.company_id, self.space_id, hashed(text)])
+
+    def prepared_embeddings(self, events):
+        """Read worker-prepared spans instead of tokenizing the corpus on GET.
+
+        Bindings come from the authorized current source rows. Each stored span
+        is checked against the current title/body and embedding space; missing
+        or stale bindings trigger the existing lexical fallback without writes.
+        """
+        if self.source_bindings is None or self.writable:
+            return None
+        from alphich_kb.embeddings import EncoderUnavailable
+        keys = [self.source_bindings.get(event["id"]) for event in events]
+        indexed = {}
+        with self.factory() as db:
+            for start in range(0, len(keys), 400):
+                for row in db.scalars(select(NewsIndexSource).where(
+                        NewsIndexSource.id.in_(keys[start:start + 400]),
+                        NewsIndexSource.company_id == self.company_id, NewsIndexSource.space_id == self.space_id)):
+                    indexed[row.id] = row
+        self.source_misses = sum(key not in indexed for key in keys)
+        if self.source_misses:
+            raise EncoderUnavailable("news_index_pending")
+        records, texts, unique = [], [], {}
+        for event, key in zip(events, keys):
+            row = indexed[key]
+            if event["company_id"] != self.company_id or len(event["sources"]) != 1:
+                raise EncoderUnavailable("news_index_source_scope_mismatch")
+            source = event["sources"][0]
+            if (row.event_id != event["id"] or row.source_id != source["id"]
+                    or str(row.source_version) != source["version"]
+                    or not isinstance(row.passages, list) or not row.passages):
+                raise EncoderUnavailable("news_index_source_revision_mismatch")
+            header = f"passage: Новость: {event['title'][:180]}\n"
+            for span in row.passages:
+                if not isinstance(span, dict):
+                    raise EncoderUnavailable("news_index_invalid_span")
+                start, end = span.get("start"), span.get("end")
+                if (type(start) is not int or type(end) is not int or not 0 <= start < end <= len(source["text"])
+                        or span.get("source_id") != source["id"]
+                        or str(span.get("source_version")) != source["version"]
+                        or span.get("embedding_space_id") != self.space_id):
+                    raise EncoderUnavailable("news_index_invalid_span")
+                text = header + source["text"][start:end]
+                input_hash = hashed(text)
+                if span.get("input_hash") != input_hash or span.get("passage_id") != self.key(text):
+                    raise EncoderUnavailable("news_index_source_content_mismatch")
+                if input_hash not in unique:
+                    unique[input_hash] = len(texts)
+                    texts.append(text)
+                records.append({"event_id": event["id"], "event_version": event["version"],
+                    "snapshot_hash": event["snapshot_hash"], "source_id": source["id"],
+                    "source_version": source["version"], "start": start, "end": end,
+                    "input_hash": input_hash, "embedding_space_id": self.space_id, "vector_row": unique[input_hash]})
+        return records, self.encode_passages(texts)
 
     def encode_passages(self, texts, batch_size=4):
         import numpy as np

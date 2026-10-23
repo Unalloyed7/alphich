@@ -110,7 +110,7 @@ PLAYWRIGHT_CHANNEL=chrome npm run test:ui
 
 `UI_BASE_URL` overrides `http://127.0.0.1:5174`. Set `UI_SCREENSHOT_DIR` to a local directory
 if screenshots are needed. Browser tests use synthetic intercepted API responses, never the
-live analysis gateway or paid model requests. The 13 scenarios cover dashboard values and navigation, missing/empty/ungraded data, filters/search, bookmarks, deep links, browser history, explicit feedback, evidence, raw sources,
+live analysis gateway or paid model requests. The 14 scenarios cover slow-feed request deduplication and timeout backoff, dashboard values and navigation, missing/empty/ungraded data, filters/search, bookmarks, deep links, browser history, explicit feedback, evidence, raw sources,
 question submission, publication/generation/discovery actions, company switching, responsive
 layouts at 320/390/768/1024/1440 px, focus trapping and automated WCAG checks.
 

@@ -3,6 +3,9 @@ import { analysisApi } from './api';
 import type { FeedItem, FeedResult } from './analysis';
 import type { DemoSession } from './types';
 
+const REFRESH_MS = 20_000;
+const MAX_RETRY_DELAY_MS = 120_000;
+
 export type FeedFilter = 'all' | 'critical' | 'bank' | 'saved' | 'bookmarks' | 'unread';
 export interface PersonalFeedState {
   feed: FeedResult | null;
@@ -19,6 +22,8 @@ export function usePersonalFeed(session: DemoSession | null): PersonalFeedState 
   const activeToken = useRef(token);
   activeToken.current = token;
   const request = useRef(0);
+  const inFlight = useRef<{ token: string; promise: Promise<FeedResult> } | null>(null);
+  const retry = useRef<{ token?: string; failures: number; after: number }>({ failures: 0, after: 0 });
   const [snapshot, setSnapshot] = useState<{
     token?: string; feed: FeedResult | null; error: string | null; updatedAt: number | null;
   }>({ feed: null, error: null, updatedAt: null });
@@ -26,15 +31,29 @@ export function usePersonalFeed(session: DemoSession | null): PersonalFeedState 
 
   const reload = useCallback(async (silent = false) => {
     if (!token || !companyId) return;
+    if (silent && retry.current.token === token && Date.now() < retry.current.after) return;
     const current = ++request.current;
     if (!silent) setLoading(true);
+    // Timer ticks and manual refreshes share a pending request. A slow server
+    // must not receive another feed calculation every twenty seconds.
+    let pending = inFlight.current;
+    if (!pending || pending.token !== token) {
+      pending = { token, promise: analysisApi.feed(companyId, token) };
+      inFlight.current = pending;
+    }
     try {
-      const feed = await analysisApi.feed(companyId, token);
+      const feed = await pending.promise;
       if (current === request.current && activeToken.current === token) {
+        retry.current = { token, failures: 0, after: 0 };
         setSnapshot({ token, feed, error: null, updatedAt: Date.now() });
       }
     } catch (error) {
       if (current === request.current && activeToken.current === token) {
+        const failures = retry.current.token === token ? retry.current.failures + 1 : 1;
+        retry.current = {
+          token, failures,
+          after: Date.now() + Math.min(REFRESH_MS * 2 ** Math.min(failures, 3), MAX_RETRY_DELAY_MS),
+        };
         setSnapshot(previous => ({
           token, feed: previous.token === token ? previous.feed : null,
           updatedAt: previous.token === token ? previous.updatedAt : null,
@@ -42,6 +61,7 @@ export function usePersonalFeed(session: DemoSession | null): PersonalFeedState 
         }));
       }
     } finally {
+      if (inFlight.current === pending) inFlight.current = null;
       if (current === request.current && activeToken.current === token) setLoading(false);
     }
   }, [companyId, token]);
@@ -50,7 +70,7 @@ export function usePersonalFeed(session: DemoSession | null): PersonalFeedState 
     if (!token) { setLoading(false); return; }
     void reload();
     const refresh = () => { if (document.visibilityState !== 'hidden') void reload(true); };
-    const timer = window.setInterval(refresh, 20_000);
+    const timer = window.setInterval(refresh, REFRESH_MS);
     document.addEventListener('visibilitychange', refresh);
     return () => {
       request.current++;

@@ -9,6 +9,8 @@ from alphich_kb.embeddings import EncoderUnavailable
 from app.news import Event, SourceDocument
 from app.intelligence.news_index import CachedNewsEncoder, NewsIndexSource, NewsPassage, index_source, sync_index
 from app.intelligence.storage import LLMCall
+from app.intelligence.service import normalized_events
+from alphich_kb.personalization.selector import NewsSelector
 from test_intelligence import store
 from test_news_automation import copies
 
@@ -19,8 +21,10 @@ class TinyEncoder:
 
     def __init__(self):
         self.encoded = []
+        self.token_counts = 0
 
     def count_tokens(self, text):
+        self.token_counts += 1
         return len(text.split()) + 2
 
     def encode_passages(self, texts, batch_size=4):
@@ -103,9 +107,10 @@ def test_api_reads_do_not_infer_or_grade_from_a_completed_index(store, monkeypat
     assert before["extraction_candidates"][0]["relevance_grade"] is None
     with factory() as db:
         assert db.scalar(select(func.count()).select_from(NewsPassage)) == 0
-    assert encoder.encoded == []
+    assert encoder.encoded == [] and encoder.token_counts == 0
     sync_index(factory, encoder, ["DEMO_A"], limit=5)
     count = len(encoder.encoded)
+    token_counts = encoder.token_counts
     after = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
     assert after["mode"] == "cached_e5_glm" and after["items"] == []
     assert after["extraction_candidates"] == before["extraction_candidates"]
@@ -114,6 +119,7 @@ def test_api_reads_do_not_infer_or_grade_from_a_completed_index(store, monkeypat
     with factory() as db:
         assert db.scalar(select(func.count()).select_from(NewsPassage)) == 1
         assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
+    assert encoder.token_counts == token_counts  # HTTP reads do not re-chunk indexed articles.
     assert client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_B"]).status_code == 403
 
 
@@ -137,3 +143,62 @@ def test_corrupt_cached_vector_cannot_trigger_inference_or_a_fallback_grade_on_g
         assert db.scalar(select(NewsPassage)).vector == [0, 0, 0, 0]
         assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
     assert len(encoder.encoded) == count
+
+
+@pytest.mark.parametrize("change", ["revision", "span", "text", "space", "owner", "title", "malformed"])
+def test_prepared_spans_cannot_be_reused_for_changed_or_corrupt_sources(store, change):
+    _, factory, _, _ = store
+    ids = copies(store)
+    encoder = TinyEncoder()
+    sync_index(factory, encoder, ["DEMO_A"], limit=5)
+    with factory.begin() as db:
+        source = db.get(SourceDocument, db.get(Event, ids[0]).source_id)
+        row = db.scalar(select(NewsIndexSource))
+        binding = row.id
+        if change == "revision":
+            source.version += 1
+        elif change == "text":
+            source.body = "Иной текст публикации, без изменения остальных служебных полей."
+        elif change == "title":
+            db.get(Event, ids[0]).title = "Другой заголовок события"
+        elif change == "owner":
+            row.company_id = "DEMO_B"
+        elif change == "malformed":
+            row.passages = [None]
+        else:
+            spans = [dict(span) for span in row.passages]
+            if change == "span":
+                spans[0]["end"] = 10**9
+            else:
+                spans[0]["embedding_space_id"] = "different-space"
+            row.passages = spans
+    with factory() as db:
+        event = db.get(Event, ids[0])
+        source = db.get(SourceDocument, event.source_id)
+        current = normalized_events(db, [(event, source)])
+    token_counts, encoded = encoder.token_counts, len(encoder.encoded)
+    reader = CachedNewsEncoder(factory, encoder, "DEMO_A", source_bindings={ids[0]: binding})
+    with pytest.raises(EncoderUnavailable, match="news_index_"):
+        reader.prepared_embeddings(current)
+    assert encoder.token_counts == token_counts and len(encoder.encoded) == encoded
+
+
+def test_prepared_spans_use_current_event_snapshot_after_fact_revision(store):
+    _, factory, _, _ = store
+    ident = copies(store)[0]
+    encoder = TinyEncoder()
+    index_source(factory, encoder, ident)
+    with factory.begin() as db:
+        event = db.get(Event, ident)
+        event.version += 1
+    with factory() as db:
+        event = db.get(Event, ident)
+        source = db.get(SourceDocument, event.source_id)
+        binding = db.scalar(select(NewsIndexSource.id).where(NewsIndexSource.event_id == ident))
+        current = normalized_events(db, [(event, source)])
+    token_counts = encoder.token_counts
+    selector = NewsSelector(current, CachedNewsEncoder(factory, encoder, "DEMO_A", source_bindings={ident: binding}))
+    assert selector.embedding_records
+    assert {record["event_version"] for record in selector.embedding_records} == {str(event.version)}
+    assert {record["snapshot_hash"] for record in selector.embedding_records} == {selector.events[0]["snapshot_hash"]}
+    assert encoder.token_counts == token_counts

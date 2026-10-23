@@ -14,7 +14,7 @@ from app.news import Event, Job, JobView, SourceDocument, new_id, view_job
 from . import AGENT_ROLES, VERSION
 from .provider import call_role, hashed
 from .schemas import FeedbackRequest, InsightRequest, QuestionRequest
-from .service import company_profile, normalized_event
+from .service import company_profile, normalized_events
 from .settings import AnalysisError, Settings
 from .gateway import inspect_gateway
 from .storage import AnalysisRun, AnalysisTask, Answer, BudgetDay, CostReceipt, Insight, InsightFeedback, LLMCall
@@ -275,7 +275,7 @@ def register_routes(app, get_db, current_session, factory):
             SourceDocument.received_at <= when.isoformat(),
             or_(SourceDocument.published_at.is_(None), SourceDocument.published_at <= when.isoformat()))
             .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(settings.news_feed_limit)).all()
-        events = [normalized_event(db, e, s) for e, s in rows]
+        events = normalized_events(db, rows)
         profile = company_profile(company, demo.role, db=db)
         scope = SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role)
         graded, unassessed, skipped, blocked, below = [], [], 0, 0, 0
@@ -336,7 +336,7 @@ def register_routes(app, get_db, current_session, factory):
                           datetime.fromisoformat(r.payload["as_of"]) <= when), None)
             if match:
                 try:
-                    allowed_evidence(match.evidence, config())
+                    allowed_evidence(match.evidence, settings)
                 except HTTPException:
                     continue
                 item["insight"] = {k: match.payload[k] for k in ("id", "status", "as_of", "headline", "bank_view")}

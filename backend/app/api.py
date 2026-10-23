@@ -22,7 +22,7 @@ from alphich.organizer_semantics import revenue_metadata
 from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
                       digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
 from app.intelligence.routes import register_routes
-from app.intelligence.service import company_profile, event_payload
+from app.intelligence.service import company_profile, event_payload, event_payloads
 from app import rss as _rss  # Register additive collector tables in the shared metadata.
 from app.news_collection import register_collection_routes
 from app.rss_status import register_status_route
@@ -253,7 +253,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
             .offset(offset)
             .limit(limit)
         ).all()
-        return {"items": [event_payload(db, event, source) for event, source in rows]}
+        return {"items": event_payloads(db, rows)}
 
     @app.get("/api/v1/events/{event_id}")
     def event_detail(event_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):

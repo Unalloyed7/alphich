@@ -24,7 +24,9 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
     throw new ApiError(0, 'Нет связи с сервером. Проверьте подключение и повторите попытку.');
   }
   if (!response.ok) {
-    let message = `Ошибка API: HTTP ${response.status}`;
+    let message = response.status === 504
+      ? 'Сервер не успел подготовить данные. Повторите попытку позже.'
+      : `Ошибка API: HTTP ${response.status}`;
     try {
       const payload: unknown = await response.json();
       if (payload && typeof payload === 'object' && 'detail' in payload) {
