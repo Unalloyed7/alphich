@@ -197,6 +197,14 @@ function EventDrawer({ session, event, insightStatus, onInsightReady, source, lo
   useEffect(() => {
     if (activeSourceId && tab === 'sources') sourcePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [activeSourceId, tab, loading, source, error]);
+  const toggleSource = (id: string) => {
+    if (activeSourceId === id) {
+      setActiveSourceId(null);
+      return;
+    }
+    setActiveSourceId(id);
+    onSource(id);
+  };
   const copyLink = async () => {
     try { await navigator.clipboard.writeText(window.location.href); setShareMessage('Ссылка скопирована. Для доступа нужна сессия этой компании и роли.'); }
     catch { setShareMessage('Не удалось скопировать. Ссылку можно взять из адресной строки.'); }
@@ -209,7 +217,7 @@ function EventDrawer({ session, event, insightStatus, onInsightReady, source, lo
         <div id="event-sections-panel" role="tabpanel" aria-labelledby={`event-sections-${tab}`}>
 
         <div hidden={tab !== 'analysis'}><EventInsight session={session} eventId={event.id} onInsightReady={onInsightReady}/></div>
-        {tab === 'sources' && <section className="event-sources"><h3>Что произошло</h3><p className="muted">Исходная публикация и её метаданные. Откройте источник, чтобы прочитать полный сохранённый текст.</p><div className="source-row">{event.source_ids.map((id, index) => <button className={`source-button ${activeSourceId === id ? 'active' : ''}`} type="button" key={id} aria-expanded={activeSourceId === id} aria-controls="active-source-panel" onClick={() => { setActiveSourceId(id); onSource(id); }}><Icon name="file" size={18}/><span>{event.sources[index]?.title || `Источник ${index + 1}`}</span><Icon name="chevron" size={16}/></button>)}</div>
+        {tab === 'sources' && <section className="event-sources"><h3>Что произошло</h3><p className="muted">Исходная публикация и её метаданные. Откройте источник, чтобы прочитать полный сохранённый текст.</p><div className="source-row">{event.source_ids.map((id, index) => <button className={`source-button ${activeSourceId === id ? 'active' : ''}`} type="button" key={id} aria-expanded={activeSourceId === id} aria-controls="active-source-panel" onClick={() => toggleSource(id)}><Icon name="file" size={18}/><span>{event.sources[index]?.title || `Источник ${index + 1}`}</span><Icon name="chevron" size={16}/></button>)}</div>
         {activeSourceId && <div id="active-source-panel" ref={sourcePanelRef} className="source-panel" role="region" aria-label="Текст первоисточника" aria-live="polite">{loading && <div className="source-loading"><span className="spinner"/> Загружаем текст источника…</div>}{error && <Notice kind="error">{error}</Notice>}{source && source.id === activeSourceId && <section className="source-reader"><div className="source-reader-head"><div className="eyebrow">ОРИГИНАЛ ПУБЛИКАЦИИ</div><h3>{source.title}</h3><span className="muted small">Получен: {formattedDate(source.received_at)}</span></div><p className="source-full-text">{source.text}</p><div className="source-footer"><span><Icon name="alert" size={15}/>{source.url_verified ? 'Текст загружен по ссылке' : 'Ссылка не верифицирована'}</span>{source.url && /^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer"><Icon name="link" size={16}/> Открыть оригинал</a>}</div></section>}</div>}
         <details className="event-metadata-details"><summary>Даты и сведения о событии</summary><div className="drawer-metadata"><div><span>Дата публикации</span><strong>{formattedDate(event.published_at)}</strong></div><div><span>Дата события</span><strong>{event.event_at ? formattedDate(event.event_at) : 'Не установлена'}</strong></div><div><span>ID события</span><strong className="mono wrap-text">{event.id}</strong></div><div><span>Статус извлечения</span><strong>{event.extraction_status}</strong></div></div></details></section>}
         </div>
