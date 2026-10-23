@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from alphich_kb.embeddings import EncoderUnavailable
 from app.news import Event, SourceDocument
 from app.intelligence.news_index import CachedNewsEncoder, NewsIndexSource, NewsPassage, index_source, sync_index
+from app.intelligence.storage import LLMCall
 from test_intelligence import store
 from test_news_automation import copies
 
@@ -87,24 +88,36 @@ def test_new_source_revision_creates_new_binding_and_vector_without_resetting_ol
         assert db.scalar(select(func.count()).select_from(NewsPassage)) == 2
 
 
-def test_api_reads_use_completed_index_and_never_build_missing_passages(store, monkeypatch):
+def test_api_reads_do_not_infer_or_grade_from_a_completed_index(store, monkeypatch):
     client, factory, headers, _ = store
-    copies(store)
+    ids = copies(store)
     encoder = TinyEncoder()
-    monkeypatch.setattr("app.intelligence.news_index.encoder_for", lambda _: encoder)
+    def forbidden_encoder(*args, **kwargs):
+        raise AssertionError("Reading the feed must not load an encoder")
+    monkeypatch.setattr("app.intelligence.news_index.encoder_for", forbidden_encoder)
     before = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
-    assert before["news_index"]["builds_on_read"] is False and before["mode"] == "lexical_fallback"
+    assert before["news_index"] == {"builds_on_read": False, "inference_on_read": False}
+    assert before["mode"] == "cached_e5_glm" and before["items"] == []
+    assert before["trace"]["model_calls_on_read"] == 0
+    assert before["extraction_candidates"][0]["event_id"] == ids[0]
+    assert before["extraction_candidates"][0]["relevance_grade"] is None
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(NewsPassage)) == 0
     assert encoder.encoded == []
     sync_index(factory, encoder, ["DEMO_A"], limit=5)
     count = len(encoder.encoded)
     after = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
-    assert after["mode"] == "hybrid" and after["news_index"]["available"] is True
-    assert after["news_index"]["passage_cache_hits"] > 0
+    assert after["mode"] == "cached_e5_glm" and after["items"] == []
+    assert after["extraction_candidates"] == before["extraction_candidates"]
+    assert after["news_index"] == before["news_index"]
     assert after["candidate_pool_limit"] == 2000 and len(encoder.encoded) == count
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(NewsPassage)) == 1
+        assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
     assert client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_B"]).status_code == 403
 
 
-def test_corrupt_cached_vector_fails_closed_without_new_inference_on_get(store, monkeypatch):
+def test_corrupt_cached_vector_cannot_trigger_inference_or_a_fallback_grade_on_get(store, monkeypatch):
     client, factory, headers, _ = store
     copies(store)
     encoder = TinyEncoder()
@@ -112,7 +125,15 @@ def test_corrupt_cached_vector_fails_closed_without_new_inference_on_get(store, 
     count = len(encoder.encoded)
     with factory.begin() as db:
         db.scalar(select(NewsPassage)).vector = [0, 0, 0, 0]
-    monkeypatch.setattr("app.intelligence.news_index.encoder_for", lambda _: encoder)
+    def forbidden_encoder(*args, **kwargs):
+        raise AssertionError("Reading the feed must not load or repair embeddings")
+    monkeypatch.setattr("app.intelligence.news_index.encoder_for", forbidden_encoder)
     feed = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
-    assert feed["mode"] == "lexical_fallback" and not feed["news_index"]["available"]
+    assert feed["mode"] == "cached_e5_glm" and feed["items"] == []
+    assert feed["news_index"] == {"builds_on_read": False, "inference_on_read": False}
+    assert feed["trace"]["model_calls_on_read"] == 0
+    assert feed["extraction_candidates"][0]["relevance_grade"] is None
+    with factory() as db:
+        assert db.scalar(select(NewsPassage)).vector == [0, 0, 0, 0]
+        assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
     assert len(encoder.encoded) == count
