@@ -77,6 +77,15 @@ readable audit steps and explicit server-saved feedback. Search covers loaded da
 Bookmarks and reading state stay in this browser tab, scoped by company and role; feedback
 belongs to the current demo session and saved insight. See [criteria mapping and limits](../docs/frontend-decision-workspace.md).
 
+### User and company profile
+
+«Моя компания» opens a visible profile of the active role and company, with role priorities,
+industry, registration, raw revenue and product/trade flags. Missing data is explicit;
+source versions and detailed flags are available in disclosures. Role changes use the
+existing server-validated session flow. Failed profile loads have a retry action.
+CEO and CFO remain the two supported analysis perspectives; the audience rationale and
+expansion plan are in [user-perspectives.md](../docs/user-perspectives.md).
+
 ### Browser verification
 
 Start Vite in one terminal:
@@ -101,7 +110,7 @@ PLAYWRIGHT_CHANNEL=chrome npm run test:ui
 
 `UI_BASE_URL` overrides `http://127.0.0.1:5174`. Set `UI_SCREENSHOT_DIR` to a local directory
 if screenshots are needed. Browser tests use synthetic intercepted API responses, never the
-live analysis gateway or paid model requests. The 11 scenarios cover dashboard values and navigation, missing/empty/ungraded data, filters/search, bookmarks, deep links, browser history, explicit feedback, evidence, raw sources,
+live analysis gateway or paid model requests. The 13 scenarios cover dashboard values and navigation, missing/empty/ungraded data, filters/search, bookmarks, deep links, browser history, explicit feedback, evidence, raw sources,
 question submission, publication/generation/discovery actions, company switching, responsive
 layouts at 320/390/768/1024/1440 px, focus trapping and automated WCAG checks.
 

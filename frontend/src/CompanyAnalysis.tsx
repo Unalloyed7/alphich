@@ -60,10 +60,10 @@ export function CompanyAnalysis({ session }: { session: DemoSession }) {
   return <section className="panel company-analysis" aria-label="Бизнес-анализ компании">
     <div className="panel-heading"><div><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h2>Что может влиять на бизнес</h2>
       <p>Факты из профиля и гипотезы для проверки. Эти гипотезы используются при подготовке новостного анализа.</p></div></div>
-    <h3>Что известно из данных</h3>
+    <details className="business-observed-details"><summary>Подтверждённые признаки и их значение · {context.observed.length}</summary>
     <div className="business-observed">{context.observed.map(item => <article key={item.code}>
       <span>{labels[item.code] ?? item.code}</span><strong>{valueText(item.value)}</strong><details><summary>Что это означает</summary><p>{item.meaning}</p></details>
-    </article>)}</div>
+    </article>)}</div></details>
     {!!context.factor_checks?.length && <details className="business-missing"><summary>Проверки применимости новостей · {context.factor_checks.length}</summary>
       <p>Совпадение признака помогает выбрать вопрос для проверки. Оно не означает, что требование или программа уже применимы к компании.</p>
       <ol className="business-questions">{context.factor_checks.map(item => <li key={item.factor}><strong>{labels[item.factor] ?? item.factor}</strong><p>{item.check}</p></li>)}</ol>

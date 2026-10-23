@@ -15,7 +15,7 @@ async function setup(options={},viewport={width:1440,height:1050}) {
   const errors=[];page.on('pageerror',e=>errors.push(e.message));const state=await mockApi(page,options);await page.goto(baseURL);return {context,page,state,errors};
 }
 async function login(page) {await page.getByRole('button',{name:'Перейти к аналитике'}).click();await page.locator('.briefing-layout').waitFor();await page.locator('.feed-skeleton').waitFor({state:'hidden'});}
-async function screenshot(page,name){if(screenshotDir){await fs.mkdir(screenshotDir,{recursive:true});await page.screenshot({path:path.join(screenshotDir,name),fullPage:!(await page.getByRole('dialog').count())});}}
+async function screenshot(page,name,fullPage){if(screenshotDir){await fs.mkdir(screenshotDir,{recursive:true});await page.screenshot({path:path.join(screenshotDir,name),fullPage:fullPage??!(await page.getByRole('dialog').count())});}}
 async function accessible(page){const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),[]);}
 async function cardCount(page,count) {await page.waitForFunction(expected=>document.querySelectorAll('.brief-card').length===expected,count);assert.equal(await page.locator('.brief-card').count(),count);}
 async function noOverflow(page) {assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
@@ -51,7 +51,7 @@ test('Responsive layouts and primary screens meet automated WCAG checks',async()
   for(const width of [1440,1024,768,390,320]) {await page.setViewportSize({width,height:844});await noOverflow(page);if(width===390){await screenshot(page,'mobile-synthetic.png');await accessible(page);}}
   await page.getByRole('button',{name:'Открыть быстрый поиск',exact:true}).click();await page.getByRole('dialog',{name:'Быстрый поиск'}).waitFor();await noOverflow(page);await accessible(page);await screenshot(page,'mobile-search.png');await page.getByRole('button',{name:'Закрыть поиск'}).click();
   await page.locator('.brief-card h3 button').first().click();await page.getByRole('heading',{name:'Помог ли разбор?'}).waitFor();await noOverflow(page);await accessible(page);await screenshot(page,'mobile-event.png');await page.getByRole('button',{name:'Закрыть событие'}).click();await page.getByRole('dialog').waitFor({state:'hidden'});
-  await page.getByRole('button',{name:'Моя компания',exact:true}).click();await page.getByRole('heading',{name:'Что может влиять на бизнес'}).waitFor();await page.getByText('Признак отсутствует',{exact:true}).waitFor();await noOverflow(page);await accessible(page);
+  await page.getByRole('button',{name:'Моя компания',exact:true}).click();await page.getByRole('heading',{name:'Что может влиять на бизнес'}).waitFor();await page.getByText('Подтверждённые признаки и их значение',{exact:false}).click();await page.getByText('Признак отсутствует',{exact:true}).waitFor();await noOverflow(page);await accessible(page);
   await page.getByRole('button',{name:'Добавить новость',exact:true}).click();await page.getByRole('heading',{name:'Добавить публикацию',exact:true}).waitFor();await noOverflow(page);await accessible(page);assert.deepEqual(errors,[]);
  } finally {await context.close();}
 });
@@ -153,4 +153,47 @@ test('Feedback is saved explicitly, restored, and has an honest unavailable stat
   await page.reload();await page.getByRole('radio',{name:'Есть неточность',exact:true}).waitFor();assert.equal(await page.getByRole('radio',{name:'Есть неточность',exact:true}).isChecked(),true);assert.equal(await page.getByLabel('Что стоит учесть',{exact:false}).inputValue(),'Нужно проверить условия договора.');
  } finally {await context.close();}
  const other=await setup({feedbackUnavailable:true});try {await login(other.page);await other.page.locator('.brief-card h3 button').first().click();await other.page.getByText('Оценка разбора пока недоступна на этом сервере.',{exact:true}).waitFor();assert.equal(await other.page.getByRole('radio',{name:'Полезно',exact:true}).isDisabled(),true);} finally {await other.context.close();}
+});
+
+
+test('Profile makes the active role and company context visible, including after a role switch',async()=>{
+ const {context,page,state,errors}=await setup();try {
+  await login(page);await page.getByRole('button',{name:'Моя компания',exact:true}).click();
+  const identity=page.getByRole('region',{name:'Финансовый директор CFO'});await identity.waitFor();
+  await identity.getByText('Финансовый фокус',{exact:true}).waitFor();await page.getByRole('heading',{name:'Ваш бизнес в контексте'}).waitFor();
+  const passport=page.getByRole('region',{name:'Ваш бизнес в контексте'});
+  await passport.getByText('Строительство инженерных сооружений',{exact:true}).waitFor();
+  await passport.getByText('Единица измерения не подтверждена',{exact:true}).waitFor();
+  await passport.locator('.profile-product-list').getByText('Кредитные продукты',{exact:true}).waitFor();
+  await passport.getByText('Все признаки продуктов',{exact:true}).click();await passport.getByText('Нет данных',{exact:true}).first().waitFor();
+  await accessible(page);await passport.getByText('Все признаки продуктов',{exact:true}).click();await page.locator('.page-title h1').click();await screenshot(page,'profile-cfo.png',false);
+  for(const width of [1024,768,390,320]) {await page.setViewportSize({width,height:844});await noOverflow(page);}
+  await accessible(page);await page.locator('.page-title h1').click();await screenshot(page,'profile-mobile.png',false);
+  await page.getByRole('button',{name:'Сменить роль или компанию'}).click();
+  assert.equal(await page.getByLabel('Идентификатор компании').inputValue(),'DEMO_A');
+  await page.getByRole('combobox',{name:'Ваша роль'}).selectOption('ceo');
+  await page.getByText('Спрос, инвестиции, изменения на рынках и развитие бизнеса.',{exact:true}).waitFor();
+  await login(page);await page.getByRole('button',{name:'Моя компания',exact:true}).click();
+  await page.getByRole('region',{name:'Генеральный директор CEO'}).waitFor();
+  assert.equal(await page.getByRole('region',{name:'Финансовый директор CFO'}).count(),0);
+  await page.getByRole('heading',{name:'Стратегический фокус',exact:true}).waitFor();
+  await passport.getByText('Строительство инженерных сооружений',{exact:true}).waitFor();
+  assert.equal(state.requests.filter(r=>r.path==='/companies/DEMO_A/profile').at(-1).headers['x-demo-session'],'test-DEMO_A-ceo');
+  assert.equal(state.requests.filter(r=>r.method==='POST'&&r.path!=='/demo-session').length,0);assert.deepEqual(errors,[]);
+ } finally {await context.close();}
+});
+
+test('Profile handles unavailable data, retries and distinguishes absent product flags from unknown',async()=>{
+ const {context,page,state}=await setup({profileError:true,profileMissing:true});try {
+  await login(page);await page.getByRole('button',{name:'Моя компания',exact:true}).click();
+  await page.getByRole('region',{name:'Финансовый директор CFO'}).waitFor();
+  await page.getByRole('alert').filter({hasText:'Не удалось загрузить профиль компании'}).waitFor();
+  state.profileError=false;await page.getByRole('button',{name:'Повторить загрузку профиля'}).click();
+  const passport=page.getByRole('region',{name:'Ваш бизнес в контексте'});
+  await passport.getByText('Не указана',{exact:true}).waitFor();await passport.getByText('Нет данных о признаке ФТС',{exact:true}).waitFor();
+  await passport.getByText('Все признаки продуктов',{exact:true}).click();
+  await passport.getByText('Не отмечено в профиле',{exact:true}).waitFor();await passport.getByText('Нет данных',{exact:true}).first().waitFor();
+  assert.equal(await passport.locator('.profile-product-list span').count(),0);
+  await accessible(page);
+ } finally {await context.close();}
 });
