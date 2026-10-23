@@ -33,14 +33,14 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
         const detail = (payload as { detail: unknown }).detail;
         const known: Record<string, string> = {
           'Company is not on the server demo allowlist': 'Компания недоступна для демонстрации. Проверьте её идентификатор.',
-          'Demo session required': 'Войдите в рабочее пространство.',
+          'Demo session required': 'Войдите в систему.',
           'Demo session expired or invalid': 'Сессия истекла. Войдите снова.',
           llm_not_configured: 'Аналитический сервис ещё не настроен.',
           budget_exceeded: 'Достигнут общий лимит аналитики. Попробуйте позже.',
           'Not Found': 'Данные или функция недоступны на этом сервере.',
           'Company not found': 'Компания не найдена. Проверьте её идентификатор.',
           'Event not found': 'Событие не найдено или недоступно в этой сессии.',
-          'Analysis result not found': 'Сохранённый разбор не найден или недоступен в этой сессии.',
+          'Analysis result not found': 'Сохранённый анализ не найден или недоступен в этой сессии.',
           'Session does not grant access to this company': 'Эта компания недоступна в текущей сессии.',
         };
         message = typeof detail === 'string' ? known[detail] ?? detail : 'Не удалось обработать данные. Проверьте поля и повторите попытку.';

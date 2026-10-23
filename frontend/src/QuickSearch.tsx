@@ -5,11 +5,11 @@ import type { Event } from './types';
 import type { Screen } from './navigation';
 
 const sections: { screen: Screen; title: string; description: string; icon: IconName }[] = [
-  { screen: 'dashboard', title: 'Обзор', description: 'Сводка и важное для бизнеса', icon: 'grid' },
+  { screen: 'dashboard', title: 'Обзор', description: 'Сводка событий и показатели ленты', icon: 'grid' },
   { screen: 'insights', title: 'Моя аналитика', description: 'Персональная лента и фильтры', icon: 'activity' },
   { screen: 'events', title: 'Все события', description: 'Сохранённые публикации и источники', icon: 'list' },
-  { screen: 'profile', title: 'Моя компания', description: 'Профиль и основания персонализации', icon: 'briefcase' },
-  { screen: 'publish', title: 'Добавить новость', description: 'Новая публикация для разбора', icon: 'plus' },
+  { screen: 'profile', title: 'Моя компания', description: 'Данные компании и параметры анализа', icon: 'briefcase' },
+  { screen: 'publish', title: 'Добавить новость', description: 'Новая публикация для анализа', icon: 'plus' },
 ];
 export function QuickSearch({ items, events, onClose, onScreen, onEvent }: {
   items: FeedItem[]; events: Event[]; onClose: () => void;
@@ -52,5 +52,5 @@ export function QuickSearch({ items, events, onClose, onScreen, onEvent }: {
     if (event.nativeEvent.isComposing) return;
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setActive(index => results.length ? (index + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length : 0); }
     if (event.key === 'Enter') { event.preventDefault(); choose(active); }
-  }}/></div><p className="search-scope">По загруженным событиям и разделам вашего пространства.</p><div className="quick-search-results" id="search-results" role="listbox" aria-label="Результаты быстрого поиска">{results.map((item, index) => <button id={`search-result-${index}`} key={item.key} role="option" aria-selected={active === index} tabIndex={-1} type="button" className={active === index ? 'active' : ''} onMouseMove={() => setActive(index)} onClick={() => choose(index)}><span className="search-result-icon"><Icon name={item.icon} size={18}/></span><span><strong>{item.title}</strong><small>{item.description}</small></span><Icon name="arrow" size={16}/></button>)}</div>{results.length === 0 && <div className="search-empty" role="status"><Icon name="search" size={25}/><strong>Ничего не найдено</strong><p>Попробуйте другое название. Поиск ограничен уже загруженными событиями.</p></div>}<div className="search-keyboard-hints"><span><kbd>↑</kbd><kbd>↓</kbd> выбрать</span><span><kbd>Enter</kbd> открыть</span><span><kbd>Esc</kbd> закрыть</span></div></div></div>;
+  }}/></div><p className="search-scope">Поиск по загруженным событиям и разделам приложения.</p><div className="quick-search-results" id="search-results" role="listbox" aria-label="Результаты быстрого поиска">{results.map((item, index) => <button id={`search-result-${index}`} key={item.key} role="option" aria-selected={active === index} tabIndex={-1} type="button" className={active === index ? 'active' : ''} onMouseMove={() => setActive(index)} onClick={() => choose(index)}><span className="search-result-icon"><Icon name={item.icon} size={18}/></span><span><strong>{item.title}</strong><small>{item.description}</small></span><Icon name="arrow" size={16}/></button>)}</div>{results.length === 0 && <div className="search-empty" role="status"><Icon name="search" size={25}/><strong>Ничего не найдено</strong><p>Попробуйте другое название. Поиск ограничен уже загруженными событиями.</p></div>}<div className="search-keyboard-hints"><span><kbd>↑</kbd><kbd>↓</kbd> выбрать</span><span><kbd>Enter</kbd> открыть</span><span><kbd>Esc</kbd> закрыть</span></div></div></div>;
 }

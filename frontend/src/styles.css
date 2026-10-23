@@ -197,35 +197,6 @@ summary {
   margin-top: auto;
   padding-top: 44px;
 }
-.sidebar-note {
-  padding: 17px 12px 23px;
-  color: #5d6574;
-  font-size: 8px;
-  letter-spacing: .8px;
-}
-.sidebar-note-dot {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  background: var(--red);
-  border-radius: 50%;
-  margin-right: 6px;
-}
-.sidebar-note strong {
-  display: block;
-  color: #34372e;
-  font-size: 17px;
-  font-weight: 550;
-  line-height: 1.45;
-  letter-spacing: -.35px;
-  margin: 15px 0 9px;
-}
-.sidebar-note span:last-child {
-  display: block;
-  font-size: 11px;
-  line-height: 1.7;
-  letter-spacing: 0;
-}
 .sidebar-logout {
   border: 0;
   border-top: 1px solid var(--line);

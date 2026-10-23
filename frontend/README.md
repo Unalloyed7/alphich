@@ -2,6 +2,8 @@
 
 React + TypeScript + Vite UI. The UI performs real requests to the backend (no demo/mock event generator):
 
+Product terminology and Russian interface copy: [UI copy guide](../docs/ui-copy.md).
+
 - `POST /api/v1/demo-session` — server-validated company/role selection;
 - `GET /api/v1/companies`, `/companies/{id}/profile` — company data;
 - `POST /api/v1/publications` with a unique `Idempotency-Key` — new publication;

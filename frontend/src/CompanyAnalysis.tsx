@@ -56,9 +56,9 @@ export function CompanyAnalysis({ session }: { session: DemoSession }) {
     return () => { alive = false; };
   }, [session.company_id, session.token]);
   if (error) return <section className="panel company-analysis"><p role="alert">{error}</p></section>;
-  if (!context) return <section className="panel loading-panel">Собираем бизнес-контекст компании…</section>;
-  return <section className="panel company-analysis" aria-label="Бизнес-анализ компании">
-    <div className="panel-heading"><div><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h2>Что может влиять на бизнес</h2>
+  if (!context) return <section className="panel loading-panel">Загружаем анализ профиля компании…</section>;
+  return <section className="panel company-analysis" aria-label="Анализ профиля компании">
+    <div className="panel-heading"><div><div className="eyebrow">АНАЛИЗ ПРОФИЛЯ</div><h2>Факторы влияния на компанию</h2>
       <p>Факты из профиля и гипотезы для проверки. Эти гипотезы используются при подготовке новостного анализа.</p></div></div>
     <details className="business-observed-details"><summary>Подтверждённые признаки и их значение · {context.observed.length}</summary>
     <div className="business-observed">{context.observed.map(item => <article key={item.code}>
@@ -68,9 +68,9 @@ export function CompanyAnalysis({ session }: { session: DemoSession }) {
       <p>Совпадение признака помогает выбрать вопрос для проверки. Оно не означает, что требование или программа уже применимы к компании.</p>
       <ol className="business-questions">{context.factor_checks.map(item => <li key={item.factor}><strong>{labels[item.factor] ?? item.factor}</strong><p>{item.check}</p></li>)}</ol>
     </details>}
-    <h3>Возможные проблемы и решения</h3>
+    <h3>Гипотезы для проверки</h3>
     <p className="muted">Применимость к этой компании требует подтверждения. Гипотеза не означает, что проблема уже возникла.</p>
-    {context.hypotheses.length === 0 && <p>Данных недостаточно для предметной бизнес-гипотезы. Начните с вопросов ниже.</p>}
+    {context.hypotheses.length === 0 && <p>Для подготовки гипотез недостаточно данных. Вопросы для уточнения приведены ниже.</p>}
     <div className="business-hypotheses">{context.hypotheses.map(item => <article key={item.id}>
       <span className="business-hypothesis-badge">Гипотеза · нужно подтвердить</span><h4>{item.possible_problem}</h4>
       <details className="hypothesis-details"><summary>Механизм влияния и возможное решение <Icon name="chevron" size={15}/></summary><dl><dt>Как передаётся влияние</dt><dd>{item.mechanism}</dd><dt>Какие данные запросить</dt><dd>{item.check_data}</dd>
