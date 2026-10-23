@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core import Company
 from app.news import Event, Job, JobView, SourceDocument, new_id, view_job
-from . import AGENT_ROLES
+from . import AGENT_ROLES, VERSION
 from .provider import call_role, hashed
 from .schemas import FeedbackRequest, InsightRequest, QuestionRequest
 from .service import company_profile, normalized_events
@@ -129,7 +129,7 @@ def register_routes(app, get_db, current_session, factory):
         if company is None:
             raise HTTPException(404, "Company not found")
         from alphich_kb.personalization.business import business_context
-        return business_context(company_profile(company, demo.role))
+        return business_context(company_profile(company, demo.role, db=db))
 
     @app.post("/api/v1/companies/{company_id}/insights", status_code=202, response_model=JobView)
     def create_insight(company_id: str, payload: InsightRequest, idempotency_key: str | None = Header(None),
@@ -141,7 +141,7 @@ def register_routes(app, get_db, current_session, factory):
         company = db.get(Company, company_id)
         if not event or not source or not company or event.company_id != company_id or source.company_id != company_id:
             raise HTTPException(404, "Event not found")
-        return enqueue(db, demo, event, source, payload.model_dump(mode="json"), idempotency_key, company_profile(company, demo.role))
+        return enqueue(db, demo, event, source, payload.model_dump(mode="json"), idempotency_key, company_profile(company, demo.role, db=db))
 
     @app.post("/api/v1/events/{event_id}/extract-facts", status_code=202, response_model=JobView)
     def extract_event_facts(event_id: str, idempotency_key: str | None = Header(None),
@@ -153,7 +153,7 @@ def register_routes(app, get_db, current_session, factory):
         if not event or not source or not company or event.company_id != demo.company_id or source.company_id != demo.company_id:
             raise HTTPException(404, "Event not found")
         return enqueue(db, demo, event, source, {"event_id": event_id}, idempotency_key,
-                       company_profile(company, demo.role), facts_only=True)
+                       company_profile(company, demo.role, db=db), facts_only=True)
 
     @app.get("/api/v1/insights/{insight_id}")
     def insight_detail(insight_id: str, demo=Depends(current_session), db=Depends(get_db)):
@@ -258,8 +258,8 @@ def register_routes(app, get_db, current_session, factory):
     @app.get("/api/v1/companies/{company_id}/feed")
     def feed(company_id: str, as_of: datetime | None = None, demo=Depends(current_session), db=Depends(get_db)):
         from alphich_kb.personalization.inputs import SelectionScope
-        from alphich_kb.personalization.selector import NewsSelector
-        from alphich_kb.personalization.grading import MIN_SELECTED_GRADE
+        from .relevance import MIN_INSIGHT_GRADE, VERSION as RELEVANCE_VERSION, cached_assessment_db
+        from alphich_kb.personalization.reprints import group_reprints
         if company_id != demo.company_id:
             raise HTTPException(403, "Session does not grant access to this company")
         try:
@@ -276,20 +276,63 @@ def register_routes(app, get_db, current_session, factory):
             or_(SourceDocument.published_at.is_(None), SourceDocument.published_at <= when.isoformat()))
             .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(settings.news_feed_limit)).all()
         events = normalized_events(db, rows)
-        from .news_index import CachedNewsEncoder, INDEX_VERSION, encoder_for
-        encoder = encoder_for(settings)
-        bindings = {event.id: hashed([INDEX_VERSION, event.id, source.id, source.version,
-                    source.content_hash, source.title, encoder.space_id]) for event, source in rows} if encoder is not None else None
-        cached = CachedNewsEncoder(factory, encoder, company_id, source_bindings=bindings) if encoder is not None else None
-        result = NewsSelector(events, cached).select(company_profile(company, demo.role),
-            SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role),
-            mode="hybrid" if cached else "lexical", limit=10, min_grade=MIN_SELECTED_GRADE)
+        profile = company_profile(company, demo.role, db=db)
+        scope = SelectionScope(company_id, when.isoformat(), frozenset(e["id"] for e in events), demo.role)
+        graded, unassessed, skipped, blocked, below = [], [], 0, 0, 0
+        for event in events:
+            if scope.excludes(event):
+                continue
+            assessment = cached_assessment_db(db, profile, event, scope, settings, allow_historical=True)
+            if assessment is None:
+                unassessed.append({"event_id": event["id"], "event_version": event["version"],
+                    "title": event["title"], "status": "needs_relevance_assessment",
+                    "relevance_grade": None, "grade_method": RELEVANCE_VERSION})
+                continue
+            if assessment.get("status") in {"assessment_running", "assessment_failed"}:
+                blocked += 1
+                continue
+            if assessment.get("relevance_grade") is None:
+                skipped += 1
+                continue
+            if not assessment.get("relevance_selected", False) or assessment["relevance_grade"] < MIN_INSIGHT_GRADE:
+                below += 1
+                continue
+            graded.append({**assessment, "title": event["title"],
+                "event_id": event["id"], "event_version": event["version"]})
+        # Keep the existing reprint protection after rating, so an unassessed
+        # copy cannot hide a different copy with a validated GLM assessment.
+        by_id = {item["event_id"]: item for item in graded}
+        rated_events = [event for event in events if event["id"] in by_id]
+        for event in rated_events:
+            event["age_anchor"] = event["published_at"] or event["available_at"]
+        groups, reprints = group_reprints(rated_events)
+        graded = []
+        for group in groups:
+            ids = [group["id"], *group["duplicate_event_ids"]]
+            best = max((by_id[ident] for ident in ids), key=lambda item: (item["relevance_grade"], item["event_id"]))
+            graded.append({**best, "duplicate_event_ids": sorted(ident for ident in ids if ident != best["event_id"]),
+                "story_group_id": group["story_group_id"], "reprint_sources": group["reprint_sources"],
+                "reprint_group_size": group["reprint_group_size"]})
+        graded.sort(key=lambda item: (-item["relevance_grade"],
+            -(datetime.fromisoformat(item["published_at"] or item["available_at"])).timestamp(), item["event_id"]))
+        # Feed reads consume only persisted E5/GLM decisions. They never infer
+        # embeddings, call a model, or substitute the previous rule-based grade.
+        result = {"company_id": company_id, "role": demo.role, "items": graded[:10],
+            "review_queue": [], "extraction_candidates": unassessed[:3],
+            "grade_scale": {"min": 0, "max": 5}, "selection_threshold": MIN_INSIGHT_GRADE,
+            "min_grade": MIN_INSIGHT_GRADE, "mode": "cached_e5_glm", "grade_method": RELEVANCE_VERSION,
+            "trace": {"grading_version": RELEVANCE_VERSION, "model_calls_on_read": 0,
+                "unassessed": len(unassessed), "semantic_skipped": skipped,
+                "assessment_blocked": blocked, "below_grade_threshold": below,
+                "exclusion_counts": reprints}}
         recent = db.scalars(select(Insight).where(Insight.company_id == company_id, Insight.role == demo.role)
                             .order_by(Insight.created_at.desc(), Insight.id.desc()).limit(100)).all()
         for item in result["items"]:
             match = next((r for r in recent if r.event_id == item["event_id"] and
-                          r.payload["event_version"] == item["event_version"] and
+                          str(r.payload["event_version"]) == str(item["event_version"]) and
                           r.payload["profile_version"] == company.profile_version and
+                          r.snapshot.get("versions", {}).get("runtime") == VERSION and
+                          r.snapshot.get("selection", {}).get("grade_method") == RELEVANCE_VERSION and
                           datetime.fromisoformat(r.payload["as_of"]) <= when), None)
             if match:
                 try:
@@ -297,12 +340,10 @@ def register_routes(app, get_db, current_session, factory):
                 except HTTPException:
                     continue
                 item["insight"] = {k: match.payload[k] for k in ("id", "status", "as_of", "headline", "bank_view")}
-        result["limitations"] = ["bounded_candidate_pool", "machine_relevance_not_human_review"]
-        if not cached or result["mode"] == "lexical_fallback":
-            result["limitations"].append("news_dense_index_unavailable_or_pending")
+        result["limitations"] = ["bounded_candidate_pool", "machine_relevance_not_human_review",
+            "cached_glm_assessments_with_original_as_of"]
+        if unassessed:
+            result["limitations"].append("news_relevance_assessment_pending")
         result["candidate_pool_limit"] = settings.news_feed_limit
-        result["news_index"] = {"available": bool(cached and result["mode"] == "hybrid"),
-            "space_id": encoder.space_id if encoder else None, "passage_cache_hits": cached.hits if cached else 0,
-            "passage_cache_misses": cached.misses if cached else 0,
-            "source_cache_misses": cached.source_misses if cached else 0, "builds_on_read": False}
+        result["news_index"] = {"builds_on_read": False, "inference_on_read": False}
         return result

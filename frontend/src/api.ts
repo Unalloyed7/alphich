@@ -1,4 +1,4 @@
-import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, PublicationPayload, Role, SourceDetail } from './types';
+import type { CompanyProfile, CompanySummary, DemoSession, Event, Job, NewsCollectionStatus, NewsSearchRun, PublicationPayload, Role, SourceDetail } from './types';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -66,6 +66,16 @@ export const api = {
   job: (jobId: string, token: string) => request<Job>(`/jobs/${encodeURIComponent(jobId)}`, {}, token),
   event: (eventId: string, token: string) => request<Event>(`/events/${encodeURIComponent(eventId)}`, {}, token),
   source: (sourceId: string, token: string) => request<SourceDetail>(`/sources/${encodeURIComponent(sourceId)}`, {}, token),
+  collectionStatus: (token: string) => request<NewsCollectionStatus>('/news-collection/status', {}, token),
+  latestNewsSearch: (companyId: string, token: string) =>
+    request<{ run: NewsSearchRun | null }>(`/companies/${encodeURIComponent(companyId)}/news-search`, {}, token),
+  startNewsSearch: (companyId: string, count: number, token: string, key: string) =>
+    request<NewsSearchRun>(`/companies/${encodeURIComponent(companyId)}/news-search`, {
+      method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify({ count }),
+    }, token),
+  newsSearch: (id: string, token: string) => request<NewsSearchRun>(`/news-search/${encodeURIComponent(id)}`, {}, token),
+  stopNewsSearch: (id: string, token: string) =>
+    request<NewsSearchRun>(`/news-search/${encodeURIComponent(id)}/stop`, { method: 'POST' }, token),
 };
 
 /** Analysis operations are served by the existing intelligence router.

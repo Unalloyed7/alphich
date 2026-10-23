@@ -1,4 +1,11 @@
+x-rss-environment: &rss-environment
+  RSS_ENABLED: ${RSS_ENABLED:-1}
+  RSS_POLL_MINUTES: ${RSS_POLL_MINUTES:-5}
+  RSS_COLLECTOR_WORKERS: ${RSS_COLLECTOR_WORKERS:-3}
+  RSS_CONFIG: ${RSS_CONFIG:-/srv/app/rss_sources.json}
+
 x-llm-environment: &llm-environment
+  <<: *rss-environment
   LLM_BASE_URL: ${LLM_BASE_URL:-}
   LLM_API_KEY: ${LLM_API_KEY:-}
   LLM_EXTRACTION_MODEL: ${LLM_EXTRACTION_MODEL:-}
@@ -17,6 +24,7 @@ x-llm-environment: &llm-environment
   BANK_ALLOWED_DOCUMENT_IDS: ${BANK_ALLOWED_DOCUMENT_IDS-*}
   COMPANY_CONTEXT_DIR: ${COMPANY_CONTEXT_DIR:-}
   NEWS_FEED_MAX_EVENTS: ${NEWS_FEED_MAX_EVENTS:-2000}
+  NEWS_E5_MIN_SIMILARITY: ${NEWS_E5_MIN_SIMILARITY:-0.75}
   AI_AUTOMATION_ENABLED: ${AI_AUTOMATION_ENABLED:-0}
   AI_AUTOMATION_COMPANY_IDS: ${AI_AUTOMATION_COMPANY_IDS:-}
   AI_AUTOMATION_ROLES: ${AI_AUTOMATION_ROLES:-cfo}
@@ -73,6 +81,7 @@ services:
       api:
         condition: service_healthy
     environment:
+      <<: *rss-environment
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
       DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-U_9250,U_99802,U_44792}
   analysis-worker:
@@ -103,7 +112,6 @@ services:
     ports:
       - "127.0.0.1:5173:80"
   rss-collector:
-    profiles: ["news"]
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -115,6 +123,7 @@ services:
       api:
         condition: service_healthy
     environment:
+      <<: *rss-environment
       DATABASE_URL: postgresql+psycopg://alphich:${POSTGRES_PASSWORD:-local_dev_only}@postgres:5432/alphich
       DEMO_COMPANY_IDS: ${DEMO_COMPANY_IDS:-U_9250,U_99802,U_44792}
       RSS_COMPANY_IDS: ${RSS_COMPANY_IDS:-}

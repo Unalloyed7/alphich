@@ -36,11 +36,12 @@ def build_facets(company, role):
     if company["bindings"]["industry"] and (label or industry["code"]):
         add("industry", f"{label}. {'; '.join(sector_terms(industry['code']))}. Спрос, издержки и регулирование отрасли.",
             company["bindings"]["industry"])
-    positive = [p for p in ("loan", "deposit", "lease", "factoring")
+    positive = [p for p in ("loan", "deposit", "lease", "factoring", "guarantee")
                 if company["products"][p] is True and company["bindings"][p]]
     descriptions = {"loan": "Стоимость кредитного финансирования, ключевая ставка",
                     "deposit": "Доходность размещения свободных средств и депозитов",
-                    "lease": "Условия лизингового финансирования", "factoring": "Факторинг и оборотное финансирование"}
+                    "lease": "Условия лизингового финансирования", "factoring": "Факторинг и оборотное финансирование",
+                    "guarantee": "Требования к обеспечению контрактов и условия банковских гарантий"}
     if positive:
         add("finance", ". ".join(descriptions[p] for p in positive),
             [i for p in positive for i in company["bindings"][p]], positive_products=positive)
@@ -50,6 +51,20 @@ def build_facets(company, role):
     if company["region"] and company["bindings"]["region"]:
         add("region", f"{str(company['region'])[:120]}. {label}. Регулирование бизнеса и инфраструктура региона регистрации.",
             company["bindings"]["region"] + company["bindings"]["industry"])
+    factors = company.get("factors", {})
+    employees = factors.get("employees_band")
+    if employees:
+        add("employment", f"{label}. Требования к работодателям, рынок труда, численность и стоимость труда. "
+            f"Диапазон работников в исходнике: {employees['value'][:100]}; период неизвестен.",
+            employees["feature_ids"] + company["bindings"]["industry"],
+            limitations=["employee_band_is_not_exact_headcount", "eligibility_requires_event_conditions"])
+    eligibility = [factors[name] for name in ("organization_type", "ownership_form", "company_age_band") if name in factors]
+    if eligibility:
+        add("eligibility", f"{label}. Условия применения требований и программ поддержки организаций. "
+            + "; ".join(item["value"][:100] for item in eligibility)
+            + ". Возрастной диапазон на неизвестную дату; льготы и статус МСП не установлены.",
+            [fid for item in eligibility for fid in item["feature_ids"]],
+            limitations=["source_labels_do_not_establish_eligibility"])
     sectors = sorted(company["payment_sectors"], key=lambda s: (-s["share"], s["code"] or ""))[:2]
     if sectors:
         add("payments", "Изменения в отраслях известных платёжных контрагентов: " + "; ".join(str(s["name"])[:140] for s in sectors),

@@ -8,13 +8,21 @@ from .financial_grounding import unsupported_financing_stability
 
 LABELS = {"group_id": "Группа из исходного профиля", "okved_code": "ОКВЭД", "okved_name": "Основная деятельность", "region_registration": "Регион регистрации",
           "revenue_raw": "Выручка в исходных единицах", "fts_countries": "Страны в сведениях ФТС",
+          "revenue_unit": "Единица выручки", "revenue_currency": "Валюта выручки",
+          "revenue_period": "Отчётный год выручки", "revenue_scope": "Охват показателя выручки (юрлицо или группа)",
           "CL_PRODUCT_LOA_MARK": "Кредитный продукт", "CL_PRODUCT_DEP_MARK": "Депозитный продукт",
           "CL_PRODUCT_LEA_MARK": "Лизинговый продукт", "CL_PRODUCT_GAR_MARK": "Гарантийный продукт",
           "CL_PRODUCT_RKO_MARK": "Расчётное обслуживание", "CL_PRODUCT_ZPP_MARK": "Зарплатный проект",
-          "FACTORING_MARK": "Факторинг"}
+          "FACTORING_MARK": "Факторинг", "fts_flag": "Признак сведений ФТС",
+          "organization_type": "Тип организации", "ownership_form": "Форма собственности",
+          "company_age_band": "Возраст компании в исходном снимке", "business_stage_label": "Исходная метка стадии бизнеса",
+          "negative_mark_raw": "Негативный признак без расшифровки", "employees_fns_band": "Диапазон численности ФНС",
+          "employees_spark_band": "Диапазон численности СПАРК", "employees_band": "Согласованный диапазон численности",
+          "city_registration": "Город регистрации", "client_type": "Отношения с банком"}
 
 
 def company_evidence(profile):
+    from alphich_kb.personalization.factors import FACTOR_POLICIES
     result = {}
     for feature in profile.get("features", []):
         if feature["name"] == "person_links":
@@ -24,17 +32,22 @@ def company_evidence(profile):
             label = "Входящие" if feature["name"] == "payment_incoming" else "Исходящие"
             sectors = "; ".join(f"{s.get('code')}: {str(s.get('name') or '')[:70]}, доля {s.get('share_of_all_flow')}"
                                 for s in value.get("known_sectors", [])[:3])
-            text = (f"{label} платежи: сумма в исходных единицах {value.get('amount_raw')}; "
+            clarified = value.get("currency") == "RUB" and isinstance(value.get("period"), dict)
+            temporal = ("Валюта — рубли; период с 1 января, год и конец периода неизвестны. Назначение платежей неизвестно. "
+                        if clarified else "Валюта, период и назначение платежей неизвестны. ")
+            text = (f"{label} платежи: сумма {'в рублях' if clarified else 'в исходных единицах'} {value.get('amount_raw')}; "
                     f"количество платежей {value.get('payment_count')}; контрагентов {value.get('counterparty_count')}; "
                     f"доля крупнейшего {value.get('top_counterparty_share')}; "
                     f"покрытие известными профилями {value.get('known_profile_amount_share')}. "
-                    "Доли от 0 до 1. Валюта, период и назначение платежей неизвестны. "
+                    f"Доли от 0 до 1. {temporal}"
                     f"До трёх отраслей известных контрагентов: {sectors or 'нет данных'}.")
         else:
             text = None
         display = "да" if value is True else "нет" if value is False else "неизвестно" if value is None else (
             ", ".join(value) if isinstance(value, list) and all(isinstance(v, str) for v in value)
             else json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value))
+        if feature["name"] in FACTOR_POLICIES:
+            text = f"{LABELS[feature['name']]}: {display}. {FACTOR_POLICIES[feature['name']]['meaning']}"
         result[feature["id"]] = {**feature, "kind": "company_feature", "company_id": profile.get("company_id", profile.get("id")),
                                  "text": text or f"{LABELS.get(feature['name'], feature['name'])}: {display}.",
                                  "quality_flags": ["company_snapshot_date_unknown"]}
@@ -121,6 +134,10 @@ def verify_draft(draft, registry):
             evidence_kinds = {e["kind"] for e in evidence}
             if not {"event_fact", "company_feature"} <= evidence_kinds or not claim.conditions:
                 issues.append(f"{claim.id}:personal_inference_needs_company_news_and_conditions")
+            company_basis = [e for e in evidence if e["kind"] == "company_feature"]
+            if company_basis and all(e.get("name") in {
+                    "client_type", "negative_mark_raw", "business_stage_label", "group_id"} for e in company_basis):
+                issues.append(f"{claim.id}:administrative_labels_do_not_establish_business_impact")
             # OCR without span review cannot establish an exact numeric input.
             trusted_text = " ".join(e["text"] for e in evidence if e["kind"] != "document_chunk" or e.get("ocr_checked"))
             if not numbers(claim.text) <= numbers(trusted_text):

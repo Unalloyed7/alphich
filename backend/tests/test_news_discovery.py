@@ -129,7 +129,7 @@ def test_only_five_does_not_promote_a_four_or_pay_for_personal_analysis(store):
     assert result['status'] == 'partial' and result['stop_reason'] == 'sources_exhausted'
     assert result['stats']['completed'] == 0 and result['stats']['below_threshold'] == 1
     assert result['items'][0]['grade'] == 4
-    assert [name for name, _ in gateway.seen] == ['ExtractionDraft', 'ExtractionReview']
+    assert [name for name, _ in gateway.seen] == ['ExtractionDraft', 'ExtractionReview', 'RelevanceJudgment']
     with factory() as db:
         assert db.scalar(select(func.count()).select_from(Insight)) == 0
 

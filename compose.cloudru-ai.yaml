@@ -10,7 +10,7 @@ x-organizer-demo: &organizer-demo
   LLM_ANALYSIS_MODEL: z-ai/glm-5.3-flash
   LLM_BUDGET_MODE: gateway_receipt
   LLM_RECEIPT_RUB_PER_UNIT: "1"
-  LLM_DAILY_LIMIT_RUB: "100"
+  LLM_DAILY_LIMIT_RUB: "500"
   LLM_APPLY_CONFIGURED_BUDGET: "1"
   LLM_MODEL_CATALOG_JSON: >-
     [{"id":"qwen/qwen3.6-35b-a3b","case_model":"qwen3.6-35b-a3b","input_limit":32768,"output_limit":4096,"reasoning_enabled":false,"response_mode":"json_schema"},{"id":"z-ai/glm-5.3-flash","case_model":"glm-5.3-flash","input_limit":32768,"output_limit":2500,"reasoning_enabled":false,"response_mode":"json_schema"}]

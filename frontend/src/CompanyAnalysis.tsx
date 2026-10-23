@@ -10,6 +10,7 @@ export interface BusinessContext {
   hypotheses: Array<{ id: string; status: string; basis_feature_ids: string[]; possible_problem: string;
     mechanism: string; check_data: string; decision: string }>;
   missing_data: Array<{ id: string; question: string; purpose: string }>;
+  factor_checks?: Array<{ factor: string; check: string }>;
   market_position: { market_share: number | null; status: string; reason: string };
   group_policy: string;
 }
@@ -19,6 +20,12 @@ const labels: Record<string, string> = {
   deposit_flag: 'Депозитный продукт в профиле', lease_flag: 'Лизинг в профиле', factoring_flag: 'Факторинг в профиле',
   revenue_raw: 'Исходная выручка', customs_countries: 'Страны в данных ФТС', group_membership: 'Группа компаний',
   payment_incoming: 'Наблюдаемые входящие платежи', payment_outgoing: 'Наблюдаемые исходящие платежи',
+  organization_type: 'Тип организации', ownership_form: 'Форма собственности',
+  company_age_band: 'Возраст в исходном снимке', business_stage_label: 'Исходная метка стадии бизнеса',
+  negative_mark_raw: 'Признак без подтверждённой расшифровки',
+  employees_fns_band: 'Численность ФНС', employees_spark_band: 'Численность СПАРК', employees_band: 'Согласованный диапазон численности',
+  city_registration: 'Город регистрации', client_type: 'Отношения с банком',
+  guarantee_flag: 'Гарантийный продукт в профиле', rko_flag: 'Расчётное обслуживание', payroll_flag: 'Зарплатный проект',
 };
 
 function valueText(value: unknown): string {
@@ -57,6 +64,10 @@ export function CompanyAnalysis({ session }: { session: DemoSession }) {
     <div className="business-observed">{context.observed.map(item => <article key={item.code}>
       <span>{labels[item.code] ?? item.code}</span><strong>{valueText(item.value)}</strong><details><summary>Что это означает</summary><p>{item.meaning}</p></details>
     </article>)}</div></details>
+    {!!context.factor_checks?.length && <details className="business-missing"><summary>Проверки применимости новостей · {context.factor_checks.length}</summary>
+      <p>Совпадение признака помогает выбрать вопрос для проверки. Оно не означает, что требование или программа уже применимы к компании.</p>
+      <ol className="business-questions">{context.factor_checks.map(item => <li key={item.factor}><strong>{labels[item.factor] ?? item.factor}</strong><p>{item.check}</p></li>)}</ol>
+    </details>}
     <h3>Возможные проблемы и решения</h3>
     <p className="muted">Применимость к этой компании требует подтверждения. Гипотеза не означает, что проблема уже возникла.</p>
     {context.hypotheses.length === 0 && <p>Данных недостаточно для предметной бизнес-гипотезы. Начните с вопросов ниже.</p>}

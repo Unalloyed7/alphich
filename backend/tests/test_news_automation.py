@@ -1,5 +1,6 @@
 """Collector-proven sources -> real queue -> shared facts -> grades -> scoped cards."""
 from dataclasses import replace
+import json
 from datetime import datetime, timedelta, timezone
 import time
 
@@ -14,6 +15,18 @@ from app.intelligence.storage import Insight, LLMCall
 from app.intelligence.worker import process_next
 from test_intelligence import store, runtime, ScriptedGateway, stored_event
 from test_ai_offline_features import public_copies
+
+
+class CompanyJudgeGateway(ScriptedGateway):
+    """Controlled personal verdicts, not a semantic-quality assertion."""
+    def __call__(self, request):
+        body = json.loads(request.content)
+        schema = json.loads(body["messages"][0]["content"].split("schema:\n", 1)[1])
+        if schema["title"] == "RelevanceJudgment":
+            data = json.loads(body["messages"][1]["content"])["untrusted_data"]
+            code = next(f["value"] for f in data["company_features"] if f["name"] == "okved_code")
+            self.options["relevance_grade"] = 4 if code == "41.20" else 3
+        return super().__call__(request)
 
 
 def copies(store):
@@ -43,11 +56,11 @@ def drain(factory, engine):
 def test_two_companies_share_extraction_and_only_grade_4_gets_a_personal_card(store):
     client, factory, headers, settings = store
     copies(store)
-    engine, gateway = runtime(factory, settings)
+    engine, gateway = runtime(factory, settings, CompanyJudgeGateway())
     first = dispatch_once(factory, settings, config())
     assert first["extractions_queued"] == 2 and first["cards_queued"] == 0
     assert drain(factory, engine) == 2
-    assert [name for name, _ in gateway.seen] == ["ExtractionDraft", "ExtractionReview"]
+    assert [name for name, _ in gateway.seen] == ["ExtractionDraft", "ExtractionReview", "RelevanceJudgment", "RelevanceJudgment"]
     second = dispatch_once(factory, settings, config())
     assert second["cards_queued"] == 1 and second["below_threshold"] == 1
     assert drain(factory, engine) == 1
@@ -117,12 +130,12 @@ def test_daily_extraction_quota_is_durable_and_repeated_ticks_do_not_spend_it_tw
         assert sorted(db.scalars(select(AutomationQuota.extraction_jobs))) == [1, 1]
 
 
-def test_both_roles_reuse_one_fact_job_per_company_and_keep_separate_cards(store):
+def test_both_roles_get_personal_judges_but_share_public_facts_and_keep_separate_cards(store):
     _, factory, _, settings = store
     copies(store)
     cfg = config(roles=("cfo", "ceo"))
-    engine, gateway = runtime(factory, settings)
-    assert dispatch_once(factory, settings, cfg)["extractions_queued"] == 2
+    engine, gateway = runtime(factory, settings, CompanyJudgeGateway())
+    assert dispatch_once(factory, settings, cfg)["extractions_queued"] == 4
     drain(factory, engine)
     assert dispatch_once(factory, settings, cfg)["cards_queued"] == 2
     drain(factory, engine)
@@ -130,6 +143,7 @@ def test_both_roles_reuse_one_fact_job_per_company_and_keep_separate_cards(store
         assert set(db.scalars(select(Insight.role))) == {"cfo", "ceo"}
         assert db.scalar(select(func.count()).select_from(Insight)) == 2
     assert sum(name == "ExtractionDraft" for name, _ in gateway.seen) == 1
+    assert sum(name == "RelevanceJudgment" for name, _ in gateway.seen) == 4
 
 
 def test_uncertain_paid_outcome_stays_blocked_across_dispatch_and_restart(store):
@@ -164,12 +178,15 @@ def test_profile_revision_makes_new_decision_without_reextracting_public_facts(s
     with factory.begin() as db:
         db.get(Company, "DEMO_A").profile_version = "new-profile"
     report = dispatch_once(factory, settings, config())
-    assert report["extractions_queued"] == 0 and report["cards_queued"] == 1
+    assert report["extractions_queued"] == 1 and report["cards_queued"] == 0
+    drain(factory, engine)
+    assert dispatch_once(factory, settings, config())["cards_queued"] == 1
     drain(factory, engine)
     assert sum(name == "ExtractionDraft" for name, _ in gateway.seen) == 1
+    assert sum(name == "RelevanceJudgment" for name, _ in gateway.seen) == 3
 
 
-def test_housing_mortgage_news_is_not_lost_by_the_free_industry_gate(store):
+def test_housing_mortgage_news_reaches_e5_worker_without_a_lexical_company_veto(store):
     _, factory, _, settings = store
     copies(store)
     body = "В России увеличился спрос на ипотеку. Банки сообщили о крупных объёмах финансирования покупки жилья по всей стране."
@@ -177,6 +194,43 @@ def test_housing_mortgage_news_is_not_lost_by_the_free_industry_gate(store):
         article=db.scalar(select(RssArticle));article.body=body
         for source in db.scalars(select(SourceDocument)):source.body=body
     result=dispatch_once(factory,settings,config())
-    assert result["extractions_queued"]==1
+    assert result["extractions_queued"] == 2
     with factory() as db:
-        assert db.scalar(select(Job.company_id).where(Job.operation=="news_fact_extraction"))=="DEMO_A"
+        assert set(db.scalars(select(Job.company_id).where(Job.operation == "news_fact_extraction"))) == {"DEMO_A", "DEMO_B"}
+
+
+def test_free_semantic_rejections_refund_candidate_quota_once_and_allow_the_next_article(store):
+    from app.intelligence.automation import AutomationQuotaRefund
+    from test_news_relevance import Encoder
+    _, factory, _, settings = store
+    copies(store)
+    cfg = config(extraction_limit=1)
+    engine, gateway = runtime(factory, settings)
+    engine.encoder = Encoder(score=0.3)
+
+    assert dispatch_once(factory, settings, cfg)['extractions_queued'] == 1
+    assert dispatch_once(factory, settings, cfg)['extractions_queued'] == 0
+    assert drain(factory, engine) == 1
+    assert gateway.seen == []
+    # The first result returns its reservation before the second candidate
+    # consumes it. Pending jobs continue to reserve their quota as before.
+    assert dispatch_once(factory, settings, cfg)['extractions_queued'] == 1
+    with factory() as db:
+        assert db.scalar(select(AutomationQuota.extraction_jobs)) == 1
+        assert db.scalar(select(AutomationQuota.card_jobs)) == 0
+        assert db.scalar(select(func.count()).select_from(AutomationQuotaRefund)) == 1
+    assert dispatch_once(factory, settings, cfg)['extractions_queued'] == 0
+    with factory() as db:
+        assert db.scalar(select(AutomationQuota.extraction_jobs)) == 1
+        assert db.scalar(select(func.count()).select_from(AutomationQuotaRefund)) == 1
+
+    assert drain(factory, engine) == 1
+    dispatch_once(factory, settings, cfg)
+    dispatch_once(factory, settings, cfg)
+    with factory() as db:
+        assert db.scalar(select(AutomationQuota.extraction_jobs)) == 0
+        assert db.scalar(select(AutomationQuota.card_jobs)) == 0
+        assert db.scalar(select(func.count()).select_from(AutomationQuotaRefund)) == 2
+        assert db.scalar(select(func.count()).select_from(LLMCall)) == 0
+        assert {record.status for record in db.scalars(select(AutomationRecord))} == {'semantic_skipped'}
+    assert gateway.seen == []

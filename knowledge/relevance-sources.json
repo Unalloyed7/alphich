@@ -1,0 +1,752 @@
+{
+  "schema_version": "alphich-relevance-sources-v1",
+  "verified_at": "2026-10-22",
+  "purpose": "Bounded historical article discovery for company-conditioned relevance training; sources are candidate evidence, not relevance labels.",
+  "policy": {
+    "respect_robots": true,
+    "no_paywall_bypass": true,
+    "publication_date_must_come_from_article": true,
+    "sitemap_lastmod_is_not_publication_date": true,
+    "deduplicate_canonical_url_and_text": true,
+    "source_quotas_required": true,
+    "article_body_private_by_default": true
+  },
+  "sources": [
+    {
+      "id": "stroygaz",
+      "name": "Строительная газета",
+      "quality_tier": "industry_editorial",
+      "topics": [
+        "construction",
+        "real_estate",
+        "manufacturing",
+        "professional"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "stroygaz.ru",
+        "www.stroygaz.ru"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?stroygaz\\.ru/news/[^/?#]+/[^/?#]+/?$",
+      "feeds": [
+        {
+          "url": "https://stroygaz.ru/rss/",
+          "kind": "rss"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://stroygaz.ru/sitemap-iblock-22.part1.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://stroygaz.ru/sitemap-iblock-22.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/sitemap-iblock-22"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "script[type=\"application/ld+json\"] -> datePublished (Russian month)",
+        "time.news-date-time -> text (Russian month)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Observed 29,821 URLs in first news sitemap, including category pages excluded by article regex. PAGEN URLs are disallowed by robots; use sitemap history. Exclude lifestyle/advertorial content by content review, retain genuine small/local business events as negatives. Verified second news part has 10,075 URLs; use it first.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "retail",
+      "name": "Retail.ru редакционные новости",
+      "quality_tier": "industry_editorial",
+      "topics": [
+        "trade",
+        "hospitality",
+        "transport",
+        "real_estate",
+        "information"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.retail.ru",
+        "retail.ru"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?retail\\.ru/news/[^/?#]+/?$",
+      "feeds": [
+        {
+          "url": "https://www.retail.ru/news/",
+          "kind": "html",
+          "format": "archive_links"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://www.retail.ru/sitemap-iblock-49.part2.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://www.retail.ru/sitemap-iblock-49.part1.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://www.retail.ru/sitemap-iblock-49.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/sitemap-iblock-49"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "script[type=\"application/ld+json\"] -> datePublished (ISO8601)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Sitemap root explicitly lists all three parts. First part includes 36,048 historical URLs (2008–2018); prefer later parts and check publication dates. Do not include company press-release/business-center sections or paid content.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": [
+        "/business/",
+        "/business-center/",
+        "/companies/",
+        "/bc/",
+        "/products/"
+      ]
+    },
+    {
+      "id": "agroinvestor",
+      "name": "Агроинвестор новости",
+      "quality_tier": "industry_editorial",
+      "topics": [
+        "agriculture",
+        "manufacturing",
+        "trade",
+        "transport",
+        "hospitality"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.agroinvestor.ru",
+        "agroinvestor.ru"
+      ],
+      "article_path_prefixes": [
+        "/markets/news/",
+        "/investments/news/",
+        "/companies/news/",
+        "/archive/news/",
+        "/analytics/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?agroinvestor\\.ru/[^/?#]+/news/\\d+-[^/?#]+/?$",
+      "feeds": [
+        {
+          "url": "https://www.agroinvestor.ru/feed/public-agronews.xml",
+          "kind": "rss"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://www.agroinvestor.ru/sitemap/sitemap-news.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/sitemap/sitemap-news"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "time[itemprop=\"datePublished\"] -> datatime (publisher typo; Russian month)",
+        "time[itemprop=\"datePublished\"] -> text (Russian month)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Observed 19,700 historical article URLs. News listing visibly has 1,095 pages but robots disallow PAGEN, so use sitemap. Historical lastmod is uniformly fresh and is not publication date. Do not bypass any subscription/paywall. This verified news sitemap lists old articles first with identical recent lastmod; reverse its article entries only for queue priority. Article date remains independently required.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": [],
+      "reverse_sitemap_articles": true
+    },
+    {
+      "id": "russoft",
+      "name": "РУССОФТ",
+      "quality_tier": "industry_association",
+      "topics": [
+        "information",
+        "professional"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "russoft.org"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "article_url_regex": "^https://russoft\\.org/news/[^/?#]+/?$",
+      "feeds": [
+        {
+          "url": "https://russoft.org/news/",
+          "kind": "html",
+          "format": "russoft_html"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://russoft.org/news-sitemap16.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://russoft.org/news-sitemap15.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://russoft.org/news-sitemap14.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://russoft.org/sitemap_index.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/news-sitemap",
+        "/sitemap_index.xml"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "script[type=\"application/ld+json\"] -> datePublished (ISO8601)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified index lists news-sitemap.xml through news-sitemap16.xml. First has about 1,000 article URLs from 2018; index includes non-news directories which must be ignored. Member company releases must be tagged as association/member statements, not independent confirmation. Newest numbered news maps are seeded first; news-sitemap16.xml and one linked article datePublished were verified directly.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "mintrans",
+      "name": "Минтранс России",
+      "quality_tier": "official",
+      "topics": [
+        "transport",
+        "construction",
+        "trade"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "mintrans.gov.ru",
+        "www.mintrans.gov.ru"
+      ],
+      "article_path_prefixes": [
+        "/press-center/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?mintrans\\.gov\\.ru/press-center/news/\\+?\\d+/?$",
+      "feeds": [
+        {
+          "url": "https://mintrans.gov.ru/press-center/news",
+          "kind": "html",
+          "format": "mintrans_html"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://mintrans.gov.ru/press-center/news",
+          "kind": "html",
+          "format": "archive_links"
+        }
+      ],
+      "sitemap_path_prefixes": [],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "p.article-inf-date -> text starting Опубликовано (Russian month, case insensitive)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified page=2 and archive listing links to page=1085. Restrict to news, not careers/congratulations/event announcements. Date must come from article publication metadata, not page retrieval.",
+      "pagination_url_regex": "^https://(?:www\\.)?mintrans\\.gov\\.ru/press-center/news\\?page=\\d+$",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "minzdrav",
+      "name": "Минздрав России",
+      "quality_tier": "official",
+      "topics": [
+        "health",
+        "education",
+        "professional",
+        "manufacturing",
+        "trade"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "minzdrav.gov.ru",
+        "www.minzdrav.gov.ru"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?minzdrav\\.gov\\.ru/news/\\d{4}/\\d{2}/\\d{2}/\\d+-[^/?#]+/?$",
+      "feeds": [],
+      "archive_urls": [
+        {
+          "url": "https://minzdrav.gov.ru/news",
+          "kind": "html",
+          "format": "archive_links"
+        }
+      ],
+      "sitemap_path_prefixes": [],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "p.timestamps > time -> text starting Материал опубликован; datetime gives day only",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified page=2 and link to page=509. Robots permits news. Official sitemap points to alternate www.rosminzdrav.ru with failing TLS, so use verified original-host HTML archive. URL date is only a discovery hint, not verified publication date.",
+      "pagination_url_regex": "^https://(?:www\\.)?minzdrav\\.gov\\.ru/news\\?page=\\d+$",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "interfax-business",
+      "name": "Интерфакс экономика",
+      "quality_tier": "news_agency",
+      "topics": [
+        "trade",
+        "finance",
+        "real_estate",
+        "construction",
+        "manufacturing",
+        "transport",
+        "information",
+        "hospitality",
+        "agriculture",
+        "energy",
+        "mining",
+        "professional",
+        "health"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.interfax.ru",
+        "interfax.ru"
+      ],
+      "article_path_prefixes": [
+        "/business/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?interfax\\.ru/business/\\d+/?$",
+      "feeds": [
+        {
+          "url": "https://www.interfax.ru/rss",
+          "kind": "rss"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://www.interfax.ru/SEO_SiteMapLastChanges.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://www.interfax.ru/SEO_SiteMap_1.xml",
+          "kind": "sitemap"
+        },
+        {
+          "url": "https://www.interfax.ru/SEO_SiteMapIndex.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/SEO_SiteMap"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "meta[property=\"article:published_time\"] -> content",
+        "meta[itemprop=\"datePublished\"] -> content",
+        "script[type=\"application/ld+json\"] -> datePublished",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified 811 business URLs in LastChanges and 10,484 in SiteMap_1 (49,001 total links). Strict /business/ numeric regex excludes politics, sports, photos and press releases. Root index includes 23 children, some contain no business URLs. Do not use disallowed /Infinite or /search. Require article-level publication date.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "cbr",
+      "name": "Банк России",
+      "quality_tier": "official",
+      "topics": [
+        "finance",
+        "trade",
+        "real_estate",
+        "construction",
+        "manufacturing",
+        "transport",
+        "hospitality",
+        "information",
+        "professional"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.cbr.ru",
+        "cbr.ru"
+      ],
+      "article_path_prefixes": [
+        "/press/event/",
+        "/press/PR/",
+        "/press/pr/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?cbr\\.ru/press/(?:event/\\?id=\\d+|[Pp][Rr]/\\?file=[^&#]+)$",
+      "feeds": [
+        {
+          "url": "https://www.cbr.ru/rss/RssPress",
+          "kind": "rss"
+        },
+        {
+          "url": "https://www.cbr.ru/rss/eventrss",
+          "kind": "rss"
+        }
+      ],
+      "archive_urls": [],
+      "sitemap_path_prefixes": [],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with TLS verification; public listing/sitemap and robots inspected"
+      },
+      "date_hints": [
+        "RSS pubDate is feed evidence; require article publication evidence for historical dataset",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Existing project feeds; robots fetched with TLS verification. Current RSS is incremental, not a promised deep archive; do not count this source as 10k history. Policy data and press releases require separating observation/decision/forecast.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "elec",
+      "name": "Elec.ru электротехническая отрасль",
+      "quality_tier": "industry_editorial",
+      "topics": [
+        "manufacturing",
+        "energy",
+        "construction",
+        "trade",
+        "professional"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.elec.ru",
+        "elec.ru"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?elec\\.ru/news/\\d{4}/\\d{2}/\\d{2}/[^/?#]+\\.html$",
+      "feeds": [
+        {
+          "url": "https://www.elec.ru/news/feed.xml",
+          "kind": "rss"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://www.elec.ru/sitemap_news_3.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/sitemap_news_"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with valid TLS; robots and public historical index/listing verified"
+      },
+      "date_hints": [
+        "time[itemprop=\"datePublished\"] -> datetime",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified 14,741 URLs in news_3 (2025-02 through 2026-10). XML endpoints return gzip magic despite no .gz suffix; decode gzip safely with decompressed-size cap. news_1 has 50,000 very old URLs and is deliberately not a seed. Company-supplied product announcements and event invitations require genre tagging; no automatic positive labels.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b",
+        "(?i)^\\s*(?:приглашаем|приглашение)\\b",
+        "(?i)\\b(?:розыгрыш подарков|скидка по промокоду|промокод на скидку)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "fns",
+      "name": "ФНС России центральные новости",
+      "quality_tier": "official",
+      "topics": [
+        "finance",
+        "trade",
+        "real_estate",
+        "construction",
+        "manufacturing",
+        "transport",
+        "hospitality",
+        "information",
+        "professional",
+        "agriculture",
+        "health",
+        "services"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.nalog.gov.ru",
+        "nalog.gov.ru"
+      ],
+      "article_path_prefixes": [
+        "/rn77/news/activities_fts/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?nalog\\.gov\\.ru/rn77/news/activities_fts/\\d+/?$",
+      "feeds": [
+        {
+          "url": "https://www.nalog.gov.ru/rn77/rss/",
+          "kind": "rss"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://www.nalog.gov.ru/rn77/news/activities_fts/",
+          "kind": "html",
+          "format": "archive_links"
+        }
+      ],
+      "sitemap_path_prefixes": [],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with valid TLS; robots and public historical index/listing verified"
+      },
+      "date_hints": [
+        "div.news__time.single-news__time -> text starting Дата публикации: (DD.MM.YYYY HH:MM)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified archive page 2.html and visible final page 514.html. rn77 is central site namespace, not proof every article is Moscow-only or nationwide: infer scope only from article evidence. Sitemap is mostly static pages on legacy domain, deliberately not used.",
+      "pagination_url_regex": "^https://(?:www\\.)?nalog\\.gov\\.ru/rn77/news/activities_fts/\\d+\\.html$",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": []
+    },
+    {
+      "id": "autostat",
+      "name": "АВТОСТАТ открытые новости",
+      "quality_tier": "industry_research",
+      "topics": [
+        "trade",
+        "manufacturing",
+        "transport",
+        "finance"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.autostat.ru",
+        "autostat.ru"
+      ],
+      "article_path_prefixes": [
+        "/news/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?autostat\\.ru/news/\\d+/?$",
+      "feeds": [],
+      "archive_urls": [
+        {
+          "url": "https://www.autostat.ru/sitemap_index.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/sitemap_news_",
+        "/sitemap_index.xml"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with valid TLS; robots and public historical index/listing verified"
+      },
+      "date_hints": [
+        "span[itemprop=\"datePublished\"] -> content (YYYY-MM-DD; relative visible text not used)",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified public news archive page-2 and link to page-5071. Sitemap index declares news maps. Only freely visible news; commercial reports, basket, subscription products are excluded. Web search proxy returned 403 while normal identified HTTPS GET returned 200; collector must stop on actual 403 and never bypass access controls.",
+      "pagination_url_regex": "^https://(?:www\\.)?autostat\\.ru/news/page-\\d+/$",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b"
+      ],
+      "excluded_article_path_prefixes": [
+        "/research/",
+        "/marketing/",
+        "/reports/",
+        "/subscriptions/"
+      ]
+    },
+    {
+      "id": "ator",
+      "name": "Ассоциация туроператоров России",
+      "quality_tier": "industry_association",
+      "topics": [
+        "hospitality",
+        "transport",
+        "trade"
+      ],
+      "genres": [
+        "news"
+      ],
+      "allowed_hosts": [
+        "www.atorus.ru",
+        "atorus.ru"
+      ],
+      "article_path_prefixes": [
+        "/article/"
+      ],
+      "article_url_regex": "^https://(?:www\\.)?atorus\\.ru/article/[^/?#]+-\\d+/?$",
+      "feeds": [
+        {
+          "url": "https://www.atorus.ru/news",
+          "kind": "html",
+          "format": "archive_links"
+        }
+      ],
+      "archive_urls": [
+        {
+          "url": "https://www.atorus.ru/sitemap.xml",
+          "kind": "sitemap"
+        }
+      ],
+      "sitemap_path_prefixes": [
+        "/sitemap.xml"
+      ],
+      "min_interval_seconds": 1.5,
+      "max_article_bytes": 2000000,
+      "status": "available",
+      "verification": {
+        "checked_at": "2026-10-22",
+        "method": "HTTPS GET with valid TLS; robots and public historical index/listing verified"
+      },
+      "date_hints": [
+        "meta[property=\"article:published_time\"] -> content",
+        "script[type=\"application/ld+json\"] -> datePublished",
+        "Do not substitute dateModified, sitemap lastmod, URL date, suggested articles or webinar dates."
+      ],
+      "notes": "Verified 35 sitemap pages explicitly listed in sitemap.xml. Prefer business-relevant occupancy, hotel economics, regulation, transport access and demand; exclude consumer hotel recommendations, vacation lists and entertainment from training corpus. Association statements are attributed claims, not independent proof. No access-control bypass on 403. Sampled sitemap page 35 includes /node/ and newsletter URLs excluded by article regex; strict /article/ links are confirmed on news listing. Do not count every sitemap entry as an article.",
+      "excluded_title_patterns": [
+        "(?i)\\b(?:гороскоп|знаки зодиака|розыгрыш призов)\\b",
+        "(?i)^\\s*(?:поздравляем с|с дн[её]м рождения|с новым годом|с международным женским дн[её]м)\\b",
+        "(?i)\\b(?:куда поехать|где отдохнуть|что посмотреть|лучшие пляжи|подборка отелей|какой отель выбрать|какие отели выбрать|выбрать отель|что взять с собой|советы туристам|памятка туристу|куда слетать)\\b",
+        "(?i)\\b(?:лучшие отели для отдыха|самые красивые места|горящие туры|топ-?\\d+ пляжей)\\b"
+      ],
+      "excluded_article_path_prefixes": [
+        "/news/operatorsnews/",
+        "/news/press-centre/",
+        "/news/interview/"
+      ]
+    }
+  ],
+  "recommended_collection_window": {
+    "published_from": "2025-01-01",
+    "published_through": "2026-10-22",
+    "reason": "Historical training corpus; use explicit run as_of and article publication evidence. These are recommendations; collector CLI must enforce the actual window."
+  },
+  "exclusion_policy": {
+    "explicit_patterns": "Quarantine matches with source_id, pattern and title recorded; do not relabel as relevance zero.",
+    "fuzzy_genre": "Retain genre_unknown for human review; source reputation alone does not establish editorial independence.",
+    "preserve_hard_negatives": "Do not exclude genuine small/local business events solely for low relevance or limited scale."
+  }
+}

@@ -11,6 +11,11 @@ PRODUCTS = {"loan": "CL_PRODUCT_LOA_MARK", "deposit": "CL_PRODUCT_DEP_MARK", "le
             "guarantee": "CL_PRODUCT_GAR_MARK", "factoring": "FACTORING_MARK", "rko": "CL_PRODUCT_RKO_MARK",
             "payroll": "CL_PRODUCT_ZPP_MARK"}
 
+# These are source observations, not estimates of financial health or exposure.
+FACTOR_NAMES = ("organization_type", "ownership_form", "company_age_band", "business_stage_label",
+                "negative_mark_raw", "employees_fns_band", "employees_spark_band", "employees_band",
+                "city_registration", "client_type")
+
 
 def normalize_company(row):
     profile = row.get("profile", row)
@@ -94,9 +99,18 @@ def normalize_company(row):
         limitations.append("fts_presence_not_confirmed")
     if fts_flag is False and countries:
         limitations.append("fts_country_without_flag")
+    factors = {}
+    for field in FACTOR_NAMES:
+        entries = by_name.get(field, [])
+        populated = [f for f in entries if isinstance(f.get("value"), str) and f["value"].strip()]
+        values = {f["value"] for f in populated}
+        if len(values) == 1:
+            factors[field] = {"value": next(iter(values)), "feature_ids": sorted(f["id"] for f in populated)}
+        elif len(values) > 1:
+            limitations.append("conflicting_company_factor:" + field)
     return {"id": company_id, "profile_version": row["profile_version"], "context_version": reference_version,
             "industry": {"code": code, "name": name}, "region": region, "products": products,
             "fts_flag": fts_flag, "countries": sorted(set(country(c) for c in countries)),
-            "features": features, "bindings": bindings, "payment_sectors": payment_sectors,
+            "features": features, "bindings": bindings, "payment_sectors": payment_sectors, "factors": factors,
             "quality_flags": profile.get("quality_flags", []), "limitations": sorted(set(limitations)),
             "role": profile.get("role"), "input_hash": digest(row)}

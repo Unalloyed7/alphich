@@ -7,7 +7,8 @@ from pathlib import Path
 from sqlalchemy import or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 
-from app.core import feature_evidence
+from app.core import company_factor_context, feature_evidence
+from alphich.organizer_semantics import revenue_metadata
 from app.news import Event, SourceDocument, new_id, serialize_event
 from . import AGENT_ROLES, VERSION
 from .agent import Tools, analyze
@@ -15,17 +16,27 @@ from .extraction import EXTRACTION_VERSION
 from .provider import Calls, Provider, hashed
 from .settings import AnalysisError
 from .storage import AnalysisLease, AnalysisRun, Answer, Extraction, Insight, LLMCall
+from .relevance import (VERSION as RELEVANCE_VERSION, assess, record_gate_skip, semantic_gate)
 
 
-def company_profile(company, role, payment_context=None):
+def company_profile(company, role, payment_context=None, *, db=None):
     from .payments import enrich_payments
+    revenue = revenue_metadata(company.revenue_raw)
+    factors = company_factor_context(company, db)
     profile = {"id": company.id, "role": role, "profile_version": company.profile_version,
+            **factors, "group_id": company.group_id,
             "industry": {"okved_code": company.okved_code, "okved_name": company.okved_name},
             "region_registration": company.region, "city_registration": company.city,
             "products": company.products, "fts_flag": company.fts_flag, "fts_countries": company.countries,
-            "features": feature_evidence(company), "quality_flags": company.quality_flags,
-            "limitations": ["company_snapshot_date_unknown", "revenue_unit_unknown",
-                            "contract_balances_rates_and_maturities_unknown", "registration_is_not_operations"]}
+            "features": feature_evidence(company, factor_context=factors),
+            "quality_flags": sorted(set(company.quality_flags + factors["factor_quality_flags"])),
+            "revenue_raw": revenue["amount"], "revenue_unit": revenue["unit"],
+            "revenue_currency": revenue["currency"], "revenue_period": revenue["period"],
+            "revenue_scope": revenue["scope"],
+            "limitations": ["company_snapshot_date_unknown", "revenue_company_or_group_scope_unknown",
+                            "contract_balances_rates_and_maturities_unknown", "registration_is_not_operations",
+                            "group_link_is_not_shared_debt_or_operational_dependency",
+                            *factors["factor_limitations"]]}
     return enrich_payments(profile, payment_context)
 
 
@@ -114,6 +125,8 @@ class Runtime:
     def versions(self):
         bank = self.bank()
         return {"runtime": VERSION, "extraction": EXTRACTION_VERSION,
+                "news_relevance": {"method": RELEVANCE_VERSION,
+                                   "e5_min_similarity": self.settings.news_e5_min_similarity},
                 "agent_graph": {"roles": list(AGENT_ROLES), "research_max_calls": 2, "verification_max_calls": 2,
                                 "shared_max_calls": self.settings.max_calls, "shared_max_tools": self.settings.max_tools},
                 "models": [self.settings.extraction_model, self.settings.analysis_model],
@@ -130,6 +143,48 @@ class Runtime:
     def extract_event(self, event_id, calls):
         from .article_cache import extract_for_event
         return extract_for_event(self, event_id, calls)
+
+    def evaluate_news(self, event_id, profile, scope, calls):
+        """Mandatory E5 first, then shared extraction and company-specific GLM grade."""
+        with self.factory() as db:
+            event = db.get(Event, event_id)
+            source = db.get(SourceDocument, event.source_id) if event else None
+            if not event or not source or event.company_id != scope.company_id or source.company_id != scope.company_id:
+                raise AnalysisError("event_outside_scope")
+            before = normalized_event(db, event, source)
+            if scope.excludes(before):
+                raise AnalysisError("event_unavailable_as_of")
+        # A news gate must work independently of the bank index and must never
+        # substitute keyword search when the local embedding model is absent.
+        if self.encoder is None:
+            from .news_index import encoder_for
+            self.encoder = encoder_for(self.settings)
+        encoder = None
+        if self.encoder is not None:
+            from .news_index import CachedNewsEncoder
+            encoder = CachedNewsEncoder(self.factory, self.encoder, scope.company_id, writable=True)
+        calls.heartbeat()
+        gate = semantic_gate(profile, before, encoder, self.settings.news_e5_min_similarity)
+        if gate["status"] == "skipped":
+            selection = record_gate_skip(self.factory, profile, before, scope, gate, self.settings, run_id=calls.run_id)
+            return before, selection, gate
+        extraction_id = self.extract_event(event_id, calls)
+        with self.factory() as db:
+            event = normalized_event(db, db.get(Event, event_id), db.get(SourceDocument, source.id),
+                                     db.get(Extraction, extraction_id))
+        selection = assess(self.factory, profile, event, scope, calls, gate, self.settings)
+        if selection.get("relevance_selected"):
+            # Search planning follows the GLM judgment. It supplies topic/horizon
+            # for the bank researcher and never changes or caps the GLM grade.
+            from alphich_kb.personalization.planning import bank_questions
+            from alphich_kb.personalization.profiles import normalize_company
+            reason = {"code": "glm_business_relevance", "explanation": selection["reason"],
+                      "feature_ids": selection["matched_feature_ids"], "fact_ids": selection["matched_fact_ids"]}
+            chosen = set(selection["matched_fact_ids"])
+            topics = {topic for fact in event["facts"] if fact["id"] in chosen for topic in fact["attributes"]["topics"]}
+            selection = {**selection, "reasons": [reason],
+                         "bank_questions": bank_questions(normalize_company(profile), event, [reason], topics, scope)}
+        return event, selection, gate
 
     def process_facts(self, task, job, heartbeat):
         """Shared extraction only: no researcher, analyst, verifier or card."""
@@ -149,9 +204,11 @@ class Runtime:
                     status="running", steps=[], versions=self.versions(), created_at=int(time.time())))
         try:
             calls = Calls(self.provider, run_id, heartbeat)
-            extraction_id = self.extract_event(task.event_id, calls)
-            self.save_run(run_id, "succeeded", [{"action": "extract_public_article", "extraction_id": extraction_id,
-                "personal_card_generated": False}], {"status": "facts_only"})
+            event, selection, gate = self.evaluate_news(task.event_id, task.profile, scope, calls)
+            self.save_run(run_id, "skipped" if gate["status"] == "skipped" else "succeeded",
+                [{"action": "semantic_gate", "result": gate},
+                 {"action": "glm_relevance", "result": selection, "personal_card_generated": False}],
+                {"status": selection["status"]})
             return "event", task.event_id
         except Exception as exc:
             self.save_run(run_id, "failed", [], {"status": "failed", "issues": [
@@ -160,7 +217,6 @@ class Runtime:
 
     def process(self, task, job, heartbeat):
         from alphich_kb.personalization.inputs import SelectionScope
-        from alphich_kb.personalization.selector import NewsSelector
         self.settings.require_ready()
         run_id = "run_" + hashed(job.id)[:32]
         with self.factory.begin() as db:
@@ -220,25 +276,25 @@ class Runtime:
                     before = normalized_event(db, event, source)
                     if scope.excludes(before):
                         raise AnalysisError("event_unavailable_as_of")
-                extraction_id = self.extract_event(task.event_id, calls)
+                event, selection, gate = self.evaluate_news(task.event_id, task.profile, scope, calls)
+                if not selection.get("relevance_selected", False):
+                    self.save_run(run_id, "skipped", [
+                        {"action": "semantic_gate", "result": gate},
+                        {"action": "glm_relevance", "result": selection, "personal_card_generated": False}],
+                        {"status": "semantic_below_threshold" if gate["status"] == "skipped"
+                         else "relevance_below_threshold"})
+                    return "event", task.event_id
                 with self.factory() as db:
-                    event = normalized_event(db, db.get(Event, task.event_id), db.get(SourceDocument, source.id), db.get(Extraction, extraction_id))
                     related = [normalized_event(db, e, s) for e, s in db.execute(select(Event, SourceDocument).join(
                         SourceDocument, Event.source_id == SourceDocument.id).where(
                         Event.company_id == job.company_id, SourceDocument.company_id == job.company_id,
                         SourceDocument.received_at <= scope.as_of,
                         or_(SourceDocument.published_at.is_(None), SourceDocument.published_at <= scope.as_of))
                         .order_by(SourceDocument.received_at.desc(), Event.id.desc()).limit(60)).all()]
-                from .news_index import CachedNewsEncoder
-                news_encoder = CachedNewsEncoder(self.factory, self.encoder, job.company_id) if self.encoder is not None else None
-                selected = NewsSelector([event], news_encoder).select(task.profile, scope)
-                selection = next((item for item in selected["items"] if item["event_id"] == task.event_id), {})
-                if job.operation == "automatic_insight" and not selection.get("relevance_selected", False):
-                    self.save_run(run_id, "skipped", [{"action": "grade_rechecked", "personal_card_generated": False}],
-                        {"status": "below_selection_threshold"})
-                    return "event", task.event_id
                 tool_scope = SelectionScope(job.company_id, task.as_of, frozenset([event["id"], *[e["id"] for e in related]]), task.role)
                 tools = Tools(task.profile, event, selection, tool_scope, self.bank(), related)
+                tools.steps.append({"agent_role": "coordinator", "action": "semantic_gate", "result": gate})
+                tools.steps.append({"agent_role": "coordinator", "action": "glm_relevance", "result": selection})
                 snapshot = {"profile": task.profile, "event": event, "selection": selection,
                             "related_events": related, "versions": self.versions()}
                 registry = tools.registry
@@ -261,7 +317,7 @@ class Runtime:
                     except IntegrityError:
                         raise AnalysisError("analysis_in_progress") from None
                 lease_key = cache_key
-            if not event["facts"] or (not task.parent_insight_id and selection.get("status") != "applicable_with_conditions"):
+            if not event["facts"] or (not task.parent_insight_id and not selection.get("relevance_selected", False)):
                 draft = {"claims": [{"id": f"c{i+1}", "kind": "news_fact", "text": f["text"],
                                      "evidence_ids": [f["id"]], "conditions": []} for i, f in enumerate(event["facts"][:5])],
                          "risks": [], "opportunities": [], "next_steps": [],
@@ -286,6 +342,7 @@ class Runtime:
                        "relevance_selected": selection.get("relevance_selected", False),
                        "relevance_assessment": selection.get("relevance_assessment"),
                        "grading_version": selection.get("grading_version"),
+                       "semantic_gate": (selection.get("relevance_assessment") or {}).get("semantic_gate"),
                        **draft, "bank_view": {"status": bank_status,
                            "claim_ids": bank_claim_ids,
                            "reason": None if bank_claim_ids else "No verified applicable bank claim included in this answer",

@@ -40,8 +40,15 @@ def validate_payment_feature(feature):
                     if share is not None: raise ValueError()
                 elif type(share) not in (int,float) or not math.isfinite(share) or abs(share-expected) > 1e-9:
                     raise ValueError()
-        required = {"payment_period_unknown", "payment_currency_unknown", "payment_purpose_unknown"}
-        if value.get("currency") is not None or value.get("period") is not None or not required <= set(value["limitations"]):
+        limitations = set(value["limitations"])
+        if value.get("currency") is None and value.get("period") is None:
+            # Old immutable exports retain their original unknown semantics.
+            if not {"payment_period_unknown", "payment_currency_unknown", "payment_purpose_unknown"} <= limitations:
+                raise ValueError()
+        elif (value.get("currency") != "RUB"
+              or value.get("period") != {"basis": "year_to_date", "start_month_day": "01-01", "year": None, "end": None}
+              or value.get("semantics_source_ref") != "organizer-webinar:news-feed:q10,q14-20,q23"
+              or not {"payment_period_end_and_year_unknown", "payment_purpose_unknown"} <= limitations):
             raise ValueError()
     except (KeyError, TypeError, ValueError, InvalidOperation, OverflowError):
         raise KnowledgeError("Invalid audited payment feature") from None

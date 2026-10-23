@@ -70,8 +70,10 @@ class PrepareDataTests(unittest.TestCase):
         self.assertIsNone(flow["known_profile_amount_share"])
         self.assertIsNone(flow["top_counterparty_share"])
         self.assertIn("no_observed_payments", flow["limitations"])
-        self.assertIsNone(flow["currency"])
-        self.assertIsNone(flow["period"])
+        self.assertEqual(flow["currency"], "RUB")
+        self.assertEqual(flow["period"]["start_month_day"], "01-01")
+        self.assertIsNone(flow["period"]["year"])
+        self.assertIsNone(flow["period"]["end"])
 
     def test_bad_money_and_fractional_payment_counts_are_quarantined(self):
         self.assertEqual(self.report["payments"]["invalid_rows"], 3)
@@ -94,6 +96,20 @@ class PrepareDataTests(unittest.TestCase):
         self.assertIn("fts_country_without_flag", companies["S_BOUNDARY"].profile["quality_flags"])
         self.assertEqual(companies["S_BUILD"].profile["fts"]["countries"], ["КИТАЙ", "ТУРЦИЯ"])
         self.assertEqual(report["rows"], 8)
+
+    def test_company_context_exports_shared_factors_without_inventing_current_employee_counts(self):
+        profile = self.contexts["S_BUILD"]["profile"]
+        self.assertEqual(profile["employees_fns_band"], "101-250")
+        self.assertIsNone(profile["employees_spark_band"])
+        self.assertEqual(profile["employees_band"], "101-250")
+        self.assertIsNone(profile["employees_interval"]["period"])
+        self.assertEqual(self.feature("S_BUILD", "employees_fns_band")["value"], "101-250")
+        self.assertEqual(self.feature("S_BUILD", "company_age_band")["value"], "8-15")
+        self.assertEqual(self.feature("S_BUILD", "business_stage_label")["value"], "Оптимизация")
+        self.assertEqual(self.feature("S_BUILD", "negative_mark_raw")["value"], "0.0")
+        self.assertIn("company_age_is_not_business_maturity", self.contexts["S_BUILD"]["limitations"])
+        self.assertNotIn("operating_regions", profile)
+
 
     def test_artifacts_are_reproducible_and_feature_ids_bind_to_source_version(self):
         other = Path(self.temp.name) / "second"
@@ -159,7 +175,7 @@ class PrepareDataTests(unittest.TestCase):
         self.assertEqual(report["selected_company_ids"], ["S_MISSING"])
         context = json.loads((output / "contexts.jsonl").read_text())
         self.assertIsNone(context["profile"]["revenue_raw"])
-        self.assertIsNone(context["profile"]["revenue_unit"])
+        self.assertEqual(context["profile"]["revenue_unit"], "RUB")
 
 
 if __name__ == "__main__":

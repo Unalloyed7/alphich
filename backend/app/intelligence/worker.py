@@ -64,8 +64,10 @@ def process_next(factory, runtime, now=None):
                                   else runtime.process(task, job, heartbeat))
         heartbeat()
         with factory.begin() as db:
+            completed_stage = ("relevance_checked" if job.operation == "news_fact_extraction" else
+                               "news_filtered" if result_type == "event" else "analysis_verified")
             db.execute(update(Job).where(Job.id == job_id, Job.status == "running", Job.attempt_count == attempt).values(
-                status="succeeded", stage="analysis_verified", result_type=result_type, result_id=result_id,
+                status="succeeded", stage=completed_stage, result_type=result_type, result_id=result_id,
                 lease_expires_at=None, heartbeat_at=int(time.time()), finished_at=int(time.time())))
     except Exception as exc:
         code = exc.code if isinstance(exc, AnalysisError) else "analysis_failed"
@@ -74,7 +76,7 @@ def process_next(factory, runtime, now=None):
         with factory.begin() as db:
             values = dict(status="failed", stage="budget_exceeded" if code == "budget_exceeded" else "analysis_failed",
                           error=code, lease_expires_at=None, finished_at=int(time.time()))
-            if code in {"extraction_in_progress", "analysis_in_progress"}:
+            if code in {"extraction_in_progress", "analysis_in_progress", "news_relevance_in_progress"}:
                 values.update(status="queued", stage="waiting_shared_analysis", available_at=int(time.time()) + 5,
                               attempt_count=attempt - 1, finished_at=None)
             db.execute(update(Job).where(Job.id == job_id, Job.status == "running", Job.attempt_count == attempt).values(**values))

@@ -158,7 +158,8 @@ class NewsSelector:
             if not reasons:
                 if event["facts"] and topics and not topics & BUSINESS:
                     continue
-                contextual = [r for r in retrieval if r["kind"] in {"industry", "trade", "finance", "payments"}]
+                contextual = [r for r in retrieval if r["kind"] in {
+                    "industry", "trade", "finance", "payments", "employment", "eligibility"}]
                 if contextual:
                     best = max(contextual, key=lambda r: (r["bounded_rank_score"], r["facet_id"]))
                     review.append({"event_id": event["id"], "event_version": event["version"],

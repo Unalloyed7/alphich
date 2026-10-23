@@ -33,7 +33,7 @@ def hashed(value):
 
 def call_role(purpose):
     """Server-owned audit metadata, never a role supplied by model output."""
-    for prefix, role in (("bank_research_", "bank_researcher"), ("agent_", "analyst"),
+    for prefix, role in (("news_relevance_", "relevance_judge"), ("bank_research_", "bank_researcher"), ("agent_", "analyst"),
                          ("semantic_review_", "verifier"), ("extraction", "extractor")):
         if purpose.startswith(prefix):
             return role

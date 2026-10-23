@@ -1,0 +1,19 @@
+# Standalone local labeling workspace, separate from the application deployment.
+# docker compose -f compose.label-studio.yaml up -d
+# Open http://localhost:8081 and create a local account and project.
+# No application .env values, API keys or database credentials enter this service.
+name: alphich-labeling
+
+services:
+  label-studio:
+    image: heartexlabs/label-studio:1.23.2
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      LABEL_STUDIO_HOST: http://localhost:8081
+      LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED: "false"
+    volumes:
+      - label_studio_data:/label-studio/data
+
+volumes:
+  label_studio_data:
