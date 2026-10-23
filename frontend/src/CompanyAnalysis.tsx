@@ -53,10 +53,10 @@ export function CompanyAnalysis({ session }: { session: DemoSession }) {
   return <section className="panel company-analysis" aria-label="Бизнес-анализ компании">
     <div className="panel-heading"><div><div className="eyebrow">БИЗНЕС-КОНТЕКСТ</div><h2>Что может влиять на бизнес</h2>
       <p>Факты из профиля и гипотезы для проверки. Эти гипотезы используются при подготовке новостного анализа.</p></div></div>
-    <h3>Что известно из данных</h3>
+    <details className="business-observed-details"><summary>Подтверждённые признаки и их значение · {context.observed.length}</summary>
     <div className="business-observed">{context.observed.map(item => <article key={item.code}>
       <span>{labels[item.code] ?? item.code}</span><strong>{valueText(item.value)}</strong><details><summary>Что это означает</summary><p>{item.meaning}</p></details>
-    </article>)}</div>
+    </article>)}</div></details>
     <h3>Возможные проблемы и решения</h3>
     <p className="muted">Применимость к этой компании требует подтверждения. Гипотеза не означает, что проблема уже возникла.</p>
     {context.hypotheses.length === 0 && <p>Данных недостаточно для предметной бизнес-гипотезы. Начните с вопросов ниже.</p>}

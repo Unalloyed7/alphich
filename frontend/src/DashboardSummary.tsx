@@ -1,4 +1,5 @@
 import { Icon } from './Icon';
+import { roles } from './roles';
 import { summarizeFeed, type FeedFilter, type PersonalFeedState } from './personalFeed';
 import type { DemoSession } from './types';
 import './dashboard.css';
@@ -24,7 +25,7 @@ export function DashboardSummary({ session, data, industry, onFilter, onEvent, o
         <div className="deck-eyebrow"><span className="deck-live-dot"/> ПЕРСОНАЛЬНАЯ АНАЛИТИКА</div>
         <h1>Меньше шума.<br/><em>Больше ясности.</em></h1>
         <p>Большая картина событий.<br/>Точный фокус на вашем бизнесе.</p>
-        <button type="button" className="deck-company" onClick={onProfile}><span className="deck-company-avatar"><Icon name="briefcase" size={17}/></span><span><strong>{session.company_id} <span className="deck-role">{session.role.toUpperCase()}</span></strong><small>{industry || 'Контекст компании'}</small></span><Icon name="chevron" size={15}/></button>
+        <button type="button" className="deck-company" onClick={onProfile}><span className="deck-company-avatar"><Icon name="briefcase" size={17}/></span><span><strong>{session.company_id} <span className="deck-role">{roles[session.role].short}</span></strong><small>{industry || 'Контекст компании'}</small></span><Icon name="chevron" size={15}/></button>
       </div>
       <div className="deck-agenda">
         <div className="deck-panel-label">Ваша повестка</div>
