@@ -69,7 +69,14 @@ test('Event interpretation, evidence, original source, question, focus trap and 
  const {context,page,state,errors}=await setup();try {
   await login(page);const opener=page.locator('.brief-card h3 button').first();await opener.click();const dialog=page.getByRole('dialog');await dialog.waitFor();await page.getByRole('heading',{name:'Что проверить дальше'}).waitFor();await screenshot(page,'event-synthetic.png');
   await page.getByRole('tab',{name:'Обоснование',exact:true}).click();await dialog.getByRole('button',{name:'Источник 1',exact:true}).first().click();await page.getByText('Подтверждающий фрагмент из тестового документа.',{exact:true}).waitFor();await page.getByRole('button',{name:'Закрыть подтверждающий фрагмент'}).click();
-  await page.getByRole('tab',{name:'Первоисточники',exact:false}).click();await page.getByRole('button',{name:'Тестовый новостной источник',exact:true}).click();await page.getByText('Полный текст тестового первоисточника.',{exact:false}).waitFor();assert.equal(await page.evaluate(()=>window.injected),undefined);
+  await page.getByRole('tab',{name:'Первоисточники',exact:false}).click();
+  const sourceButton=page.getByRole('button',{name:'Тестовый новостной источник',exact:true});
+  const sourcePanel=page.getByRole('region',{name:'Текст первоисточника',exact:true});
+  const sourceText=page.getByText('Полный текст тестового первоисточника.',{exact:false});
+  const sourceRequests=()=>state.requests.filter(r=>r.path.startsWith('/sources/')).length;
+  await sourceButton.click();await sourceText.waitFor();assert.equal(await sourceButton.getAttribute('aria-expanded'),'true');assert.equal(sourceRequests(),1);assert.equal(await page.evaluate(()=>window.injected),undefined);
+  await sourceButton.click();await sourcePanel.waitFor({state:'hidden'});assert.equal(await sourceButton.getAttribute('aria-expanded'),'false');assert.equal(sourceRequests(),1);
+  await sourceButton.click();await sourceText.waitFor();assert.equal(await sourceButton.getAttribute('aria-expanded'),'true');assert.equal(sourceRequests(),2);
   await page.getByRole('tab',{name:'Влияние на бизнес',exact:true}).click();await page.getByRole('tab',{name:'Спросить аналитика',exact:true}).click();await page.getByRole('button',{name:'Какие данные нужны для решения?',exact:true}).click();assert.equal(state.requests.filter(r=>r.path.endsWith('/questions')).length,0);
   await page.getByRole('button',{name:'Задать вопрос',exact:true}).click();await page.getByRole('heading',{name:'Какие данные нужны для решения?',exact:true}).waitFor();const question=state.requests.find(r=>r.path.endsWith('/questions'));assert.ok(question.headers['idempotency-key']);assert.equal(question.headers['x-demo-session'],'test-DEMO_A');await accessible(page);
   await page.getByRole('button',{name:'Закрыть событие'}).focus();await page.keyboard.press('Shift+Tab');assert.equal(await page.locator(':focus').evaluate(el=>!!el.closest('[role=dialog]')),true);
