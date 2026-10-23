@@ -18,8 +18,8 @@ from .provider import hashed
 from .schemas import Strict
 from .settings import AnalysisError
 
-VERSION = "e5-gate-glm-grade-v1"
-GATE_VERSION = "company-facets-source-chunks-max-cosine-v1"
+VERSION = "e5-gate-glm-grade-v2"
+GATE_VERSION = "company-context-bidirectional-cosine-v2"
 MIN_INSIGHT_GRADE = 4
 MAX_PASSAGES = 16
 
@@ -127,19 +127,50 @@ def _scope(company, event, scope):
         raise AnalysisError("event_unavailable_as_of")
 
 
+def _gate_context(company, facets):
+    """Core business, with confirmed products rather than a generic CFO query.
+
+    Region of registration and the mere presence of a country must not dilute
+    the mandatory activity anchor. They remain individual forward search facets
+    and are assessed by GLM; a shared city is not an independent reason to pass.
+    """
+    from alphich_kb.personalization.facets import sector_terms
+    industry = company["industry"]
+    label = industry["name"] or "; ".join(sector_terms(industry["code"]))
+    if not label or not company["bindings"]["industry"]:
+        raise AnalysisError("news_e5_company_context_missing")
+    text = f"Основная деятельность компании: {str(label)[:240]}."
+    finance = next((facet for facet in facets if facet["kind"] == "finance"), None)
+    if finance:
+        names = {"loan": "кредит", "deposit": "депозит", "lease": "лизинг",
+                 "factoring": "факторинг", "guarantee": "банковская гарантия"}
+        text += " Подтверждённые финансовые продукты: " + "; ".join(names[p] for p in finance["positive_products"]) + ". "
+        text += finance["text"].replace("ключевая ставка", "ключевая ставка Банка России") + "."
+    else:
+        # National monetary policy is a legitimate context for a business even
+        # without a confirmed loan. This does not invent product exposure.
+        text += " Общий макроэкономический контекст: ключевая ставка Банка России."
+    return text
+
+
 def semantic_gate(profile, event, encoder, threshold=0.75):
-    """Maximum normalized cosine over evidence-bound company facets and chunks.
+    """Require forward topic recall AND a core-business match.
 
     At most sixteen deterministically spread source chunks are evaluated. If the
     article needs more chunks, coverage is explicit rather than silently claiming
-    the entire article was checked. No lexical fallback can authorize a paid call.
+    the entire article was checked. A generic finance facet matching one paragraph
+    cannot pass an article whose headline is unrelated to the company's business.
+    Direct activity matches can be found in the body of a generically titled
+    article. Otherwise a reciprocal headline-to-core-context match is required,
+    preserving national monetary policy when industry words are absent. All
+    routes use E5; no lexical fallback can authorize a paid call.
     """
     try:
         import numpy as np
     except ImportError as exc:
         raise AnalysisError("news_e5_unavailable") from exc
     from alphich_kb.build import chunk_spans
-    from alphich_kb.personalization.facets import build_facets
+    from alphich_kb.personalization.facets import build_facets, sector_terms
     company, event = _inputs(profile, event)
     threshold = _threshold(threshold)
     if encoder is None:
@@ -151,6 +182,15 @@ def semantic_gate(profile, event, encoder, threshold=0.75):
               if f["kind"] not in {"role", "macro"} and f["feature_ids"]]
     if not facets:
         raise AnalysisError("news_e5_company_context_missing")
+    context = _gate_context(company, facets)
+    # A rate decision is a national business context even when no credit product
+    # is confirmed. The reciprocal company check is still mandatory for this
+    # route; this facet alone cannot authorize an unrelated financial article.
+    facets.append({"kind": "national_monetary_policy", "feature_ids": company["bindings"]["industry"],
+        "text": "Банк России. Решение о ключевой ставке и прогноз денежно-кредитной политики России.",
+        "context_only": True})
+    activity = (f"Профиль компании: {company['industry']['name'] or ''}. Основная деятельность: "
+                + "; ".join(sector_terms(company["industry"]["code"]) or [company["industry"]["name"]]) + ".")
     prepared, records = [], []
     counter = type("Counter", (), {"count": lambda _, text: encoder.count_tokens(text)})()
     try:
@@ -174,23 +214,69 @@ def semantic_gate(profile, event, encoder, threshold=0.75):
             queries[i] = text
         query_vectors = np.asarray([encoder.encode_query(text) for text in queries], dtype=np.float32)
         passage_vectors = np.asarray(encoder.encode_passages([prepared[i] for i in indexes], batch_size=4), dtype=np.float32)
+        # Reverse E5's query/passage roles: ask whether the article's main topic
+        # matches the *whole core business*, not an isolated product keyword.
+        # Keep the headline separate from the body; adding a finance paragraph
+        # to an unrelated article must not repair a failed company match.
+        headline = event["title"]
+        for prefix, name in (("query: ", "headline"), ("passage: ", "context"), ("query: ", "activity")):
+            value = {"headline": headline, "context": context, "activity": activity}[name]
+            while encoder.count_tokens(prefix + value) > 384 and len(value) > 1:
+                value = value[:max(1, len(value) * 3 // 4)]
+            if name == "headline":
+                headline = value
+            elif name == "context":
+                context = value
+            else:
+                activity = value
+        headline_vector = np.asarray([encoder.encode_query(headline)], dtype=np.float32)
+        activity_vector = np.asarray([encoder.encode_query(activity)], dtype=np.float32)
+        context_vector = np.asarray(encoder.encode_passages(["passage: " + context], batch_size=1), dtype=np.float32)
     except AnalysisError:
         raise
     except Exception as exc:
         raise AnalysisError("news_e5_unavailable") from exc
-    for vectors, rows in ((query_vectors, len(queries)), (passage_vectors, len(indexes))):
+    for vectors, rows in ((query_vectors, len(queries)), (passage_vectors, len(indexes)),
+                          (headline_vector, 1), (context_vector, 1), (activity_vector, 1)):
         if (vectors.shape != (rows, dimension) or not np.isfinite(vectors).all()
                 or not np.allclose(np.linalg.norm(vectors, axis=1), 1, atol=1e-5)):
             raise AnalysisError("news_e5_invalid_vector")
     scores = query_vectors @ passage_vectors.T
     qi, pi = np.unravel_index(int(scores.argmax()), scores.shape)
-    score = float(np.clip(scores[qi, pi], -1, 1))
+    forward_score = float(np.clip(scores[qi, pi], -1, 1))
+    headline_score = float(np.clip(headline_vector[0] @ context_vector[0], -1, 1))
+    activity_scores = np.clip(activity_vector @ passage_vectors.T, -1, 1)[0]
+    # A body activity match and its topical facet must refer to the SAME chunk.
+    # Independently taking two maxima would let unrelated paragraphs combine.
+    direct_scores = np.minimum(activity_scores, scores.max(axis=0))
+    direct_pi = int(direct_scores.argmax())
+    direct_score = float(direct_scores[direct_pi])
+    reciprocal_score = min(forward_score, headline_score)
+    score = max(direct_score, reciprocal_score)
+    route = "source_activity" if direct_score >= reciprocal_score else "headline_company_context"
+    if route == "source_activity":
+        pi = direct_pi
+        qi = int(scores[:, pi].argmax())
     return {"method": GATE_VERSION, "status": "passed" if score >= threshold else "skipped",
             "similarity": score, "threshold": threshold, "embedding_space": encoder.space_id,
             "profile_hash": company["input_hash"], "event_hash": _event_hash(event),
-            "query_count": len(queries), "passage_count": len(indexes), "total_passages": len(prepared),
+            "aggregation": "max_same_chunk_activity_and_reciprocal_company_context",
+            "decision_route": route, "forward_similarity": forward_score,
+            "facet_similarities": {facet["kind"]: float(np.clip(scores[i].max(), -1, 1))
+                                   for i, facet in enumerate(facets)},
+            "company_context_similarity": max(direct_score, headline_score),
+            "headline_company_similarity": headline_score, "source_activity_similarity": direct_score,
+            "activity_query_hash": hashed(activity),
+            "company_context_hash": hashed(context), "company_context_feature_ids": sorted(set(
+                company["bindings"]["industry"] + [feature_id for facet in facets if facet["kind"] == "finance"
+                                                  for feature_id in facet["feature_ids"]])),
+            "headline_characters_evaluated": len(headline),
+            "limitations": ["semantic_match_does_not_prove_business_exposure", "requires_independent_threshold_validation"],
+            "query_count": len(queries) + 2, "facet_query_count": len(queries),
+            "passage_count": len(indexes), "total_passages": len(prepared),
             "coverage_complete": len(indexes) == len(prepared),
-            "matched_facet": {"kind": facets[qi]["kind"], "feature_ids": facets[qi]["feature_ids"]},
+            "matched_facet": {"kind": facets[qi]["kind"], "feature_ids": facets[qi]["feature_ids"],
+                              "context_only": facets[qi].get("context_only", False)},
             "matched_passage": records[indexes[pi]], "score_is_probability": False}
 
 
@@ -270,6 +356,7 @@ def _judge_data(profile, event, company, facts, scope, settings):
     """
     from .provider import input_bytes
     from .settings import Model
+    from .evidence import LABELS
     from copy import deepcopy
     model = getattr(settings, "models", {}).get(settings.analysis_model)
     model = model or Model(settings.analysis_model, "glm-5.3-flash")
@@ -298,6 +385,7 @@ def _judge_data(profile, event, company, facts, scope, settings):
                 value[key] = [{k: v for k, v in row.items() if k not in {"company_id", "source_refs"}}
                               for row in rows[:5]]
         feature_rows.append({"id": alias, "name": feature["name"], "value": value,
+                             **({"label": LABELS[feature["name"]]} if feature["name"] in LABELS else {}),
                              **({"unit": feature["unit"]} if feature.get("unit") else {})})
     # Meaningful canonical observations are present once in company_features.
     # These summary fields carry semantics and reconciled intervals absent from
@@ -311,7 +399,8 @@ def _judge_data(profile, event, company, facts, scope, settings):
             "news_title": event["title"], "published_at": event["published_at"],
             "news_facts": prompt_facts, "company_features": feature_rows, "coverage": coverage,
             "limitations": sorted(set([*company["limitations"], *profile.get("factor_limitations", []),
-                *feature_limitations, "registration_is_not_operations", "e5_gate_passed_is_not_business_significance"]))}
+                *feature_limitations, "registration_is_not_operations", "e5_gate_passed_is_not_business_significance",
+                "product_flags_do_not_prove_balances_contract_rates_or_maturities"]))}
     schema = RelevanceJudgment.model_json_schema()
     def size():
         return input_bytes(model, SYSTEM, data, schema)
