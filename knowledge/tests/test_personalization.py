@@ -51,6 +51,23 @@ def renamed(row, uid):
 
 
 class PersonalizationTests(unittest.TestCase):
+    def test_facets_share_one_eligible_index_without_changing_ranking(self):
+        from alphich_kb.personalization import selector as module
+        from alphich_kb.search import LexicalIndex, lexical_candidates
+        rows = [event(), event("construction")]
+        with patch.object(module, "LexicalIndex", wraps=LexicalIndex) as index:
+            optimized = select(rows)
+        self.assertEqual(index.call_count, 1)
+        self.assertGreater(len(optimized["facets"]), 1)
+        # Reference behavior: a fresh FTS index for every individual query.
+        def reference(selected, query, **_):
+            return lexical_candidates(selected, query)
+        with patch.object(module, "lexical_candidates", side_effect=reference):
+            expected = select(rows)
+        for result in (optimized, expected):
+            result["trace"].pop("elapsed_ms")
+        self.assertEqual(optimized, expected)
+
     def test_rate_has_different_credit_and_deposit_angles(self):
         credit = select([event()])["items"][0]
         deposit = select([event()], "S_RENT")["items"][0]

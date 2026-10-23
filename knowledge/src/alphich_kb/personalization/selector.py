@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 
 from ..build import chunk_spans
 from ..common import KnowledgeError, digest
-from ..search import lexical_candidates
+from ..search import LexicalIndex, lexical_candidates
 from . import VERSION
 from .facets import build_facets
 from .inputs import SelectionScope, instant, normalize_event, words
@@ -49,30 +49,37 @@ class NewsSelector:
         if encoder is not None and self.events:
             import numpy as np
             from ..embeddings import EncoderUnavailable
-            prepared, unique = [], {}
-            counter = type("Counter", (), {"count": lambda _, text: encoder.count_tokens(text)})()
-            for event in self.events:
-                for source in event["sources"]:
-                    header = f"passage: Новость: {event['title'][:180]}\n"
-                    for start, end in chunk_spans(source["text"], header, counter, max_tokens=384):
-                        text = header + source["text"][start:end]
-                        key = digest(text)
-                        if key not in unique:
-                            unique[key] = len(prepared)
-                            prepared.append(text)
-                        self.embedding_records.append({"event_id": event["id"], "event_version": event["version"],
-                                                       "snapshot_hash": event["snapshot_hash"], "source_id": source["id"],
-                                                       "source_version": source["version"], "start": start, "end": end,
-                                                       "input_hash": key, "embedding_space_id": encoder.space_id,
-                                                       "vector_row": unique[key]})
             try:
-                self.vectors = encoder.encode_passages(prepared, batch_size=4)
-                if self.vectors.shape != (len(prepared), encoder.dimension) or not np.isfinite(self.vectors).all():
+                cached = encoder.prepared_embeddings(self.events) if hasattr(encoder, "prepared_embeddings") else None
+                if cached is not None:
+                    self.embedding_records, self.vectors = cached
+                else:
+                    self._prepare_embeddings(encoder)
+                rows = max((r["vector_row"] for r in self.embedding_records), default=-1) + 1
+                if self.vectors.shape != (rows, encoder.dimension) or not np.isfinite(self.vectors).all():
                     raise KnowledgeError("Invalid news embedding matrix")
                 if not np.allclose(np.linalg.norm(self.vectors, axis=1), 1, atol=1e-5):
                     raise KnowledgeError("News embeddings must be normalized")
             except EncoderUnavailable:
                 self.encoder, self.encoder_error = None, "encoder_unavailable"
+
+    def _prepare_embeddings(self, encoder):
+        prepared, unique = [], {}
+        counter = type("Counter", (), {"count": lambda _, text: encoder.count_tokens(text)})()
+        for event in self.events:
+            for source in event["sources"]:
+                header = f"passage: Новость: {event['title'][:180]}\n"
+                for start, end in chunk_spans(source["text"], header, counter, max_tokens=384):
+                    text = header + source["text"][start:end]
+                    key = digest(text)
+                    if key not in unique:
+                        unique[key] = len(prepared)
+                        prepared.append(text)
+                    self.embedding_records.append({"event_id": event["id"], "event_version": event["version"],
+                        "snapshot_hash": event["snapshot_hash"], "source_id": source["id"],
+                        "source_version": source["version"], "start": start, "end": end,
+                        "input_hash": key, "embedding_space_id": encoder.space_id, "vector_row": unique[key]})
+        self.vectors = encoder.encode_passages(prepared, batch_size=4)
 
     def _visible(self, scope):
         excluded, versions = Counter(), defaultdict(list)
@@ -96,9 +103,10 @@ class NewsSelector:
 
     def _retrieve(self, events, facets, mode):
         lexical = {}
-        for facet in facets:
-            ranked = lexical_candidates(events, facet["text"])
-            lexical[facet["id"]] = {events[row]["snapshot_hash"]: rank for rank, (row, _) in enumerate(ranked[:15], 1)}
+        with LexicalIndex(events) as index:
+            for facet in facets:
+                ranked = lexical_candidates(events, facet["text"], index=index)
+                lexical[facet["id"]] = {events[row]["snapshot_hash"]: rank for rank, (row, _) in enumerate(ranked[:15], 1)}
         vectors, actual_mode, error = {}, mode, None
         if mode in {"dense", "hybrid"}:
             if self.encoder is None or self.vectors is None:

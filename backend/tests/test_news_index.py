@@ -8,6 +8,8 @@ from sqlalchemy import func, select
 from alphich_kb.embeddings import EncoderUnavailable
 from app.news import Event, SourceDocument
 from app.intelligence.news_index import CachedNewsEncoder, NewsIndexSource, NewsPassage, index_source, sync_index
+from app.intelligence.service import normalized_events
+from alphich_kb.personalization.selector import NewsSelector
 from test_intelligence import store
 from test_news_automation import copies
 
@@ -18,8 +20,10 @@ class TinyEncoder:
 
     def __init__(self):
         self.encoded = []
+        self.token_counts = 0
 
     def count_tokens(self, text):
+        self.token_counts += 1
         return len(text.split()) + 2
 
     def encode_passages(self, texts, batch_size=4):
@@ -94,13 +98,15 @@ def test_api_reads_use_completed_index_and_never_build_missing_passages(store, m
     monkeypatch.setattr("app.intelligence.news_index.encoder_for", lambda _: encoder)
     before = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
     assert before["news_index"]["builds_on_read"] is False and before["mode"] == "lexical_fallback"
-    assert encoder.encoded == []
+    assert encoder.encoded == [] and encoder.token_counts == 0
     sync_index(factory, encoder, ["DEMO_A"], limit=5)
     count = len(encoder.encoded)
+    token_counts = encoder.token_counts
     after = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
     assert after["mode"] == "hybrid" and after["news_index"]["available"] is True
     assert after["news_index"]["passage_cache_hits"] > 0
     assert after["candidate_pool_limit"] == 2000 and len(encoder.encoded) == count
+    assert encoder.token_counts == token_counts  # HTTP reads do not re-chunk indexed articles.
     assert client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_B"]).status_code == 403
 
 
@@ -116,3 +122,58 @@ def test_corrupt_cached_vector_fails_closed_without_new_inference_on_get(store, 
     feed = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"]).json()
     assert feed["mode"] == "lexical_fallback" and not feed["news_index"]["available"]
     assert len(encoder.encoded) == count
+
+
+@pytest.mark.parametrize("change", ["revision", "span", "text", "space", "owner", "title", "malformed"])
+def test_prepared_spans_cannot_be_reused_for_changed_or_corrupt_sources(store, monkeypatch, change):
+    client, factory, headers, _ = store
+    ids = copies(store)
+    encoder = TinyEncoder()
+    sync_index(factory, encoder, ["DEMO_A"], limit=5)
+    with factory.begin() as db:
+        source = db.get(SourceDocument, db.get(Event, ids[0]).source_id)
+        row = db.scalar(select(NewsIndexSource))
+        if change == "revision":
+            source.version += 1
+        elif change == "text":
+            source.body = "Иной текст публикации, без изменения остальных служебных полей."
+        elif change == "title":
+            db.get(Event, ids[0]).title = "Другой заголовок события"
+        elif change == "owner":
+            row.company_id = "DEMO_B"
+        elif change == "malformed":
+            row.passages = [None]
+        else:
+            spans = [dict(span) for span in row.passages]
+            if change == "span":
+                spans[0]["end"] = 10**9
+            else:
+                spans[0]["embedding_space_id"] = "different-space"
+            row.passages = spans
+    monkeypatch.setattr("app.intelligence.news_index.encoder_for", lambda _: encoder)
+    token_counts, encoded = encoder.token_counts, len(encoder.encoded)
+    response = client.get("/api/v1/companies/DEMO_A/feed", headers=headers["DEMO_A"])
+    assert response.status_code == 200
+    assert response.json()["mode"] == "lexical_fallback"
+    assert encoder.token_counts == token_counts and len(encoder.encoded) == encoded
+
+
+def test_prepared_spans_use_current_event_snapshot_after_fact_revision(store):
+    _, factory, _, _ = store
+    ident = copies(store)[0]
+    encoder = TinyEncoder()
+    index_source(factory, encoder, ident)
+    with factory.begin() as db:
+        event = db.get(Event, ident)
+        event.version += 1
+    with factory() as db:
+        event = db.get(Event, ident)
+        source = db.get(SourceDocument, event.source_id)
+        binding = db.scalar(select(NewsIndexSource.id).where(NewsIndexSource.event_id == ident))
+        current = normalized_events(db, [(event, source)])
+    token_counts = encoder.token_counts
+    selector = NewsSelector(current, CachedNewsEncoder(factory, encoder, "DEMO_A", source_bindings={ident: binding}))
+    assert selector.embedding_records
+    assert {record["event_version"] for record in selector.embedding_records} == {str(event.version)}
+    assert {record["snapshot_hash"] for record in selector.embedding_records} == {selector.events[0]["snapshot_hash"]}
+    assert encoder.token_counts == token_counts

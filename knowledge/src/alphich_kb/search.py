@@ -2,7 +2,6 @@
 
 import re
 import sqlite3
-from contextlib import closing
 from datetime import date
 from pathlib import Path
 
@@ -15,20 +14,43 @@ def available(item, as_of):
     return published is not None and date.fromisoformat(published) <= date.fromisoformat(as_of)
 
 
-def lexical_candidates(selected, query):
+class LexicalIndex:
+    """One request-local index of already eligible items, reused by all facets."""
+
+    def __init__(self, selected):
+        self.db = sqlite3.connect(":memory:")
+        try:
+            self.db.execute("CREATE VIRTUAL TABLE fragments USING fts5(title, body, tokenize='unicode61')")
+            self.db.executemany("INSERT INTO fragments(rowid, title, body) VALUES (?, ?, ?)",
+                               ((i + 1, c["title"], c["text"]) for i, c in enumerate(selected)))
+        except BaseException:
+            self.db.close()
+            raise
+
+    def search(self, query):
+        terms = re.findall(r"[^\W_]+", query.lower().replace("ё", "е"), re.UNICODE)
+        if not terms:
+            return []
+        # FTS5 prefix matching is an explicit baseline, not a morphological model.
+        expression = " OR ".join(f'"{term}"*' for term in dict.fromkeys(terms))
+        rows = self.db.execute(
+            "SELECT rowid, bm25(fragments, 0.2, 1.0) FROM fragments WHERE fragments MATCH ? ORDER BY 2, rowid",
+            (expression,)).fetchall()
+        return [(rowid - 1, score) for rowid, score in rows]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.db.close()
+
+
+def lexical_candidates(selected, query, *, index=None):
     """Rank exactly the supplied eligible items, before any top-K truncation."""
-    terms = re.findall(r"[^\W_]+", query.lower().replace("ё", "е"), re.UNICODE)
-    if not terms:
-        return []
-    # FTS5 prefix matching is an explicit baseline, not a Russian morphological model.
-    expression = " OR ".join(f'"{term}"*' for term in dict.fromkeys(terms))
-    with closing(sqlite3.connect(":memory:")) as db:
-        db.execute("CREATE VIRTUAL TABLE fragments USING fts5(title, body, tokenize='unicode61')")
-        db.executemany("INSERT INTO fragments(rowid, title, body) VALUES (?, ?, ?)",
-                       [(i + 1, c["title"], c["text"]) for i, c in enumerate(selected)])
-        rows = db.execute("SELECT rowid, bm25(fragments, 0.2, 1.0) FROM fragments WHERE fragments MATCH ? ORDER BY 2, rowid",
-                          (expression,)).fetchall()
-    return [(rowid - 1, score) for rowid, score in rows]
+    if index is not None:
+        return index.search(query)
+    with LexicalIndex(selected) as prepared:
+        return prepared.search(query)
 
 
 def search(corpus_dir, query, as_of, limit=5, topics=None):

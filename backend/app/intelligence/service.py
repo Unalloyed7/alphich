@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core import feature_evidence
@@ -34,12 +34,15 @@ def public_insight_payload(insight):
             insight.snapshot.get('versions', {}).get('runtime') == VERSION}
 
 
-def event_payload(db, event, source):
-    snapshot = db.scalar(select(Extraction).where(Extraction.event_id == event.id,
-                                                 Extraction.event_version == event.version,
-                                                 Extraction.source_id == source.id,
-                                                 Extraction.source_version == source.version,
-                                                 Extraction.status == "completed"))
+_NOT_LOADED = object()
+
+
+def event_payload(db, event, source, extraction=_NOT_LOADED):
+    snapshot = extraction
+    if snapshot is _NOT_LOADED:
+        snapshot = db.scalar(select(Extraction).where(Extraction.event_id == event.id,
+            Extraction.event_version == event.version, Extraction.source_id == source.id,
+            Extraction.source_version == source.version, Extraction.status == "completed"))
     payload = serialize_event(event, source)
     payload["facts"] = snapshot.facts if snapshot else []
     payload["extraction_limitations"] = snapshot.limitations if snapshot else ["facts_not_extracted"]
@@ -47,9 +50,10 @@ def event_payload(db, event, source):
     return payload
 
 
-def normalized_event(db, event, source, extraction=None):
+def normalized_event(db, event, source, extraction=None, *, payload=None):
     from alphich_kb.personalization.inputs import from_backend_event, normalize_event
-    payload = event_payload(db, event, source)
+    if payload is None:
+        payload = event_payload(db, event, source, extraction if extraction is not None else _NOT_LOADED)
     if extraction is not None:
         payload.update(version=extraction.event_version, facts=extraction.facts,
                        extraction_limitations=extraction.limitations, extraction_coverage=extraction.coverage)
@@ -59,6 +63,30 @@ def normalized_event(db, event, source, extraction=None):
     normalized["extraction_limitations"] = payload["extraction_limitations"]
     normalized["extraction_coverage"] = payload["extraction_coverage"]
     return normalized
+
+
+def event_payloads(db, rows):
+    """Load completed facts in bounded batches, including explicit misses.
+
+    Matching both event and source revisions prevents a previous extraction
+    from becoming evidence for a new source revision.
+    """
+    keys = [(event.id, event.version, source.id, source.version) for event, source in rows]
+    snapshots = {}
+    for start in range(0, len(keys), 200):
+        for extraction in db.scalars(select(Extraction).where(
+                tuple_(Extraction.event_id, Extraction.event_version, Extraction.source_id,
+                       Extraction.source_version).in_(keys[start:start + 200]),
+                Extraction.status == "completed").order_by(Extraction.id)):
+            key = (extraction.event_id, extraction.event_version, extraction.source_id, extraction.source_version)
+            snapshots.setdefault(key, extraction)
+    return [event_payload(db, event, source, snapshots.get(key))
+            for (event, source), key in zip(rows, keys)]
+
+
+def normalized_events(db, rows):
+    return [normalized_event(db, event, source, payload=payload)
+            for (event, source), payload in zip(rows, event_payloads(db, rows))]
 
 
 class Runtime:

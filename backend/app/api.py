@@ -21,7 +21,7 @@ from app.core import Base, Company, DemoSession, feature_evidence, make_session_
 from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
                       digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
 from app.intelligence.routes import register_routes
-from app.intelligence.service import event_payload
+from app.intelligence.service import event_payload, event_payloads
 from app import rss as _rss  # Register additive collector tables in the shared metadata.
 
 
@@ -256,7 +256,7 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
             .offset(offset)
             .limit(limit)
         ).all()
-        return {"items": [event_payload(db, event, source) for event, source in rows]}
+        return {"items": event_payloads(db, rows)}
 
     @app.get("/api/v1/events/{event_id}")
     def event_detail(event_id: str, demo: DemoSession = Depends(current_session), db: Session = Depends(get_db)):

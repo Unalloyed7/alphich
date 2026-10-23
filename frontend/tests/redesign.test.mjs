@@ -12,6 +12,7 @@ before(async()=>{browser=await chromium.launch({headless:true,...(process.env.PL
 after(async()=>{await browser?.close();});
 async function setup(options={},viewport={width:1440,height:1050}) {
   const context=await browser.newContext({viewport});const page=await context.newPage();
+  if(options.clock) await page.clock.install();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));const state=await mockApi(page,options);await page.goto(baseURL);return {context,page,state,errors};
 }
 async function login(page) {await page.getByRole('button',{name:'Перейти к аналитике'}).click();await page.locator('.briefing-layout').waitFor();await page.locator('.feed-skeleton').waitFor({state:'hidden'});}
@@ -19,6 +20,37 @@ async function screenshot(page,name,fullPage){if(screenshotDir){await fs.mkdir(s
 async function accessible(page){const result=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();assert.deepEqual(result.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),[]);}
 async function cardCount(page,count) {await page.waitForFunction(expected=>document.querySelectorAll('.brief-card').length===expected,count);assert.equal(await page.locator('.brief-card').count(),count);}
 async function noOverflow(page) {assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);}
+
+test('A slow feed request is shared, 504 keeps the last feed and automatic retries back off',async()=>{
+ const {context,page}=await setup({clock:true});
+ let release;
+ try {
+  await login(page);await cardCount(page,3);
+  let attempts=0,markStarted;
+  const started=new Promise(resolve=>{markStarted=resolve;});
+  const blocked=new Promise(resolve=>{release=resolve;});
+  await page.route('**/api/v1/companies/*/feed',async route=>{
+   attempts++;
+   if(attempts===1) {
+    markStarted();await blocked;
+    await route.fulfill({status:504,contentType:'text/html',body:'<h1>504 Gateway Time-out</h1>'});
+   } else await route.fallback();
+  });
+  await page.clock.fastForward(20_000);await started;
+  await page.clock.fastForward(40_000);
+  await page.getByRole('button',{name:'Обновить аналитику',exact:true}).click();
+  assert.equal(attempts,1); // Timer ticks and a manual refresh share the pending read.
+  release();
+  const alert=page.getByRole('alert').filter({hasText:'Сервер не успел подготовить данные'});
+  await alert.waitFor();await cardCount(page,3);
+  await page.clock.fastForward(20_000);
+  assert.equal(attempts,1); // No immediate automatic retry after the timeout.
+  await alert.getByRole('button',{name:'Повторить',exact:true}).click();
+  await alert.waitFor({state:'hidden'});
+  assert.equal(attempts,2); // An explicit retry bypasses the cooldown.
+  await cardCount(page,3);
+ } finally {release?.();await context.close();}
+});
 
 test('Briefing prioritizes insights, filters correctly, and never starts paid work on load',async()=>{
  const {context,page,state,errors}=await setup();try {
