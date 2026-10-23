@@ -17,12 +17,12 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core import Base, Company, DemoSession, feature_evidence, make_session_factory
+from app.core import Base, Company, DemoSession, make_session_factory
 from alphich.organizer_semantics import revenue_metadata
 from app.news import (Event, Job, JobView, PublicationInput, SourceDocument,
                       digest_input, digest_request, new_id, serialize_event, utc_iso, view_job)
 from app.intelligence.routes import register_routes
-from app.intelligence.service import event_payload
+from app.intelligence.service import company_profile, event_payload
 from app import rss as _rss  # Register additive collector tables in the shared metadata.
 from app.news_collection import register_collection_routes
 from app.rss_status import register_status_route
@@ -114,23 +114,14 @@ def create_app(session_factory=None, engine=None) -> FastAPI:
         company = db.get(Company, company_id)
         if company is None:
             raise HTTPException(404, "Company profile not found")
-        revenue = revenue_metadata(company.revenue_raw)
-        return {"id": company.id, "role": demo.role, "profile_version": company.profile_version,
-                "industry": {"okved_code": company.okved_code, "okved_name": company.okved_name},
-                "group_id": company.group_id, "region_registration": company.region,
-                "city_registration": company.city, "revenue_raw": revenue["amount"],
-                "revenue_unit": revenue["unit"], "revenue_currency": revenue["currency"],
-                "revenue_period": revenue["period"], "revenue_scope": revenue["scope"],
-                "client_type": company.client_type,
-                "products": company.products, "fts_flag": company.fts_flag,
-                "fts_countries": company.countries, "features": feature_evidence(company),
-                "quality_flags": company.quality_flags,
-                "limitations": [
+        result = company_profile(company, demo.role, db=db)
+        return {**result, "limitations": [
                     "This is an anonymized synthetic company profile.",
                     "Revenue is RUB for 2025; company/group scope and profile snapshot date are unknown.",
                     "Registration region is not proof of geographic operations.",
                     "FTS countries do not establish trade direction or transaction currency.",
                     "Credit flag does not disclose debt amount, contract rate, or maturity.",
+                    *result["limitations"],
                 ]}
 
     @app.post("/api/v1/publications", status_code=202, response_model=JobView)

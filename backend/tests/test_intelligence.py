@@ -82,7 +82,7 @@ class ScriptedGateway:
     def __init__(self, *, bad_quote=False, bad_schema=False, reject_review=False, extra_search=False,
                  fabricated_number=False, timeout=False, missing_usage=False, empty_facts=False,
                  reject_semantics=False, repair_semantics=False, always_search=False, bad_contract_stability=False,
-                 business_issue=None, persistent_business_issue=False):
+                 business_issue=None, persistent_business_issue=False, relevance_grade=4):
         self.options = locals().copy()
         self.seen = []
         self.decisions = 0
@@ -108,6 +108,13 @@ class ScriptedGateway:
                     "business_effect": "financing", "event_status": "reported"}}]}
         elif title == "ExtractionReview":
             result = {"accepted_indexes": [] if self.options["reject_review"] else list(range(len(data["candidates"]))), "issues": []}
+        elif title == "RelevanceJudgment":
+            # A fixed test verdict exercises orchestration, never grading quality.
+            result = {"grade": self.options["relevance_grade"] if data["news_facts"] else 0,
+                      "reason": "Проверенный факт о ставке связан с подтверждённой деятельностью компании; условия договоров неизвестны.",
+                      "news_fact_ids": [fact["id"] for fact in data["news_facts"][:1]],
+                      "company_feature_ids": [feature["id"] for feature in data["company_features"][:1]],
+                      "missing_data": [], "required_action": None}
         elif title in {"ResearchDecision", "FinalResearchDecision"}:
             result = {"decision": {"action": "handoff", "bank_claim_ids": data["eligible_bank_claim_ids"],
                                     "gaps": [] if data["eligible_bank_claim_ids"] else ["no_applicable_evidence"]}}
@@ -161,10 +168,30 @@ class ScriptedGateway:
         return httpx.Response(200, json=payload)
 
 
-def runtime(factory, settings, gateway=None):
+class FakeE5:
+    """Deterministic unit vectors for protocol tests, not a semantic model."""
+    dimension = 2
+    space_id = "test-e5-normalized-v1"
+
+    def count_tokens(self, text):
+        return len(text.split())
+
+    def encode_query(self, text):
+        import numpy as np
+        return np.asarray([1.0, 0.0], dtype=np.float32)
+
+    def encode_passages(self, texts, batch_size=4):
+        import numpy as np
+        return np.tile(np.asarray([1.0, 0.0], dtype=np.float32), (len(texts), 1))
+
+
+def runtime(factory, settings, gateway=None, *, fake_e5=True, client=None):
     gateway = gateway or ScriptedGateway()
-    client = httpx.Client(transport=httpx.MockTransport(gateway))
-    return Runtime(factory, settings, Provider(factory, settings, client)), gateway
+    client = client or httpx.Client(transport=httpx.MockTransport(gateway))
+    worker = Runtime(factory, settings, Provider(factory, settings, client))
+    if fake_e5:
+        worker.encoder = FakeE5()
+    return worker, gateway
 
 
 def stored_event(client, factory, headers, *, text=BODY, title="Тестовое решение Банка России"):
@@ -198,7 +225,7 @@ def test_fact_only_route_is_scoped_idempotent_and_does_not_generate_personal_car
     assert process_next(factory, engine)
     job = client.get('/api/v1/jobs/' + response.json()['id'], headers=headers['DEMO_A']).json()
     assert job['status'] == 'succeeded' and job['result_id'] == event_id
-    assert [title for title, _ in gateway.seen] == ['ExtractionDraft', 'ExtractionReview']
+    assert [title for title, _ in gateway.seen] == ['ExtractionDraft', 'ExtractionReview', 'RelevanceJudgment']
     event = client.get('/api/v1/events/' + event_id, headers=headers['DEMO_A']).json()
     assert event['facts']
     with factory() as db:
@@ -265,7 +292,7 @@ def test_full_api_extraction_agent_extra_search_evidence_and_budget(store):
             assert client.get(f"/api/v1/evidence/{evidence_id}", params={"insight_id": card["id"]}, headers=headers["DEMO_B"]).status_code == 404
     trace = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
     assert any(s.get("origin") != "initial_context" and s["action"] == "search_bank_materials" for s in trace["steps"])
-    assert len(trace["llm_calls"]) == 5
+    assert len(trace["llm_calls"]) == 6
     assert "test-secret-never-expose" not in json.dumps(trace)
     assert client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_B"]).status_code == 404
     budget = client.get("/api/v1/llm/status", headers=headers["DEMO_A"]).json()
@@ -304,9 +331,9 @@ def test_unverified_facts_produce_no_personal_inference(store, option):
     process_next(factory, engine)
     result = client.get("/api/v1/jobs/" + job["id"], headers=headers["DEMO_A"]).json()
     assert result["status"] == "succeeded", result
-    card = client.get("/api/v1/insights/" + result["result_id"], headers=headers["DEMO_A"]).json()
-    assert card["status"] == "insufficient_evidence"
-    assert not any(c["kind"] == "model_inference" for c in card["claims"])
+    assert result["result_type"] == "event" and result["result_id"] == event_id
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(Insight)) == 0
     assert not any(title == "Decision" for title, _ in gateway.seen)
 
 
@@ -434,7 +461,7 @@ def test_evaluation_runs_api_workers_question_and_writes_local_report(store, tmp
     with httpx.Client(transport=httpx.MockTransport(gateway)) as http:
         result = evaluate(settings, path, root / "backend/fixtures/llm_companies.csv", 1,
                           "data/processed/evaluation.json", True,
-                          runtime_factory=lambda f, s: Runtime(f, s, Provider(f, s, http)))
+                          runtime_factory=lambda f, s: runtime(f, s, gateway, client=http)[0])
     assert result["completed_cases"] == 1 and result["failed_cases"] == 0
     report = json.loads(Path(result["report"]).read_text())
     row = report["results"][0]
@@ -548,7 +575,7 @@ def test_one_schema_repair_is_bounded_and_cannot_execute_invalid_tool(store):
     assert result["status"] == "succeeded", result
     card = client.get("/api/v1/insights/" + result["result_id"], headers=headers["DEMO_A"]).json()
     run = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
-    assert len(run["llm_calls"]) == 5
+    assert len(run["llm_calls"]) == 6
     assert sum(s["action"] == "verify_card_schema" for s in run["steps"]) == 1
 
 
@@ -715,7 +742,7 @@ def test_cache_reuses_verified_insight_and_extraction(store):
         job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
         assert job["status"] == "succeeded", job
         results.append(job["result_id"])
-    assert len(gateway.seen) == 4
+    assert len(gateway.seen) == 5
     assert results[0] == results[1]
     with factory() as db:
         assert db.scalar(select(func.count()).select_from(Extraction)) == 1
@@ -759,7 +786,7 @@ def test_concurrent_identical_analysis_waits_and_reuses_one_generation(store):
     results = [client.get("/api/v1/jobs/" + jid, headers=headers["DEMO_A"]).json() for jid in job_ids]
     assert all(r["status"] == "succeeded" for r in results), results
     assert results[0]["result_id"] == results[1]["result_id"]
-    assert len(gateway.seen) == 4
+    assert len(gateway.seen) == 5
 
 
 def test_historical_request_excludes_late_received_source_before_model(store):
@@ -803,7 +830,7 @@ def test_semantic_repair_is_attempted_once_and_rechecked(store):
     job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
     assert job["status"] == "succeeded", job
     assert gateway.reviews == 2 and gateway.decisions == 2
-    assert len(gateway.seen) == 6
+    assert len(gateway.seen) == 7
 
 
 def test_macro_forecast_cannot_publish_reported_contract_stability_even_if_reviewer_agrees(store):
@@ -1010,7 +1037,8 @@ def test_historical_feed_filters_time_before_bounded_candidate_pool(store):
     assert response.status_code == 200, response.text
     assert response.json()["items"] == []  # Raw mentions cannot enter the grade 4/5 feed.
     assert [item["event_id"] for item in response.json()["extraction_candidates"]] == [event_id]
-    assert len(response.json()["trace"]["visible_snapshots"]) == 1
+    assert response.json()["trace"]["unassessed"] == 1
+    assert response.json()["trace"]["model_calls_on_read"] == 0
 
 
 def test_call_limit_persists_between_worker_attempts(store):
@@ -1034,7 +1062,7 @@ def test_real_bank_index_and_local_e5_with_scripted_generation(store, tmp_path):
                        model_dir=str(root / "data/models/e5-base"), model_manifest=str(root / "knowledge/embedding-model.json"))
     event_id = stored_event(client, factory, headers["DEMO_A"])
     job_id = queued_insight(client, headers["DEMO_A"], event_id).json()["id"]
-    engine, gateway = runtime(factory, settings)
+    engine, gateway = runtime(factory, settings, fake_e5=False)
     process_next(factory, engine)
     job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
     assert job["status"] == "succeeded", job
@@ -1045,10 +1073,10 @@ def test_real_bank_index_and_local_e5_with_scripted_generation(store, tmp_path):
         saved = db.get(Insight, card["id"])
         bank_claims = [e for e in saved.evidence.values() if e["kind"] == "bank_claim"]
         assert any(e["metric"] == "policy_rate" and e["forecast_horizon"] == "2026-12-31" and e["value"] == "14" for e in bank_claims)
-    assert len(gateway.seen) == 5
+    assert len(gateway.seen) == 6
     assert engine.encoder is not None
     trace = client.get("/api/v1/runs/" + card["run_id"], headers=headers["DEMO_A"]).json()
-    assert {c["agent_role"] for c in trace["llm_calls"]} == {"extractor", "bank_researcher", "analyst", "verifier"}
+    assert {c["agent_role"] for c in trace["llm_calls"]} == {"extractor", "relevance_judge", "bank_researcher", "analyst", "verifier"}
     assert any(s["action"] == "agent_handoff" and s["agent_role"] == "bank_researcher" for s in trace["steps"])
     status = client.get("/api/v1/llm/status", headers=headers["DEMO_A"]).json()
     assert status["agent_network"]["roles"] == ["bank_researcher", "analyst", "verifier"]

@@ -23,6 +23,22 @@ function dateLabel(value?: string | null): string {
   return Number.isNaN(time.getTime()) ? value : time.toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function insightJobMessage(job: Job): string {
+  if (job.status === 'failed') {
+    if (['news_e5_unavailable', 'news_e5_invalid_vector', 'news_e5_invalid_threshold'].includes(job.error ?? '')) return 'Смысловая проверка недоступна. Платный анализ новости не запускался. Попробуйте позже.';
+    if (job.error === 'news_e5_company_context_missing') return 'Недостаточно подтверждённых данных компании для смысловой проверки. Платный анализ не запускался.';
+    if (job.error === 'news_e5_article_context_missing') return 'Нет текста новости для смысловой проверки. Платный анализ не запускался.';
+    return `Не удалось завершить разбор: ${job.error || 'попробуйте ещё раз'}`;
+  }
+  if (job.status === 'succeeded') return job.result_type === 'insight'
+    ? 'Разбор сохранён'
+    : 'Новость проверена, инсайт не сформирован. Персональный разбор создаётся для новостей с оценкой 4 или 5.';
+  return ({ waiting_semantic: 'Проверяем смысловую связь с компанией…', semantic_check: 'Проверяем смысловую связь с компанией…',
+    waiting_facts: 'Проверяем смысловую связь, затем извлекаем факты и оцениваем значимость…',
+    relevance_assessment: 'Оцениваем значимость новости для компании…',
+  } as Record<string, string>)[job.stage] ?? 'Проверяем значимость и готовим персональную аналитику для оценки 4–5…';
+}
+
 const claimKinds: Record<Claim['kind'], string> = {
   news_fact: 'Факт новости', company_fact: 'Признак компании', bank_view: 'Позиция Альфа-Банка',
   model_inference: 'Вывод AI · не официальная позиция банка',
@@ -82,14 +98,14 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
     return () => { active = false; };
   }, [session.company_id, session.token, eventId, onInsightReady]);
 
-  const poll = useCallback((current: Job, setter: (j: Job) => void, load: (id: string) => Promise<void>) => {
+  const poll = useCallback((current: Job, setter: (j: Job) => void, resultType: 'insight' | 'answer', load: (id: string) => Promise<void>) => {
     let canceled = false;
     const next = async () => {
       try {
         const latest = await api.job(current.id, session.token);
         if (canceled) return;
         setter(latest);
-        if (latest.status === 'succeeded' && latest.result_id) await load(latest.result_id);
+        if (latest.status === 'succeeded' && latest.result_id && latest.result_type === resultType) await load(latest.result_id);
       } catch (e) { if (!canceled) setError(message(e)); }
     };
     void next();
@@ -99,20 +115,27 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
 
   useEffect(() => {
     if (!job || (job.status !== 'queued' && job.status !== 'running')) return;
-    return poll(job, setJob, async id => { const card = await analysisApi.insight(id, session.token); setInsight(card); onInsightReady(eventId, card.status); void analysisApi.status(session.token).then(setStatus).catch(() => { }); });
+    return poll(job, setJob, 'insight', async id => { const card = await analysisApi.insight(id, session.token); setInsight(card); onInsightReady(eventId, card.status); void analysisApi.status(session.token).then(setStatus).catch(() => { }); });
   }, [job?.id, job?.status, poll, session.token, onInsightReady]);
 
   useEffect(() => {
     if (!questionJob || (questionJob.status !== 'queued' && questionJob.status !== 'running')) return;
-    return poll(questionJob, setQuestionJob, async id => { setAnswer(await analysisApi.answer(id, session.token)); void analysisApi.status(session.token).then(setStatus).catch(() => { }); });
+    return poll(questionJob, setQuestionJob, 'answer', async id => { setAnswer(await analysisApi.answer(id, session.token)); void analysisApi.status(session.token).then(setStatus).catch(() => { }); });
   }, [questionJob?.id, questionJob?.status, poll, session.token]);
+
+  useEffect(() => {
+    if (!job || (job.status !== 'succeeded' && job.status !== 'failed')) return;
+    let active = true;
+    void analysisApi.status(session.token).then(value => { if (active) setStatus(value); }).catch(() => {});
+    return () => { active = false; };
+  }, [job?.id, job?.status, session.token]);
 
   const start = async () => {
     setBusy(true); setError(null); setSavedError(null); setAnswer(null); setEvidence(null); setRun(null);
     try {
       const next = await analysisApi.createInsight(session.company_id, eventId, session.token);
       setJob(next);
-      if (next.status === 'succeeded' && next.result_id) { const card = await analysisApi.insight(next.result_id, session.token); setInsight(card); onInsightReady(eventId, card.status); }
+      if (next.status === 'succeeded' && next.result_id && next.result_type === 'insight') { const card = await analysisApi.insight(next.result_id, session.token); setInsight(card); onInsightReady(eventId, card.status); }
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   };
 
@@ -123,7 +146,7 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
     try {
       const next = await analysisApi.ask(insight.id, question.trim(), session.token);
       setQuestionJob(next);
-      if (next.status === 'succeeded' && next.result_id) setAnswer(await analysisApi.answer(next.result_id, session.token));
+      if (next.status === 'succeeded' && next.result_id && next.result_type === 'answer') setAnswer(await analysisApi.answer(next.result_id, session.token));
     } catch (err) { setError(message(err)); } finally { setBusy(false); }
   };
 
@@ -158,8 +181,8 @@ export function EventInsight({ session, eventId, onInsightReady }: { session: De
     {savedLoading && <div className="loading-panel" role="status"><span className="spinner"/> Загружаем сохранённый разбор…</div>}
     {savedError && <p className="insight-error" role="alert">Не удалось загрузить сохранённый разбор: {savedError}</p>}
     {statusError && <p className="insight-error" role="alert">Не удалось проверить доступность аналитики: {statusError}</p>}
-    {!insight && !savedLoading && <div className="analysis-empty"><div className="empty-icon"><Icon name="activity" size={28}/></div><span className="eyebrow">ОТ СОБЫТИЯ К РЕШЕНИЮ</span><h3>Что эта новость меняет<br/>для вашей компании?</h3><p>Разберём связь с вашим бизнесом, найдём позицию банка и предложим, что проверить перед решением.</p><button type="button" className="insight-primary" disabled={analyzing || !status?.configured} onClick={() => void start()}>{analyzing ? 'Готовим разбор…' : <>Разобрать влияние <Icon name="arrow" size={17}/></>}</button><small>Запуск использует общий бюджет аналитики.</small></div>}
-    {job && <p className={`insight-job ${job.status === 'failed' ? 'insight-error' : ''}`} role="status">{job.status === 'failed' ? `Не удалось завершить разбор: ${job.error || 'попробуйте ещё раз'}` : job.status === 'succeeded' ? 'Разбор сохранён' : <><span className="spinner tiny"/> Проверяем факты и готовим персональную аналитику…</>}</p>}
+    {!insight && !savedLoading && <div className="analysis-empty"><div className="empty-icon"><Icon name="activity" size={28}/></div><span className="eyebrow">ОТ СОБЫТИЯ К РЕШЕНИЮ</span><h3>Что эта новость меняет<br/>для вашей компании?</h3><p>Проверим связь с бизнесом и оценим значимость. Для оценки 4–5 подготовим разбор с доказательствами и действиями.</p><button type="button" className="insight-primary" disabled={analyzing || !status?.configured} onClick={() => void start()}>{analyzing ? 'Проверяем значимость…' : <>Разобрать влияние <Icon name="arrow" size={17}/></>}</button><small>Запуск использует общий бюджет аналитики.</small></div>}
+    {job && <p className={`insight-job ${job.status === 'failed' ? 'insight-error' : ''}`} role="status">{analyzing && <span className="spinner tiny"/>} {insightJobMessage(job)}</p>}
     {error && <p className="insight-error" role="alert">{error}</p>}
     {insight && <div className="insight-result">
       <div className="analysis-meta"><span className={`analysis-state ${insight.status === 'insufficient_evidence' ? 'state-warning' : ''}`}>{analysisLabel(insight.status)}</span>{typeof insight.relevance_grade === 'number' && <span className="grade-inline">Значимость <strong>{insight.relevance_grade}/5</strong></span>}<span>Анализ: {dateLabel(insight.as_of)}</span></div>

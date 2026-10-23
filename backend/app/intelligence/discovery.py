@@ -66,7 +66,7 @@ def view_run(db, run):
     run_ids = ['run_' + hashed(j)[:32] for j in job_ids]
     calls = list(db.scalars(select(LLMCall).where(LLMCall.run_id.in_(run_ids)))) if run_ids else []
     counts = {state: sum(i['state'] == state for i in items) for state in
-              ('completed', 'below_threshold', 'failed', 'waiting_facts', 'waiting_analysis', 'pending')}
+              ('completed', 'below_threshold', 'semantic_skipped', 'failed', 'waiting_facts', 'waiting_analysis', 'pending')}
     return {'id': run.id, 'company_id': run.company_id, 'role': run.role, 'status': run.status,
         'stage': run.stage, 'stop_reason': run.stop_reason, 'target': run.target, 'min_grade': run.min_grade,
         'max_candidates': run.max_candidates, 'deadline_at': run.deadline_at, 'created_at': run.created_at,
@@ -152,9 +152,9 @@ def configured_article_ids(db):
 
 def candidate_pool(db, run):
     from alphich_kb.personalization.inputs import SelectionScope
-    from alphich_kb.personalization.profiles import normalize_company
+    from alphich_kb.personalization.inputs import instant
     from alphich_kb.personalization.reprints import group_reprints
-    from alphich_kb.personalization.rules import match_reasons
+    from .relevance import VERSION as RELEVANCE_VERSION
     from .service import normalized_event
     since = (datetime.fromisoformat(run.as_of) - timedelta(days=90)).isoformat()
     rows = list(db.execute(select(Event, SourceDocument).join(SourceDocument, Event.source_id == SourceDocument.id)
@@ -162,7 +162,7 @@ def candidate_pool(db, run):
             SourceDocument.kind == 'rss_article', SourceDocument.published_at >= since,
             SourceDocument.published_at <= run.as_of, SourceDocument.received_at <= run.as_of)
         .order_by(SourceDocument.received_at.desc(), Event.id).limit(300)))
-    profile, candidates = normalize_company(run.profile), []
+    candidates = []
     allowed_articles = configured_article_ids(db)
     current_sources = {event.id: source for event, source in rows}
     revisions = {ident: hashed([source.id, source.version, source.content_hash])
@@ -179,7 +179,10 @@ def candidate_pool(db, run):
             continue
         for old in previous.items:
             ident = old['event_id']
-            if ident not in revisions or (old['state'] not in {'completed', 'below_threshold'} and
+            # A legacy rule-based grade does not stand in for the new GLM judge.
+            if old['state'] in {'completed', 'below_threshold', 'semantic_skipped'} and old.get('grade_method') != RELEVANCE_VERSION:
+                continue
+            if ident not in revisions or (old['state'] not in {'completed', 'below_threshold', 'semantic_skipped'} and
                     not (old['state'] == 'failed' and old.get('error') not in retryable)):
                 continue
             # Old runs did not store this fingerprint. Collector sources at
@@ -197,19 +200,15 @@ def candidate_pool(db, run):
         item = normalized_event(db, event, source)
         if scope.excludes(item):
             continue
-        reasons, _ = match_reasons(profile, item, scope)
-        # Macro words alone cannot establish a company-specific channel.
-        meaningful = [r for r in reasons if r['tier'] == 'direct' or r['code'] in {
-            'unverified_industry_mention', 'unverified_credit_rate_channel', 'unverified_deposit_rate_channel'}]
-        if meaningful:
-            item['discovery_priority'] = max(r['base'] for r in meaningful)
-            item['source_revision'] = revisions[event.id]
-            item['age_anchor'] = item['published_at'] or item['available_at']
-            candidates.append(item)
+        # Retrieval may produce a relevant story without any dictionary word.
+        # The worker's mandatory E5 gate is the only semantic candidate veto.
+        item['source_revision'] = revisions[event.id]
+        item['age_anchor'] = item['published_at'] or item['available_at']
+        candidates.append(item)
     grouped, duplicates = group_reprints(candidates)
-    ranked = sorted(grouped, key=lambda e: (-e['discovery_priority'], e['id']))
+    ranked = sorted(grouped, key=lambda e: (-instant(e['available_at']).timestamp(), e['id']))
     return [{'event_id': e['id'], 'title': e['title'], 'state': 'pending', 'grade': None,
-             'source_revision': e['source_revision']}
+             'source_revision': e['source_revision'], 'grade_method': RELEVANCE_VERSION}
             for e in ranked[:run.max_candidates]], {'scanned': len(rows), 'preselected': len(ranked),
             'duplicates': sum(duplicates.values()), 'pre_filtered': len(rows) - len(candidates),
             'previously_checked': len(previously_checked)}
@@ -235,15 +234,14 @@ def enqueue_child(db, run, item, operation, source, now):
 
 def analyze_tick(factory, settings, *, now=None):
     """Advance one run. Paid work is queued one article at a time and never retried here."""
-    from alphich_kb.personalization.grading import grade_event
     from alphich_kb.personalization.inputs import SelectionScope
-    from alphich_kb.personalization.profiles import normalize_company
-    from alphich_kb.personalization.rules import match_reasons
+    from .relevance import VERSION as RELEVANCE_VERSION, cached_assessment_db
     from .service import normalized_event
     from . import VERSION
     from app.rss_fetch import CollectionError
-    now = int(time.time()) if now is None else now
-    day = datetime.fromtimestamp(now, timezone.utc).date().isoformat()
+    when = datetime.now(timezone.utc) if now is None else datetime.fromtimestamp(now, timezone.utc)
+    now = int(when.timestamp())
+    day = when.date().isoformat()
     with factory.begin() as db:
         run = db.scalar(select(DiscoveryRun).where(DiscoveryRun.status.in_(ACTIVE))
             .order_by(DiscoveryRun.updated_at, DiscoveryRun.id).with_for_update(skip_locked=True).limit(1))
@@ -297,7 +295,7 @@ def analyze_tick(factory, settings, *, now=None):
                 Job.created_at <= run.updated_at).limit(1))
             if unfinished:
                 return True
-            run.as_of = datetime.fromtimestamp(now, timezone.utc).isoformat()
+            run.as_of = when.isoformat()
             try:
                 run.items, run.stats = candidate_pool(db, run)
             except CollectionError:
@@ -338,15 +336,27 @@ def analyze_tick(factory, settings, *, now=None):
             current.update(state='failed', error='extraction_unavailable')
             write_items(run, items)
             return True
-        if extraction is not None and extraction.status == 'completed':
-            normalized = normalized_event(db, event, source, extraction)
-            scope = SelectionScope(run.company_id, run.as_of, frozenset({event.id}), run.role)
-            profile = normalize_company(run.profile)
-            reasons, _ = match_reasons(profile, normalized, scope)
-            grade = grade_event(profile, normalized, scope, reasons)
-            current.update(grade=grade['relevance_grade'], assessment=grade['relevance_assessment'])
+        normalized = normalized_event(db, event, source,
+            extraction if extraction is not None and extraction.status == 'completed' else None)
+        scope = SelectionScope(run.company_id, run.as_of, frozenset({event.id}), run.role)
+        grade = cached_assessment_db(db, run.profile, normalized, scope, settings)
+        if grade is not None:
+            current.update(grade=grade.get('relevance_grade'), assessment=grade.get('relevance_assessment', {}),
+                           grade_method=RELEVANCE_VERSION)
             write_items(run, items)
-            if not grade['relevance_selected'] or grade['relevance_grade'] < run.min_grade:
+            if grade.get('status') == 'assessment_running':
+                run.stage = 'waiting_relevance_assessment'
+                write_items(run, items)
+                return True
+            if grade.get('status') == 'assessment_failed':
+                current.update(state='failed', error=grade.get('error', 'news_relevance_outcome_unknown'))
+                write_items(run, items)
+                return True
+            if grade.get('relevance_grade') is None:
+                current['state'] = 'semantic_skipped'
+                write_items(run, items)
+                return True
+            if not grade.get('relevance_selected', False) or grade['relevance_grade'] < run.min_grade:
                 current['state'] = 'below_threshold'
                 write_items(run, items)
                 return True
@@ -362,6 +372,14 @@ def analyze_tick(factory, settings, *, now=None):
                 current.update(state='completed', insight_id=existing.id, reused=True)
                 write_items(run, items)
                 return True
+        elif current.get('facts_job_id'):
+            # A finished judge job without a reusable assessment is an error;
+            # changing run/session must not silently retry a paid attempt.
+            previous_job = db.get(Job, current['facts_job_id'])
+            if previous_job is not None and previous_job.status == 'succeeded':
+                current.update(state='failed', error='relevance_assessment_missing')
+                write_items(run, items)
+                return True
         budget = db.get(BudgetDay, day)
         limit = min(settings.daily_limit_micros, budget.limit_micros) if budget else settings.daily_limit_micros
         if budget and budget.spent_micros + budget.reserved_micros >= limit:
@@ -370,7 +388,7 @@ def analyze_tick(factory, settings, *, now=None):
             else:
                 finish(run, 'partial', 'budget_exceeded')
             return True
-        operation = 'automatic_insight' if current.get('grade') is not None else 'news_fact_extraction'
+        operation = 'automatic_insight' if grade is not None else 'news_fact_extraction'
         enqueue_child(db, run, current, operation, source, now)
         run.stage = 'generating_insight' if operation == 'automatic_insight' else 'extracting_facts'
         write_items(run, items)

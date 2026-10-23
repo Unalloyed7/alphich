@@ -65,6 +65,7 @@ class Settings:
     model_manifest: str = "/srv/knowledge/embedding-model.json"
     allowed_bank_ids: frozenset[str] | None = None
     news_feed_limit: int = 2000
+    news_e5_min_similarity: float = 0.75
 
     @classmethod
     def from_env(cls):
@@ -93,6 +94,7 @@ class Settings:
                          model_dir=os.getenv("E5_MODEL_DIR", "/data/models/e5-base"),
                          model_manifest=os.getenv("E5_MODEL_MANIFEST", "/srv/knowledge/embedding-model.json"),
                          news_feed_limit=int(os.getenv("NEWS_FEED_MAX_EVENTS", "2000")),
+                         news_e5_min_similarity=float(os.getenv("NEWS_E5_MIN_SIMILARITY", "0.75")),
                          allowed_bank_ids=None if os.getenv("BANK_ALLOWED_DOCUMENT_IDS", "*") == "*" else
                          frozenset(v.strip() for v in os.getenv("BANK_ALLOWED_DOCUMENT_IDS", "").split(",") if v.strip()))
             result.validate()
@@ -101,6 +103,10 @@ class Settings:
             raise AnalysisError("invalid_llm_configuration") from None
 
     def validate(self):
+        import math
+        if (isinstance(self.news_e5_min_similarity, bool) or
+                not math.isfinite(self.news_e5_min_similarity) or not -1 <= self.news_e5_min_similarity <= 1):
+            raise ValueError("invalid_news_e5_threshold")
         if not 1 <= self.news_feed_limit <= 5000:
             raise ValueError("invalid_news_pool_limit")
         if self.budget_mode not in {"token_prices", "gateway_receipt"}:

@@ -29,6 +29,9 @@ inferences: id i1, i2 и т.д., text, evidence_ids и непустые conditio
 Неизвестные предпосылки укажи в conditions и missing_data; не утверждай их как установленные факты.
 Если нужен условный вывод о неизвестной экспозиции, начни с «Если ...» и назови её явно.
 Достаточно одного содержательного вывода; не заполняй карточку предположениями ради объёма.
+company_context и factor_checks задают вопросы к исходным признакам, а не подтверждённые экспозиции.
+Нельзя обосновать эффект одним возрастом, меткой стадии, клиентским типом или нерасшифрованной
+отрицательной меткой. Используй первичный факт новости и подтверждённую деятельность компании.
 Выводы и действия — без цифр, дат, процентов, сумм и URL: числа уже есть в фактах, источники — evidence ID.
 Не рассчитывай денежный эффект, не предлагай сделки или переводы. next_steps — проверка данных для решения,
 с basis_inference_ids и непустыми conditions. risks/opportunities — ID выводов, например ["i1"], либо [].
@@ -64,6 +67,8 @@ as_of задаётся сервером, не памятью модели. От�
 Действие должно уточнять данные для связанного бизнес-решения, не совершать неподтверждённую сделку;
 пустая рекомендация без связи с решением — unsupported_action. При question достаточно прямого ответа,
 не требуй нового бизнес-инсайта. При insufficient_evidence допустимы только факты и пробелы.
+Если действие опирается на неизвестные параметры, оно должно называть данные и решение при их
+подтверждении; диапазон работников не подтверждает ФОТ, стадия без определения не подтверждает рост.
 Верни поддержанные claim ID, индексы next_steps с нуля и ТОЛЬКО коды ошибок; [] при отсутствии ошибок.
 """
 
@@ -111,13 +116,26 @@ class Tools:
             excluded = set(focus["not_inference_basis_ids"])
             demand = {'customer_investment', 'customer_it_budgets', 'transport_demand', 'production_load', 'inventory_cash_cycle'}
             costs = {'project_costs', 'delivery_economics', 'trading_margin', 'transport_costs', 'production_margin'}
-            wanted = costs if focus['driver'] in {'inflation', 'fuel', 'fx', 'labor'} else demand
+            wanted = ({'inflation': costs, 'fuel': costs, 'fx': costs, 'commodities': costs,
+                       'labor': costs | {'workforce_costs'},
+                       'policy_rate': demand, 'consumer_demand': demand,
+                       'working_capital': {'inventory_cash_cycle', 'payment_incoming_concentration',
+                                           'payment_outgoing_concentration'},
+                       'logistics': {'transport_costs', 'trading_margin', 'project_costs', 'production_margin'},
+                       'trade_rules': {'trading_margin', 'production_margin'},
+                       'capex': {'production_load', 'customer_investment'}, 'regulation': set()}
+                      .get(focus['driver'], set()))
             context = {**context, "observed": [o for o in context["observed"]
                        if not excluded.intersection(o["evidence_ids"])],
                        "hypotheses": [h for h in context['hypotheses'] if h['id'] in wanted
-                                      and not excluded.intersection(h['basis_feature_ids'])]}
+                                      and not excluded.intersection(h['basis_feature_ids'])],
+                       "factor_checks": [check for check in context.get('factor_checks', [])
+                                         if focus['driver'] in check.get('topics', [])
+                                         and not excluded.intersection(check.get('company_feature_ids', []))][:4]}
+        elif 'factor_checks' in context:
+            context = {**context, 'factor_checks': context['factor_checks'][:4]}
         # Observed values are already present as original registry evidence.
-        return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "group_policy")
+        return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "factor_checks", "group_policy")
                            if key in context})
 
     def resolve_draft(self, draft):
@@ -264,6 +282,8 @@ def analyze(tools, calls, question=None):
 пробелы в missing_data. Каждый вывод опирается на выбранные news_ids и company_ids. Не добавляй
 новую гипотезу о ценах, долге или договоре, если выбранный факт её не поддерживает. Имеющиеся
 проверенные банковские тезисы уже переданы; дополнительный поиск нужен только по содержанию вопроса.
+Начни с ответа по существу, не повторяй question и всю карточку. Если спрашивают, что запросить,
+перечисли конкретные данные, цель проверки и решение при подтверждении или отсутствии риска.
 """
     repaired, force_finish = False, False
     for index in range(calls.provider.settings.max_tools + 2):

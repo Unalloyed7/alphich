@@ -70,7 +70,7 @@ def register_discovery_routes(app, get_db, current_session, settings_for):
             owner_session_hash=demo.token_hash, idempotency_key=idempotency_key, request_hash=request_hash,
             active_key=active_key, status='collecting', stage='queued', target=payload.target,
             min_grade=payload.min_grade, max_candidates=payload.max_candidates,
-            profile=company_profile(company, demo.role), items=[], collection=[], stats={}, feed_cursor=0,
+            profile=company_profile(company, demo.role, db=db), items=[], collection=[], stats={}, feed_cursor=0,
             collection_lease_until=0, budget_day=datetime.now(timezone.utc).date().isoformat(),
             created_at=now, updated_at=now, deadline_at=now + MAX_SECONDS)
         try:

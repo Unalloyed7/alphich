@@ -19,9 +19,9 @@ from app.news import Event, Job, SourceDocument, new_id
 from .article_cache import _configuration
 from .provider import hashed
 from .settings import AnalysisError
-from .storage import AnalysisTask, Extraction
+from .storage import AnalysisRun, AnalysisTask, Extraction, LLMCall
 
-AUTOMATION_VERSION = "rss-business-pipeline-v1"
+AUTOMATION_VERSION = "rss-e5-glm-pipeline-v2"
 
 
 class AutomationRecord(Base):
@@ -47,6 +47,14 @@ class AutomationQuota(Base):
     day: Mapped[str] = mapped_column(String(10), primary_key=True)
     extraction_jobs: Mapped[int] = mapped_column(Integer, default=0)
     card_jobs: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class AutomationQuotaRefund(Base):
+    """A free semantic rejection returns its candidate reservation exactly once."""
+    __tablename__ = "news_automation_quota_refunds"
+    job_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    day: Mapped[str] = mapped_column(String(10))
+    refunded_at: Mapped[int] = mapped_column(Integer)
 
 
 @dataclass(frozen=True)
@@ -92,6 +100,43 @@ def _quota(db, day, field, limit):
         .values(**{field: column + 1})).rowcount == 1
 
 
+def _refund_semantic_rejection(db, record, grading, now):
+    """Refund only a proven free automation job, in the original quota day.
+
+    The marker and decrement share the dispatch transaction. Concurrent workers
+    cannot return the same reservation twice; pending or paid attempts retain it.
+    """
+    job_id = record.extraction_job_id
+    if not job_id or db.get(AutomationQuotaRefund, job_id) is not None:
+        return False
+    gate = (grading or {}).get("relevance_assessment", record.assessment or {}).get("semantic_gate", {})
+    if gate.get("status") != "skipped" or grading and grading.get("status") != "semantic_skipped":
+        return False
+    job = db.get(Job, job_id)
+    if (job is None or job.company_id != record.company_id or job.source_id != record.source_id
+            or job.owner_session_hash != hashed(["automation", record.company_id])
+            or job.operation != "news_fact_extraction" or job.status != "succeeded"
+            or job.result_type != "event" or job.result_id != record.event_id):
+        return False
+    task = db.get(AnalysisTask, job_id)
+    run_id = "run_" + hashed(job_id)[:32]
+    run = db.get(AnalysisRun, run_id)
+    if (task is None or task.event_id != record.event_id or task.role != record.role
+            or hashed(task.profile) != record.profile_hash or run is None
+            or run.company_id != record.company_id or run.role != record.role or run.status != "skipped"
+            or (run.verification or {}).get("status") != "semantic_skipped"
+            or db.scalar(select(LLMCall.id).where(LLMCall.run_id == run_id).limit(1)) is not None):
+        return False
+    day = datetime.fromtimestamp(job.created_at, timezone.utc).date().isoformat()
+    insert = sqlite_insert if db.bind.dialect.name == "sqlite" else pg_insert
+    changed = db.execute(insert(AutomationQuotaRefund).values(job_id=job_id, day=day, refunded_at=now)
+        .on_conflict_do_nothing(index_elements=["job_id"]))
+    if changed.rowcount != 1:
+        return False
+    return db.execute(update(AutomationQuota).where(AutomationQuota.day == day,
+        AutomationQuota.extraction_jobs > 0).values(extraction_jobs=AutomationQuota.extraction_jobs - 1)).rowcount == 1
+
+
 def _job(db, *, key, operation, event, source, profile, role, as_of, config, now):
     owner = hashed(["automation", event.company_id])
     previous = db.scalar(select(Job).where(Job.owner_session_hash == owner, Job.operation == operation,
@@ -114,18 +159,14 @@ def _job(db, *, key, operation, event, source, profile, role, as_of, config, now
 
 
 def dispatch_once(factory, settings, config=None, *, now=None, event_ids=None):
-    from alphich_kb.personalization.grading import grade_event
-    from alphich_kb.personalization.grading import VERSION as GRADING_VERSION
-    from alphich_kb.personalization import VERSION as SELECTION_VERSION
-    from alphich_kb.personalization.inputs import SelectionScope, instant
-    from alphich_kb.personalization.profiles import normalize_company
-    from alphich_kb.personalization.rules import match_reasons
+    from .relevance import VERSION as RELEVANCE_VERSION, cached_assessment_db
+    from alphich_kb.personalization.inputs import SelectionScope
     from .service import company_profile, normalized_event
     from .news_index import target_ids
     config = config or AutomationConfig.from_env()
     config.validate(target_ids())
     report = {"enabled": config.enabled, "scanned": 0, "extractions_queued": 0, "cards_queued": 0,
-              "below_threshold": 0, "awaiting_quota": 0, "errors": []}
+              "below_threshold": 0, "semantic_skipped": 0, "awaiting_quota": 0, "errors": []}
     if not config.enabled:
         return report
     try:
@@ -133,8 +174,8 @@ def dispatch_once(factory, settings, config=None, *, now=None, event_ids=None):
     except (AnalysisError, ValueError):
         report["errors"].append("llm_not_configured")
         return report
-    now = int(time.time()) if now is None else now
-    when = datetime.fromtimestamp(now, timezone.utc)
+    when = datetime.now(timezone.utc) if now is None else datetime.fromtimestamp(now, timezone.utc)
+    now = int(when.timestamp())
     as_of = when.isoformat()
     since = (when - timedelta(days=config.max_age_days)).isoformat()
     with factory() as db:
@@ -167,28 +208,29 @@ def dispatch_once(factory, settings, config=None, *, now=None, event_ids=None):
                 extracted = db.get(Extraction, extraction_key)
                 current = normalized_event(db, event, source, extracted if extracted and extracted.status == "completed" else None)
                 for role in config.roles:
-                    profile = company_profile(company, role)
+                    profile = company_profile(company, role, db=db)
                     profile_hash = hashed(profile)
-                    key = hashed([AUTOMATION_VERSION, SELECTION_VERSION, GRADING_VERSION, source.id, source.version, source.content_hash,
-                                  profile_hash, role, configuration])
+                    key = hashed([AUTOMATION_VERSION, RELEVANCE_VERSION, source.id, source.version, source.content_hash,
+                                  profile_hash, role, configuration, settings.news_e5_min_similarity])
                     record = db.get(AutomationRecord, key)
                     if record is None:
                         record = AutomationRecord(id=key, company_id=company.id, role=role, event_id=event.id,
                             source_id=source.id, profile_hash=profile_hash, as_of=as_of, status="pending", updated_at=now)
                         db.add(record)
-                    if record.status in {"irrelevant", "below_threshold", "completed", "blocked"}:
+                    if record.status in {"semantic_skipped", "below_threshold", "completed", "blocked"}:
+                        if record.status == "semantic_skipped":
+                            # Assessment storage precedes the worker's final job
+                            # commit; a later tick may be the first safe refund.
+                            _refund_semantic_rejection(db, record, None, now)
                         continue
                     scope = SelectionScope(company.id, record.as_of, frozenset({event.id}), role)
                     if scope.excludes(current):
                         continue
-                    normalized_profile = normalize_company(profile)
-                    reasons, _ = match_reasons(normalized_profile, current, scope)
-                    if not extracted or extracted.status != "completed":
-                        if not reasons:
-                            record.status, record.grade = "irrelevant", 0
-                            record.updated_at = now
-                            continue
-                        fact_key = hashed(["facts", source.id, source.version, source.content_hash, configuration])
+                    grading = cached_assessment_db(db, profile, current, scope, settings)
+                    if grading is None:
+                        # Facts are shared across companies, but the GLM judge is
+                        # personal and must also run when facts were cached earlier.
+                        fact_key = hashed(["relevance", key])
                         job, created = _job(db, key=fact_key, operation="news_fact_extraction", event=event,
                             source=source, profile=profile, role=role, as_of=record.as_of, config=config, now=now)
                         if job is None:
@@ -196,14 +238,22 @@ def dispatch_once(factory, settings, config=None, *, now=None, event_ids=None):
                             report["awaiting_quota"] += 1
                             continue
                         record.extraction_job_id = job.id
-                        record.status = "blocked" if job.status == "failed" else "waiting_extraction"
-                        record.error = job.error
+                        record.status = "blocked" if job.status in {"failed", "succeeded"} else "waiting_extraction"
+                        record.error = job.error or ("relevance_assessment_missing" if job.status == "succeeded" else None)
                         report["extractions_queued"] += int(created)
                         continue
-                    grading = grade_event(normalized_profile, current, scope, reasons)
                     record.grade, record.assessment, record.updated_at = (
-                        grading["relevance_grade"], grading["relevance_assessment"], now)
-                    if not grading["relevance_selected"]:
+                        grading.get("relevance_grade"), grading.get("relevance_assessment", {}), now)
+                    if grading.get("status") in {"assessment_running", "assessment_failed"}:
+                        record.status = "waiting_extraction" if grading["status"] == "assessment_running" else "blocked"
+                        record.error = grading.get("error")
+                        continue
+                    if grading.get("relevance_grade") is None:
+                        record.status = "semantic_skipped"
+                        _refund_semantic_rejection(db, record, grading, now)
+                        report["semantic_skipped"] += 1
+                        continue
+                    if not grading.get("relevance_selected", False):
                         record.status = "below_threshold"
                         report["below_threshold"] += 1
                         continue

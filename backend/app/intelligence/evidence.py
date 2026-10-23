@@ -13,10 +13,16 @@ LABELS = {"group_id": "Группа из исходного профиля", "ok
           "CL_PRODUCT_LOA_MARK": "Кредитный продукт", "CL_PRODUCT_DEP_MARK": "Депозитный продукт",
           "CL_PRODUCT_LEA_MARK": "Лизинговый продукт", "CL_PRODUCT_GAR_MARK": "Гарантийный продукт",
           "CL_PRODUCT_RKO_MARK": "Расчётное обслуживание", "CL_PRODUCT_ZPP_MARK": "Зарплатный проект",
-          "FACTORING_MARK": "Факторинг"}
+          "FACTORING_MARK": "Факторинг", "fts_flag": "Признак сведений ФТС",
+          "organization_type": "Тип организации", "ownership_form": "Форма собственности",
+          "company_age_band": "Возраст компании в исходном снимке", "business_stage_label": "Исходная метка стадии бизнеса",
+          "negative_mark_raw": "Негативный признак без расшифровки", "employees_fns_band": "Диапазон численности ФНС",
+          "employees_spark_band": "Диапазон численности СПАРК", "employees_band": "Согласованный диапазон численности",
+          "city_registration": "Город регистрации", "client_type": "Отношения с банком"}
 
 
 def company_evidence(profile):
+    from alphich_kb.personalization.factors import FACTOR_POLICIES
     result = {}
     for feature in profile.get("features", []):
         if feature["name"] == "person_links":
@@ -40,6 +46,8 @@ def company_evidence(profile):
         display = "да" if value is True else "нет" if value is False else "неизвестно" if value is None else (
             ", ".join(value) if isinstance(value, list) and all(isinstance(v, str) for v in value)
             else json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value))
+        if feature["name"] in FACTOR_POLICIES:
+            text = f"{LABELS[feature['name']]}: {display}. {FACTOR_POLICIES[feature['name']]['meaning']}"
         result[feature["id"]] = {**feature, "kind": "company_feature", "company_id": profile.get("company_id", profile.get("id")),
                                  "text": text or f"{LABELS.get(feature['name'], feature['name'])}: {display}.",
                                  "quality_flags": ["company_snapshot_date_unknown"]}
@@ -126,6 +134,10 @@ def verify_draft(draft, registry):
             evidence_kinds = {e["kind"] for e in evidence}
             if not {"event_fact", "company_feature"} <= evidence_kinds or not claim.conditions:
                 issues.append(f"{claim.id}:personal_inference_needs_company_news_and_conditions")
+            company_basis = [e for e in evidence if e["kind"] == "company_feature"]
+            if company_basis and all(e.get("name") in {
+                    "client_type", "negative_mark_raw", "business_stage_label", "group_id"} for e in company_basis):
+                issues.append(f"{claim.id}:administrative_labels_do_not_establish_business_impact")
             # OCR without span review cannot establish an exact numeric input.
             trusted_text = " ".join(e["text"] for e in evidence if e["kind"] != "document_chunk" or e.get("ocr_checked"))
             if not numbers(claim.text) <= numbers(trusted_text):

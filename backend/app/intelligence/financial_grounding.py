@@ -8,6 +8,8 @@ import re
 BUSINESS_RULES = """
 Бизнес-инсайт: событие → экономический механизм → условное последствие для бизнеса этой компании.
 Объясни механизм в text, а в next_steps — какие данные проверить и какое решение от них зависит.
+Для решения укажи конкретные данные, зачем они нужны и развилку: что изменить при подтверждении
+экспозиции, а что оставить без изменений при её отсутствии. Не выдавай запрос данных за эффект новости.
 «Проверить договор» или «условия могут зависеть от ставки» без механизма и последствия — не инсайт.
 Выбирай обоснованный канал: спрос клиентов, затраты, оборотный капитал, инвестиции или финансирование;
 роль CFO и признак кредита не требуют выбирать долг. Неизвестную экспозицию явно обозначай гипотезой.
@@ -27,9 +29,83 @@ BUSINESS_RULES = """
 компании; переход к её затратам требует подтверждённой структуры закупок и условий индексации.
 Выручка, прибыль и поступления денег — разные показатели. Перенос оплаты не меняет автоматически
 признанную выручку; для денежного потока проверяй сроки оплат, для выручки — выполнение и условия признания.
+Численность ФНС/СПАРК — исходный диапазон с возможным неизвестным периодом, не текущий штат,
+фонд оплаты труда или производительность. Возраст не доказывает стадию роста, стадию без определения
+и отрицательную метку без расшифровки нельзя трактовать как рост, банкротство или плохую платёжеспособность.
+Клиентский тип и наличие зарплатного, кредитного или другого банковского продукта не подтверждают
+состав клиентов компании, расходы на персонал, действующий долг, остатки или условия договора.
 Разбирай основное событие event.title. Старое решение, приведённое в статье как фон, не заменяет свежий факт.
 Если обоснованного канала нет, оставь факты и missing_data; не сочиняй персональный эффект.
 """
+
+
+_DRIVERS = [
+    ('inflation', r'инфляц|индекс\w*\s+цен|\bипц\b'),
+    ('policy_rate', r'ключев\w*\s+ставк|ставк\w*\s+цб'),
+    ('fuel', r'топлив|бензин|дизел'),
+    ('fx', r'курс\w*\s+(?:рубл|валют)|валютн\w*\s+курс'),
+    ('labor', r'зарплат|оплат\w*\s+труд|кадр\w*\s+дефицит|дефицит\w*\s+кадр|найм|ваканси'),
+    ('working_capital', r'дебитор|просроч\w*\s+(?:оплат|платеж|платёж|задолж)|отсроч\w*\s+(?:оплат|платеж|платёж)|срок\w*\s+(?:оплат|расч[её]т)|кассов\w*\s+разрыв|оборачиваем\w*\s+запас'),
+    ('trade_rules', r'пошлин|таможен'),
+    ('regulation', r'закон|регулирован|обязательн\w*\s+требован|маркировк|лицензирован'),
+    ('logistics', r'логист|грузоперевоз|перевоз\w*\s+(?:груз|тариф)|транспортн\w*\s+ограничен|закры\w*\s+(?:трасс|порт|границ)|срок\w*\s+доставк'),
+    ('capex', r'капиталовложен|капитальн\w*\s+(?:затрат|вложен)|инвестиционн\w*\s+(?:вычет|льгот|субсид)|стоимост\w*\s+оборудован|модернизац'),
+    ('commodities', r'\bсырь|\bметалл|\bстал[ьи]\b|энергоносител|электроэнерги|закупочн\w*\s+цен'),
+    ('consumer_demand', r'потребительск\w*\s+спрос|спрос\w*\s+на\s+'),
+]
+
+
+def _company_lenses(registry, driver):
+    """Only relevant immutable references; none establish an operating exposure."""
+    groups = [({'revenue_raw', 'revenue_unit', 'revenue_currency', 'revenue_period', 'revenue_scope'},
+               'Отчётный масштаб с единицами, периодом и охватом; не прибыль, ликвидность или эффект новости.')]
+    if driver in {'labor', 'regulation'}:
+        groups.append(({'employees_band', 'employees_fns_band', 'employees_spark_band'},
+                       'Диапазоны численности; период и сопоставимость источников нужно проверить. Не текущий штат или зарплатный бюджет.'))
+    if driver in {'trade_rules', 'logistics', 'regulation', 'capex'}:
+        groups.append(({'region_registration', 'city_registration'},
+                       'Только место регистрации; регион операций, маршруты и площадки остаются неизвестными.'))
+    if driver in {'regulation', 'capex'}:
+        groups.append(({'organization_type', 'ownership_form', 'company_age_band', 'business_stage_label'},
+                       'Проверять только явно названные критерии программы или нормы. Возраст и нерасшифрованная метка не устанавливают стадию роста.'))
+    if driver == 'working_capital':
+        groups.append(({'payment_incoming', 'payment_outgoing'},
+                       'Наблюдаемые платежи не устанавливают дебиторскую задолженность, просрочку, условия оплаты или роль контрагента.'))
+    result = []
+    for names, meaning in groups:
+        ids = [key for key, item in registry.items() if item.get('kind') == 'company_feature'
+               and item.get('name') in names and item.get('value') is not None and item.get('value') != '']
+        if ids:
+            result.append({'company_ids': ids, 'meaning': meaning})
+    return result
+
+
+_DECISION_CHECKS = {
+    'policy_rate': [('Сегменты заказчиков, подтверждённые переносы заказов и даты поступлений',
+                     'Если переносы связаны с финансированием, обновить сценарий загрузки и поступлений; без подтверждения сохранить базовый план.')],
+    'inflation': [('Спецификация закупок, реальные цены и индексация цены продажи',
+                   'Если затронутые ресурсы дорожают без компенсации ценой продажи, пересмотреть смету и маржу; общий ИПЦ без этой связи не меняет план затрат.')],
+    'fuel': [('Фактические маршруты, топливная составляющая и условия индексации тарифов',
+              'При подтверждённой некомпенсируемой доле затрат обновить экономику выполнения; без экспозиции не переносить изменение топлива на всю себестоимость.')],
+    'fx': [('Валюты, сроки платежей и условия изменения закупочных и отпускных цен',
+            'Если есть несовпадение валют или сроков встречных потоков, проверить сценарий маржи и платёжный календарь; иначе не приписывать открытую валютную позицию.')],
+    'labor': [('Фактический штат и вакансии, трудозатраты заказа и условия его цены',
+               'Если нехватка работников или рост трудозатрат подтверждены, пересмотреть сроки и оценку новых заказов; диапазон численности сам по себе не меняет зарплатный бюджет.')],
+    'working_capital': [('Реестр дебиторки с датами, возраст запасов и календарь выплат',
+                         'Если сроки поступлений сдвигаются относительно обязательных выплат, обновить платёжный календарь и условия новых расчётов; без разрыва не заявлять дефицит ликвидности.')],
+    'trade_rules': [('Товар, код ТН ВЭД, направление операции и дата применения изменения',
+                     'Если конкретная операция попадает под изменение, обновить расчёт полной стоимости и документы; без совпадения критериев не менять план по всей внешней торговле.')],
+    'regulation': [('Текст и статус нормы, срок применения и подтверждённые критерии юрлица',
+                    'При подтверждённой применимости назначить владельца процесса и оценить бюджет соблюдения; при неизвестных критериях сначала проверить применимость, не объявлять нарушение.')],
+    'logistics': [('Фактические маршруты, условия поставки, сроки и запас покрытия',
+                   'Если затронут действующий маршрут и запаса недостаточно, проверить альтернативный график и стоимость; иначе сохранить базовый план поставок.')],
+    'capex': [('Подтверждённый инвестиционный план, загрузка, полная стоимость и критерии льготы',
+               'Если проект существует и условия применимы, пересчитать варианты срока и состава вложений; без проекта или допуска не представлять льготу как полученную экономию.')],
+    'commodities': [('Ресурсная спецификация, фактические закупочные цены и индексация продаж',
+                     'Если затронутый ресурс существенен и рост цены не компенсирован, обновить себестоимость и условия новых предложений; без подтверждённого ресурса не приписывать эффект всей выручке.')],
+    'consumer_demand': [('Сегменты покупателей, фактические заказы, отмены и загрузка',
+                         'Если изменение спроса подтверждается в целевом сегменте, обновить план выпуска или заказов; без совпадения сегмента не переносить отраслевой тренд на компанию.')],
+}
 
 
 def business_focus(registry, *, question=None, event_id=None, event_title=None):
@@ -38,21 +114,21 @@ def business_focus(registry, *, question=None, event_id=None, event_title=None):
         return None
     facts = {key: e for key, e in registry.items() if e.get("kind") == "event_fact"
              and (event_id is None or e.get("event_id") == event_id)}
-    patterns = [('inflation', r'инфляц|индекс\w*\s+цен|\bипц\b'),
-        ('policy_rate', r'ключев\w*\s+ставк|ставк\w*\s+цб'),
-        ('fuel', r'топлив|бензин|дизел'), ('fx', r'курс\w*\s+(?:рубл|валют)|валютн\w*\s+курс'),
-        ('labor', r'зарплат|оплат\w*\s+труд|кадр\w*\s+дефицит'),
-        ('trade_rules', r'пошлин|таможен'), ('regulation', r'закон|регулирован|обязательн\w*\s+требован'),
-        ('consumer_demand', r'потребительск\w*\s+спрос|спрос\w*\s+на\s+')]
-    driver = next((topic for topic, pattern in patterns if re.search(pattern, event_title or '', re.I)), None)
+    driver = next((topic for topic, pattern in _DRIVERS if re.search(pattern, event_title or '', re.I)), None)
     if driver is None:
-        driver = next((topic for topic, _ in patterns if any(topic in e.get('attributes', {}).get('topics', [])
+        driver = next((topic for topic, pattern in _DRIVERS if any(
+            (topic in e.get('attributes', {}).get('topics', []) or
+             (topic in {'working_capital', 'capex'} and re.search(pattern, e.get('text', ''), re.I)))
             and not re.match(r'\s*(?:как сообщалось|ранее\b)', e.get('text', ''), re.I) for e in facts.values())), None)
     industry = [key for key, e in registry.items() if e.get("kind") == "company_feature"
                 and e.get("name") == "okved_code" and e.get('value')]
     if driver is None or not industry:
         return None
-    news = [key for key, e in facts.items() if driver in e.get('attributes', {}).get('topics', [])]
+    pattern = dict(_DRIVERS)[driver]
+    news = [key for key, e in facts.items() if not re.match(r'\s*(?:как сообщалось|ранее\b)', e.get('text', ''), re.I)
+            and (driver in e.get('attributes', {}).get('topics', []) or
+                 (driver in {'working_capital', 'capex', 'logistics', 'commodities'}
+                  and re.search(pattern, e.get('text', ''), re.I)))]
     if event_title and not re.search(r'прогноз|ожидан|ожида', event_title, re.I):
         news = [key for key in news if facts[key].get('attributes', {}).get('kind') != 'forecast'
                 and facts[key].get('attributes', {}).get('event_status') != 'forecast']
@@ -87,6 +163,18 @@ def business_focus(registry, *, question=None, event_id=None, event_title=None):
         'consumer_demand': ('sales_demand', 'Если клиенты компании относятся к затронутому сегменту, изменение их спроса может менять объём продаж и загрузку.',
             'Сопоставить фактические заказы и сегменты клиентов с событием.',
             ['Сегменты клиентов и портфель заказов', 'Подтверждённые изменения спроса']),
+        'working_capital': ('cash_conversion', 'Если затронуты сроки оплаты действующих заказов или оборот запасов компании, может меняться разрыв между поступлениями и обязательными выплатами.',
+            'Проверить календарь поступлений и выплат; изменение срока оплаты не доказывает убыток или падение признанной выручки.',
+            ['Даты и условия оплаты действующих заказов', 'Возраст дебиторской задолженности и запасов', 'Календарь обязательных выплат']),
+        'logistics': ('delivery_continuity', 'Если поставки или исполнение заказов компании зависят от затронутых маршрутов, изменение сроков и доступности перевозки может сдвигать выполнение и поступления.',
+            'Сопоставить фактический маршрут и запас покрытия с событием; место регистрации и страны ФТС не устанавливают маршрут.',
+            ['Фактические маршруты и товары', 'Запас покрытия и сроки исполнения', 'Условия поставки и оплаты']),
+        'capex': ('investment_feasibility', 'Если у компании есть подтверждённый инвестиционный проект, изменение стоимости оборудования или доступной поддержки может менять его бюджет и сроки окупаемости.',
+            'Проверить существование проекта, полную стоимость и критерии поддержки до пересмотра инвестиционного плана.',
+            ['Подтверждённый план вложений и загрузка', 'Полная стоимость оборудования и эксплуатации', 'Критерии допуска и условия поддержки']),
+        'commodities': ('input_cost_margin', 'Если затронутый ресурс используется компанией и изменение его цены не компенсируется ценой реализации, может меняться маржа конкретной продукции или заказа.',
+            'Сверить ресурсную спецификацию, долю закупок и индексацию цены продажи; отрасль сама по себе не устанавливает структуру затрат.',
+            ['Фактическая спецификация ресурсов', 'Закупочные цены и доля ресурса', 'Условия цены реализации']),
     }
     if driver == 'policy_rate':
         channel, hypothesis, decision, unknowns = ('customer_investment_demand',
@@ -106,10 +194,16 @@ def business_focus(registry, *, question=None, event_id=None, event_title=None):
             unknowns = ['Бизнес-модель и сегменты клиентов', 'Зависимость заказов от кредитных условий', 'Портфель заказов и сроки оплат']
     else:
         channel, hypothesis, decision, unknowns = mechanisms[driver]
-    return {"channel": channel, 'driver': driver, "news_ids": news, "company_ids": industry,
+    company_context = _company_lenses(registry, driver)
+    context_ids = [key for item in company_context for key in item['company_ids']]
+    return {"channel": channel, 'driver': driver, "news_ids": news,
+            "company_ids": list(dict.fromkeys(industry + context_ids)), "industry_basis_ids": industry,
+            "company_context": company_context,
             "max_inferences": 1 if news else 0, "hypothesis": hypothesis,
             "unknowns": unknowns + ([] if news else ['Нет проверенного факта об основном событии заголовка']),
             "decision": decision,
+            "decision_checks": [{'data': data, 'decision_branch': branch}
+                                for data, branch in _DECISION_CHECKS[driver]],
             "constraints": "Разбери этот канал, явно условно. Наличие долга самой компании не установлено. Разделяй прогноз, решение, уровень и изменение; старый фон не заменяет событие заголовка. При отсутствии основного факта оставь только факты и пробелы.",
             "not_inference_basis_ids": [key for key, e in registry.items() if e.get("name") == "CL_PRODUCT_LOA_MARK"]}
 
@@ -117,14 +211,25 @@ def business_focus(registry, *, question=None, event_id=None, event_title=None):
 def focus_issues(draft, registry, *, question=None, event_id=None, event_title=None):
     focus = business_focus(registry, question=question, event_id=event_id, event_title=event_title)
     if not focus:
-        return []
+        if question:
+            return []
+        # These opaque/descriptive fields cannot alone personalize a substantive
+        # business effect even when no known event mechanism selected a focus.
+        issues = []
+        for claim in draft.claims:
+            company = [registry[key] for key in claim.evidence_ids if key in registry
+                       and registry[key].get('kind') == 'company_feature']
+            if claim.kind == 'model_inference' and company and all(item.get('name') in {
+                    'company_age_band', 'business_stage_label', 'negative_mark_raw', 'client_type'} for item in company):
+                issues.append(f'{claim.id}:business_inference_needs_operating_basis')
+        return issues
     issues = []
     if sum(claim.kind == "model_inference" for claim in draft.claims) > focus["max_inferences"]:
         issues.append("business_focus_requires_one_primary_inference")
     for claim in draft.claims:
         if claim.kind != "model_inference":
             continue
-        if not set(claim.evidence_ids).intersection(focus["company_ids"]):
+        if not set(claim.evidence_ids).intersection(focus["industry_basis_ids"]):
             issues.append(f"{claim.id}:business_focus_needs_industry_basis")
         if not set(claim.evidence_ids).intersection(focus['news_ids']):
             issues.append(f"{claim.id}:business_focus_needs_primary_news_basis")

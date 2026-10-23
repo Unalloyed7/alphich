@@ -33,6 +33,30 @@ def judgement():
 
 
 class TeacherTests(unittest.TestCase):
+    def test_enriched_fact_prompt_keeps_legacy_checkpoints_and_selects_new_rules_explicitly(self):
+        from alphich_kb.relevance_ml.teacher import FACTOR_PROMPT_VERSION, PROMPT_VERSION
+        legacy = prepare_judgement(pair())
+        self.assertEqual(legacy["prompt_version"], PROMPT_VERSION)
+        self.assertEqual(legacy["prompt_hash"], "e5697b638ced37f820806e9b49f57600be8bc57f63b07d347f9b1c1cb5b85ca3")
+        row = pair(); row.pop("pair_id")
+        row["company"]["facts"].append({"id": "staff", "name": "employees_band", "value": "101-250", "source_ref": "fixture"})
+        self.assertEqual(prepare_judgement(row)["prompt_hash"], legacy["prompt_hash"])
+        row["company"]["facts"].append({"id": "staff-fns", "name": "employees_fns_band", "value": "101-250", "source_ref": "fixture"})
+        enriched = prepare_judgement(row)
+        self.assertEqual(enriched["prompt_version"], FACTOR_PROMPT_VERSION)
+        self.assertNotEqual(enriched["prompt_hash"], legacy["prompt_hash"])
+        self.assertIn("Если диапазон пересекает порог", enriched["system"])
+        self.assertIn("не стадия развития", enriched["system"])
+
+    def test_bank_relationship_and_opaque_source_labels_cannot_alone_justify_high_grade(self):
+        for name, value in (("client_type", "CLIENT"), ("business_stage_label", "Оптимизация"),
+                            ("negative_mark_raw", "1.0"), ("city_registration", "Москва")):
+            row = pair(); row.pop("pair_id")
+            row["company"]["facts"].append({"id": "opaque", "name": name, "value": value, "source_ref": "fixture"})
+            response = judgement(); response["company_fact_ids"] = ["opaque"]
+            with self.subTest(name=name), self.assertRaises(KnowledgeError):
+                validate_judgement(response, row)
+
     def test_preparation_never_contains_previous_annotation(self):
         row = pair()
         baseline = prepare_judgement(row)

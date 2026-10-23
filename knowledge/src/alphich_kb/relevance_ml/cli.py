@@ -175,11 +175,13 @@ def _judge(args):
     rows = read_dataset(args.input, limit=args.limit)
     if any(r.get("label", {}).get("origin") == "human" for r in rows):
         raise KnowledgeError("Teacher batching must not overwrite human-reviewed labels")
+    plans = [prepare_judgement(r) for r in rows]
+    if len({(plan["prompt_version"], plan["prompt_hash"]) for plan in plans}) != 1:
+        raise KnowledgeError("A teacher batch must use one prompt contract; separate legacy and enriched company snapshots")
     engine, factory = make_session_factory(url)
     destination = Path(args.output)
     destination.mkdir(parents=True, exist_ok=True)
     model = args.model_id or settings.analysis_model
-    plans = [prepare_judgement(r) for r in rows]
     manifest = {"batch_id": args.batch_id, "model_id": model,
                 "prompt_version": plans[0]["prompt_version"], "prompt_hash": plans[0]["prompt_hash"],
                 "requests": [p["input_hash"] for p in plans]}

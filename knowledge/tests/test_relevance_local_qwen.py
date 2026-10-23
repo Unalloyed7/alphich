@@ -11,6 +11,19 @@ from test_relevance_teacher import judgement, pair
 
 
 class LocalQwenTests(unittest.TestCase):
+    def test_legacy_and_enriched_prompt_contracts_cannot_share_a_batch_or_make_requests(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); source = root / "pairs.jsonl"; output = root / "batch"
+            enriched = pair(); enriched.pop("pair_id")
+            enriched["company"]["facts"].append({"id": "staff-fns", "name": "employees_fns_band",
+                                                  "value": "101-250", "source_ref": "synthetic fixture"})
+            write_dataset(source, [pair(), enriched])
+            with patch("alphich_kb.relevance_ml.local_qwen._request") as request:
+                with self.assertRaisesRegex(KnowledgeError, "one prompt contract"):
+                    label_batch(source, output, model="qwen-local", base_url="http://127.0.0.1:8000/v1")
+            request.assert_not_called()
+            self.assertFalse(output.exists())
+
     def test_only_explicit_loopback_without_credentials_queries_or_redirect_target(self):
         self.assertEqual(local_endpoint("http://localhost:8000/v1/"),
                          "http://127.0.0.1:8000/v1/chat/completions")

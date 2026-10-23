@@ -19,6 +19,27 @@ def article(article_id, sector="construction", text=None, cluster=None):
 
 
 class RelevanceSamplingTests(unittest.TestCase):
+    def test_all_company_source_factors_remain_evidence_with_employee_conflicts(self):
+        from alphich.company_factors import ORGANIZER_FACTOR_COLUMNS
+        fields = {"SYNTHETIC_U": "synthetic-company", "MAINOKVED_CODE": "49.41",
+                  "ORG_TYPE": "КОММ_ОРГ", "OKFS_NAME": "ЧАСТНАЯ СОБСТВЕННОСТЬ",
+                  "COMPANY_AGE_YEARS_GRADATION": "8-15", "ECO_MARK_LABEL": "Оптимизация",
+                  "NEGATIVEMARK": "0.0", "AMOUNT_WORKERS_FNS_GRADATION": "101-250",
+                  "AMOUNT_WORKERS_SPARK_GRADATION": "251-500", "CITY": "Демо", "CL_TYPE": "CLIENT"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "companies.csv"
+            with path.open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(fields), delimiter=";")
+                writer.writeheader(); writer.writerow(fields)
+            companies, report = load_company_snapshots(path)
+        facts = {fact["name"]: fact for fact in companies[0]["facts"]}
+        for name, column in ORGANIZER_FACTOR_COLUMNS.items():
+            self.assertEqual(facts[name]["value"], fields[column])
+            self.assertTrue(facts[name]["source_ref"].endswith(":column:" + column))
+        self.assertNotIn("employees_band", facts)
+        self.assertEqual(report["quality_issue_counts"]["employees_fns_spark_conflict"], 1)
+        self.assertNotIn("operating_regions", facts)
+
     def test_csv_quarantines_every_conflicting_version_and_binds_organizer_units(self):
         fields = ["SYNTHETIC_U", "MAINOKVED_CODE", "REGION", "REVENUE_COMPANY", "CL_PRODUCT_LOA_MARK"]
         with tempfile.TemporaryDirectory() as tmp:

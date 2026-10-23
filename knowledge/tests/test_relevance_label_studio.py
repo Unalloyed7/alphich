@@ -35,6 +35,18 @@ def _annotation(response=None, *, annotation_id=11, reviewer=101, cancelled=Fals
 
 
 class LabelStudioQwenTests(unittest.TestCase):
+    def test_legacy_qwen_messages_are_stable_and_enriched_sft_matches_new_prompt_contract(self):
+        from alphich_kb.common import digest
+        from alphich_kb.relevance_ml.label_studio import qwen_example, qwen_prompt
+        from alphich_kb.relevance_ml.teacher import prepare_judgement
+        self.assertEqual(digest(qwen_prompt(pair())[0]), "169ef1ceb7dd286e5e8aa7e0e4bbef721a60ff04e9da3cdec401165cf46c0277")
+        row = pair(); row.pop("pair_id")
+        row["company"]["facts"].append({"id": "stage", "name": "business_stage_label", "value": "Оптимизация", "source_ref": "fixture"})
+        prompt, _ = qwen_prompt(row)
+        self.assertEqual(prompt[0]["content"], prepare_judgement(row)["system"])
+        example, _ = qwen_example(row, judgement())
+        self.assertEqual(example["prompt"], prompt)
+
     def setUp(self):
         from alphich_kb.relevance_ml.label_studio import export_tasks, import_annotations
         self.export_tasks = export_tasks

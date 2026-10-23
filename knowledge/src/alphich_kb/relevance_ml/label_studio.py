@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ..common import KnowledgeError, artifact_dir, canonical, digest, file_hash
 from .dataset import _strict_json, input_hash, iter_dataset, read_dataset, validate_pair, write_dataset
-from .teacher import PROMPT_VERSION, RESPONSE_SCHEMA, SYSTEM_PROMPT, validate_judgement
+from .teacher import RESPONSE_SCHEMA, prompt_contract, validate_judgement
 
 BUNDLE_SCHEMA = "alphich-label-studio-qwen-v1"
 SFT_SCHEMA = "alphich-qwen-sft-v1"
@@ -230,7 +230,7 @@ def qwen_prompt(row):
     data = {"company": {"facts": facts},
             "article": {key: row["article"][key] for key in ("title", "text", "published_at")},
             "as_of": row["as_of"], "role": row["role"]}
-    prompt = [{"role": "system", "content": SYSTEM_PROMPT},
+    prompt = [{"role": "system", "content": prompt_contract(row)[1]},
               {"role": "user", "content": canonical({"untrusted_data": data, "response_schema": RESPONSE_SCHEMA})}]
     return prompt, aliases
 
@@ -337,7 +337,9 @@ def import_annotations(bundle_dir, annotation_paths, output_dir, *, reviewer_nam
         "rejected": len(rejected), "conflicts": len(conflicts), "cancelled_annotations": cancelled,
         "unusable_annotations": unusable, "tasks_in_bundle": len(originals),
         "qwen_file": str(Path(output_dir) / qwen_filename), "paid_calls": 0,
-        "base_model_candidate": "Qwen/Qwen3.6-35B-A3B", "teacher_prompt_version": PROMPT_VERSION,
+        "base_model_candidate": "Qwen/Qwen3.6-35B-A3B",
+        "teacher_prompt_version": (next(iter({prompt_contract(row)[0] for row in originals}))
+                                   if len({prompt_contract(row)[0] for row in originals}) == 1 else "mixed"),
         "sft_format": "conversational_prompt_completion; train_on_completion_only",
         "training_ready": bool(examples) and manifest["split"] == "train"}
     with artifact_dir(output_dir) as stage:

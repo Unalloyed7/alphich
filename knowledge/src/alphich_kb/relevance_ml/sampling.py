@@ -15,7 +15,7 @@ from ..common import KnowledgeError, digest, file_hash
 from .dataset import instant, validate_pair
 
 
-SAMPLING_VERSION = "alphich-relevance-sampling-v2-webinar"
+SAMPLING_VERSION = "alphich-relevance-sampling-v3-company-factors"
 # OKVED 2 sections/divisions; deliberately coarser than the detailed activity code.
 OKVED_SECTORS = (
     (1, 3, "agriculture"), (5, 9, "mining"), (10, 33, "manufacturing"),
@@ -107,6 +107,7 @@ def _flag(value):
 
 def _company_values(row, issues):
     from alphich.organizer_semantics import SOURCE_REF, revenue_metadata
+    from alphich.company_factors import ORGANIZER_FACTOR_COLUMNS, organizer_factors
     result = {}
     columns = {"MAINOKVED_CODE": "okved_code", "MAINOKVED_NAME": "okved_name",
                "REGION": "registration_region"}
@@ -134,13 +135,15 @@ def _company_values(row, issues):
         # Keep the contradictory source facts separate; do not infer trade activity.
     if countries:
         result["fts_countries"] = (countries, "FTS_COUNTRY_NAME")
-    employee_columns = [column for column in ("AMOUNT_WORKERS_FNS_GRADATION", "AMOUNT_WORKERS_SPARK_GRADATION")
-                        if row.get(column)]
-    employee_values = {row[column] for column in employee_columns}
-    if len(employee_values) == 1:
-        result["employees_band"] = (next(iter(employee_values)), "+".join(employee_columns))
-    elif len(employee_values) > 1:
-        issues["inconsistent_employee_band_omitted"] += 1
+    factors = organizer_factors(row)
+    for name, column in ORGANIZER_FACTOR_COLUMNS.items():
+        if factors.get(name) is not None:
+            result[name] = (factors[name], column)
+    if factors.get("employees_band") is not None:
+        columns = [column for name, column in ORGANIZER_FACTOR_COLUMNS.items()
+                   if name in {"employees_fns_band", "employees_spark_band"} and factors.get(name) is not None]
+        result["employees_band"] = (factors["employees_band"], "+".join(columns))
+    issues.update(factors["factor_quality_flags"])
     return result
 
 
@@ -216,6 +219,9 @@ def load_company_snapshots(path):
                        "limitations": ["Company geography is registration only unless separately sourced",
                                        "Revenue is RUB for 2025; company/group scope is unknown",
                                        "Current profiles do not establish historical company exposures",
+                                       "Employee ranges and age bands have no confirmed observation period",
+                                       "Opaque stage and negative marks do not establish financial health",
+                                       "Bank client status and group identifiers do not prove business impact",
                                        "No group exposure is inferred"]}
 
 

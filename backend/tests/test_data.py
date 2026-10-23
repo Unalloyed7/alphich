@@ -97,6 +97,20 @@ class PrepareDataTests(unittest.TestCase):
         self.assertEqual(companies["S_BUILD"].profile["fts"]["countries"], ["КИТАЙ", "ТУРЦИЯ"])
         self.assertEqual(report["rows"], 8)
 
+    def test_company_context_exports_shared_factors_without_inventing_current_employee_counts(self):
+        profile = self.contexts["S_BUILD"]["profile"]
+        self.assertEqual(profile["employees_fns_band"], "101-250")
+        self.assertIsNone(profile["employees_spark_band"])
+        self.assertEqual(profile["employees_band"], "101-250")
+        self.assertIsNone(profile["employees_interval"]["period"])
+        self.assertEqual(self.feature("S_BUILD", "employees_fns_band")["value"], "101-250")
+        self.assertEqual(self.feature("S_BUILD", "company_age_band")["value"], "8-15")
+        self.assertEqual(self.feature("S_BUILD", "business_stage_label")["value"], "Оптимизация")
+        self.assertEqual(self.feature("S_BUILD", "negative_mark_raw")["value"], "0.0")
+        self.assertIn("company_age_is_not_business_maturity", self.contexts["S_BUILD"]["limitations"])
+        self.assertNotIn("operating_regions", profile)
+
+
     def test_artifacts_are_reproducible_and_feature_ids_bind_to_source_version(self):
         other = Path(self.temp.name) / "second"
         prepare_data(FIXTURES, other, top_n=1)

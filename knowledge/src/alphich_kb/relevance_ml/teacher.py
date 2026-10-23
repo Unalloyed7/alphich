@@ -58,6 +58,39 @@ valid_from/valid_until — только явно названные ISO-даты
 missing_information перечисляет конкретные недостающие данные. Нельзя выдумывать суммы или чужие связи.
 """
 
+# Preserve the legacy prompt byte-for-byte for existing immutable checkpoints,
+# local Qwen batches and human-reviewed SFT bundles. New source factors opt into
+# a separate prompt contract; adding fields never rewrites an earlier snapshot.
+FACTOR_PROMPT_VERSION = "relevance-judge-v3-company-factors"
+FACTOR_FACT_NAMES = frozenset({
+    "organization_type", "ownership_form", "company_age_band", "business_stage_label", "negative_mark_raw",
+    "employees_fns_band", "employees_spark_band", "city_registration", "client_type",
+})
+FACTOR_RULES = """
+Дополнительные ограничения факторов компании:
+organization_type и ownership_form — исходные тип организации и форма собственности. Используй их для
+проверки прямо указанных условий нормы/программы; они сами по себе не доказывают финансовое состояние.
+city_registration — город регистрации, а не доказанный рынок, маршрут или территория операций.
+employees_fns_band и employees_spark_band — отдельные диапазоны численности, период наблюдения неизвестен.
+Это не точный текущий штат. При расхождении источников не выбирай удобный и не усредняй значения.
+Если диапазон пересекает порог программы, применимость условная до уточнения; возраст данных неизвестен.
+company_age_band — исходный диапазон возраста без подтверждённой даты наблюдения, не стадия развития.
+business_stage_label (ECO_MARK_LABEL) — исходная метка с неподтверждённой методикой; её название не
+доказывает рост, зрелость, спад, инвестиционные планы или финансовое здоровье компании.
+negative_mark_raw (NEGATIVEMARK) — непротрактованный исходный маркер. Без словаря его значения нельзя
+объявлять банкротством, задолженностью, санкциями, убытками или основанием повысить значимость новости.
+client_type описывает отношения с банком; это не тип покупателей компании и не канал влияния новости.
+Не подменяй выручку оборотом платежей; для чувствительности указывай подтверждённый знаменатель и период.
+Для существенности сопоставляй масштаб события с известной деятельностью, выручкой и допустимым
+диапазоном сотрудников. Высокая выручка сама по себе не доказывает крупную долю рынка или отсутствие риска.
+"""
+
+
+def prompt_contract(row):
+    """Select enriched rules without invalidating legacy pair/prompt contracts."""
+    enriched = any(fact.get("name") in FACTOR_FACT_NAMES for fact in row["company"]["facts"])
+    return (FACTOR_PROMPT_VERSION, SYSTEM_PROMPT + FACTOR_RULES) if enriched else (PROMPT_VERSION, SYSTEM_PROMPT)
+
 RESPONSE_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {
@@ -84,8 +117,9 @@ RESPONSE_SCHEMA["required"] = list(RESPONSE_SCHEMA["properties"])
 
 def prepare_judgement(row):
     row = validate_pair(row)
-    return {"pair_id": row["pair_id"], "input_hash": input_hash(row), "prompt_version": PROMPT_VERSION,
-            "prompt_hash": digest([SYSTEM_PROMPT, RESPONSE_SCHEMA]), "system": SYSTEM_PROMPT,
+    version, system = prompt_contract(row)
+    return {"pair_id": row["pair_id"], "input_hash": input_hash(row), "prompt_version": version,
+            "prompt_hash": digest([system, RESPONSE_SCHEMA]), "system": system,
             "data": input_payload(row), "response_schema": copy.deepcopy(RESPONSE_SCHEMA)}
 
 
@@ -155,7 +189,8 @@ def validate_judgement(value, row):
         if value["event_status"] in {"proposal", "unknown"}:
             raise KnowledgeError("Teacher high grade is not an established event")
         if not any(facts[fid]["name"] not in {"registration_region", "revenue_raw", "revenue_unit",
-                                            "revenue_currency", "revenue_period", "revenue_scope"}
+                                            "revenue_currency", "revenue_period", "revenue_scope",
+                                            "city_registration", "client_type", "business_stage_label", "negative_mark_raw"}
                    for fid in value["company_fact_ids"]):
             raise KnowledgeError("Registration or unscaled revenue alone cannot justify a high grade")
     if grade == 5 and (value["event_status"] not in {"effective", "historical"} or action is None):
@@ -196,7 +231,7 @@ def judge_pair(row, provider, *, batch_id, model_id):
     validated = validate_judgement(raw, row)
     result = copy.deepcopy(row)
     result["label"] = {"grade": validated["grade"], "origin": "teacher", "labeler": model_id,
-                       "label_version": PROMPT_VERSION, "input_hash": plan["input_hash"],
+                       "label_version": plan["prompt_version"], "input_hash": plan["input_hash"],
                        "prompt_hash": plan["prompt_hash"], "batch_id": batch_id, "run_id": run_id,
                        "labeled_at": datetime.now(timezone.utc).isoformat(), "reason": validated["reason"],
                        "judgement": validated, "target": "business_relevance",

@@ -3,8 +3,9 @@ from ..common import digest
 from .inputs import industry_matches
 from .profiles import normalize_company
 from .payments import METHOD, validate_payment_feature
+from .factors import FACTOR_POLICIES, factor_checks
 
-VERSION = "business-context-v3-webinar"
+VERSION = "business-context-v4-company-factors"
 
 # Activity suggests questions; it does not prove a problem or a business model.
 LENSES = {
@@ -72,10 +73,48 @@ def business_context(profile):
             "Основная деятельность из профиля; продуктовый сегмент и бизнес-модель не установлены.")
     observe("registration", company["region"], company["bindings"]["region"],
             "Место регистрации; не подтверждает географию операций, проектов или клиентов.")
-    for product in ("loan", "deposit", "lease", "factoring"):
+    for product in ("loan", "deposit", "lease", "factoring", "guarantee", "rko", "payroll"):
         if company["products"][product] is True:
             observe(product + "_flag", True, company["bindings"][product],
                     "Продукт указан в профиле; остатки, договорные условия и текущая экспозиция неизвестны.")
+    for name, signal in company.get("factors", {}).items():
+        observe(name, signal["value"], signal["feature_ids"], FACTOR_POLICIES[name]["meaning"])
+    product_lenses = {
+        "guarantee": ("contract_security",
+            "Если договоры требуют банковского обеспечения, изменение требований или условий гарантий может влиять на доступность участия и денежный резерв.",
+            "Условия конкретного контракта → вид и стоимость обеспечения → доступность участия и потребность в резерве.",
+            "Контракты, требования к обеспечению, доступные лимиты, комиссии и условия гарантий.",
+            "Если требования меняются — сопоставить варианты обеспечения с условиями контракта; при отсутствии таких контрактов эффект не подтверждён."),
+        "payroll": ("payroll_operations",
+            "Если изменение правил касается расчётов с работниками компании, могут потребоваться изменения расчётного процесса и платёжного календаря.",
+            "Применимое правило → сроки и порядок расчётов → организация выплат и платёжный календарь.",
+            "Круг работников, применимые правила, период расчёта и фактические сроки выплат.",
+            "Если правило применимо — обновить расчёт и календарь к установленному сроку; признак зарплатного проекта не задаёт размер расходов."),
+        "factoring": ("receivables_financing",
+            "Если факторинг используется для текущей дебиторской задолженности, изменение сроков оплаты может влиять на доступность и стоимость оборотного финансирования.",
+            "Сроки поступления оплаты и условия факторинга → доступное финансирование → платёжный разрыв и стоимость оборотного капитала.",
+            "Дебиторская задолженность, сроки оплаты, фактическое использование лимита, регресс и комиссии.",
+            "При увеличении платёжного разрыва сопоставить условия финансирования с графиком поступлений; без текущей задолженности эффект не установлен."),
+        "deposit": ("cash_placement",
+            "Если есть свободный остаток сверх обязательных выплат, изменение условий размещения может влиять на доходность при заданной потребности в ликвидности.",
+            "График обязательных выплат → доступный срок размещения → доходность и доступность денежных средств.",
+            "Платёжный календарь, доступный остаток, сроки и условия досрочного возврата.",
+            "Сначала подтвердить свободный остаток; затем сравнить сроки размещения с выплатами и условиями доступа к средствам."),
+    }
+    for product, lens in product_lenses.items():
+        if company["products"][product] is True and company["bindings"][product]:
+            code, problem, mechanism, check, decision = lens
+            hypotheses.append({"id": code, "status": "requires_confirmation",
+                "basis_feature_ids": company["bindings"][product], "possible_problem": problem,
+                "mechanism": mechanism, "check_data": check, "decision": decision})
+    employees = company.get("factors", {}).get("employees_band")
+    if employees and employees["value"].strip() not in {"0", "0.0"}:
+        hypotheses.append({"id": "workforce_costs", "status": "requires_confirmation",
+            "basis_feature_ids": employees["feature_ids"],
+            "possible_problem": "Если расходы на труд существенны, а цены или бюджет заказа фиксированы, изменение стоимости труда может влиять на маржу и план выполнения.",
+            "mechanism": "Стоимость и необходимые трудозатраты → себестоимость выполнения → маржа и потребность в денежных средствах.",
+            "check_data": "Период численности, фонд оплаты труда, загрузка, доля трудовых затрат и условия изменения цены заказа.",
+            "decision": "При росте подтверждённых трудовых затрат обновить экономику заказа; численность сама по себе не доказывает рост затрат или нехватку кадров."})
     if company["products"]["loan"] is True and company["bindings"]["loan"]:
         hypotheses.append({"id": "financing_sensitivity", "status": "requires_confirmation",
             "basis_feature_ids": company["bindings"]["loan"],
@@ -139,23 +178,27 @@ def business_context(profile):
         {"id": "contracts", "question": "Как устроены цены, индексация, оплата и обязательства по договорам?"},
         {"id": "financial_snapshot", "question": "Каковы дата, единицы, валюта и сопоставимый период финансовых данных?"},
         {"id": "eligibility", "question": "Какие лицензии, аккредитации, членства и специальные режимы подтверждены?"},
+        {"id": "workforce", "question": "Каковы период численности, текущий штат и фонд оплаты труда?"},
+        {"id": "business_stage", "question": "Какие текущие цели, инвестиционные планы и динамика показателей подтверждают стадию бизнеса?"},
     ]
     if not any(o["code"].startswith("payment_") for o in observed):
         gaps.append({"id": "payment_context", "question": "Есть ли проверенный снимок платёжных связей этой компании?"})
-    priorities = (["financial_snapshot", "contracts", "payment_context", "business_model", "operations", "eligibility"]
+    priorities = (["financial_snapshot", "contracts", "payment_context", "business_model", "operations", "workforce", "business_stage", "eligibility"]
                   if company["role"] == "cfo" else
-                  ["business_model", "operations", "contracts", "financial_snapshot", "payment_context", "eligibility"])
+                  ["business_model", "business_stage", "operations", "contracts", "workforce", "financial_snapshot", "payment_context", "eligibility"])
     purposes = {"business_model": "Определить рынки сбыта и проверить отраслевую применимость новости.",
         "operations": "Проверить географию влияния, маршруты, проекты и зависимости.",
         "contracts": "Разделить риск маржи, условия оплаты и движение денег.",
         "financial_snapshot": "Оценить масштаб и рассчитать эффект на сопоставимых подтверждённых данных.",
         "eligibility": "Проверить, распространяется ли требование или льгота на это юрлицо.",
-        "payment_context": "Проверить концентрацию и назначение наблюдаемых потоков."}
+        "payment_context": "Проверить концентрацию и назначение наблюдаемых потоков.",
+        "workforce": "Проверить условия мер для работодателей и отделить размер штата от стоимости труда.",
+        "business_stage": "Выбрать управленческий фокус по подтверждённым целям; возраст и исходная метка не устанавливают рост или кризис."}
     gaps.sort(key=lambda g: priorities.index(g["id"]))
     for gap in gaps:
         gap["purpose"] = purposes[gap["id"]]
     result = {"version": VERSION, "company_id": company["id"], "profile_version": company["profile_version"],
-        "observed": observed, "hypotheses": hypotheses, "missing_data": gaps,
+        "observed": observed, "hypotheses": hypotheses, "missing_data": gaps, "factor_checks": factor_checks(company),
         "market_position": {"market_share": None, "status": "unknown",
             "reason": "Нет сопоставимых выручки, периода и полного отраслевого знаменателя; доля в выборке не является долей рынка."},
         "group_policy": "Анализ выбранного юрлица. Передача эффекта внутри группы требует отдельного основания; чужие признаки и обязательства не наследуются.",

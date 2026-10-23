@@ -19,9 +19,10 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterator
 from .organizer_semantics import VERSION as SEMANTICS_VERSION, SOURCE_REF, PAYMENT_PERIOD, revenue_metadata
+from .company_factors import FACTOR_VERSION, ORGANIZER_FACTOR_COLUMNS, organizer_factors
 
 SCHEMA_VERSION = "company-context-v1"
-METHOD_VERSION = "company-features-v2-webinar"
+METHOD_VERSION = "company-features-v3-company-factors"
 PROFILE_FILE = "df_Uid_data_hack.csv"
 PAYMENT_FILE = "df_Uid_payment_hack.csv"
 LINK_FILE = "df_Fid_Uid_link_hack.csv"
@@ -123,6 +124,8 @@ def parse_company(record: int, row: dict[str, str]) -> Company:
     if fts is False and countries:
         issues.append("fts_country_without_flag")
     revenue_info = revenue_metadata(row["REVENUE_COMPANY"])
+    factors = organizer_factors(row)
+    issues.extend(factors["factor_quality_flags"])
     issues.extend(revenue_info["quality_flags"])
     revenue = Decimal(revenue_info["amount"]) if revenue_info["amount"] is not None else None
     if revenue is None:
@@ -142,7 +145,7 @@ def parse_company(record: int, row: dict[str, str]) -> Company:
         "revenue_scope": revenue_info["scope"], "semantics_source_ref": SOURCE_REF,
         "group_semantics": "ownership_or_management_link_not_shared_debt_or_operations",
         "snapshot_at": None,
-        "employees_fns_band": row["AMOUNT_WORKERS_FNS_GRADATION"] or None,
+        **factors,
         "products": products,
         "fts": {"flag": fts, "countries": countries},
         "quality_flags": issues,
@@ -375,7 +378,8 @@ def prepare_data(input_dir: Path, output_dir: Path, company_ids: list[str] | Non
         raise DataError(f"Output already exists: {output_dir}. Choose a new directory to preserve the previous snapshot.")
     paths = {name: input_dir / name for name in (PROFILE_FILE, PAYMENT_FILE, LINK_FILE)}
     hashes = {name: sha256_file(path) for name, path in paths.items()}
-    dataset_version = stable_hash({"inputs": hashes, "organizer_semantics": SEMANTICS_VERSION})
+    dataset_version = stable_hash({"inputs": hashes, "organizer_semantics": SEMANTICS_VERSION,
+                                   "company_factors": FACTOR_VERSION})
     companies, profile_report, quarantine = load_companies(paths[PROFILE_FILE])
     if company_ids:
         selected = set(company_ids)
@@ -420,6 +424,9 @@ def prepare_data(input_dir: Path, output_dir: Path, company_ids: list[str] | Non
                 item = feature(company_id, name, profile[name], [PROFILE_FILE], "source_field_with_organizer_clarification")
                 item["semantics_source_ref"] = SOURCE_REF
                 features.append(item)
+        for name in (*ORGANIZER_FACTOR_COLUMNS, "employees_band"):
+            if profile.get(name) is not None:
+                features.append(feature(company_id, name, profile[name], [PROFILE_FILE], FACTOR_VERSION))
         for direction in ("incoming", "outgoing"):
             value = summarize_flow(flows[company_id][direction], company, companies, top_n)
             features.append(feature(company_id, f"payment_{direction}", value, [PAYMENT_FILE, PROFILE_FILE],
@@ -427,7 +434,7 @@ def prepare_data(input_dir: Path, output_dir: Path, company_ids: list[str] | Non
         return {"schema_version": SCHEMA_VERSION, "company_id": company_id, "profile_version": dataset_version,
                 "context_version": context_version, "profile": profile, "features": features,
                 "limitations": ["company_snapshot_date_unknown", "revenue_company_or_group_scope_unknown", "market_share_unavailable",
-                                "credit_terms_unknown", "person_link_role_unknown"]}
+                                "credit_terms_unknown", "person_link_role_unknown", *profile["factor_limitations"]]}
 
     report = {"schema_version": SCHEMA_VERSION, "dataset_version": dataset_version,
               "profiles": profile_report, "payments": payment_report, "person_links": link_report,

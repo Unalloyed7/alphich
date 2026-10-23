@@ -114,7 +114,10 @@ def label_batch(input_path, output_dir, *, model, base_url, limit=10, offset=0, 
         raise KnowledgeError("Selected input window is empty")
     if any(row.get("label") is not None for row in rows):
         raise KnowledgeError("Use unlabeled input snapshots; existing human/teacher labels must not be overwritten")
-    plan = prepare_judgement(rows[0])
+    plans = [prepare_judgement(row) for row in rows]
+    if len({(plan["prompt_version"], plan["prompt_hash"]) for plan in plans}) != 1:
+        raise KnowledgeError("A local batch must use one prompt contract; separate legacy and enriched company snapshots")
+    plan = plans[0]
     manifest = {"version": VERSION, "model": model, "endpoint": endpoint,
                 "prompt_hash": digest([VERSION, plan["prompt_hash"]]), "prompt_version": plan["prompt_version"],
                 "max_tokens": 4096, "temperature": 0, "enable_thinking": False,

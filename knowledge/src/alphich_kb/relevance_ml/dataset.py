@@ -23,6 +23,8 @@ FACT_NAMES = frozenset({
     "products", "loan", "deposit", "lease", "guarantee", "factoring", "rko", "payroll",
     "fts", "fts_flag", "fts_countries", "revenue_raw", "revenue_unit", "revenue_currency",
     "revenue_period", "revenue_scope", "employees_band", "business_goals",
+    "organization_type", "ownership_form", "company_age_band", "business_stage_label",
+    "negative_mark_raw", "employees_fns_band", "employees_spark_band", "city_registration", "client_type",
 })
 PRODUCT_NAMES = frozenset({"loan", "deposit", "lease", "guarantee", "factoring", "rko", "payroll"})
 

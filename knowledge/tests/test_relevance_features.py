@@ -43,6 +43,29 @@ def pair():
 
 
 class RelevanceFeatureTests(unittest.TestCase):
+    def test_source_employee_conflicts_and_opaque_labels_are_not_invented_business_signals(self):
+        row = pair()
+        row["company"]["facts"] += [
+            {"id": key, "name": key, "value": value, "source_ref": "synthetic organizer fixture"}
+            for key, value in (("employees_fns_band", "101-250"), ("employees_spark_band", "251-500"),
+                               ("employees_band", "101-250"), ("company_age_band", "8-15"),
+                               ("business_stage_label", "OPAQUE_STAGE_SECRET"),
+                               ("negative_mark_raw", "OPAQUE_NEGATIVE_SECRET"), ("client_type", "OPAQUE_CLIENT_SECRET"),
+                               ("city_registration", "Демо"))]
+        encoder = FakeEncoder(); builder = FeatureBuilder(encoder)
+        values = dict(zip(builder.feature_names, builder.transform([row])[0]))
+        self.assertEqual(values["employees_fns_band_known"], 1)
+        self.assertEqual(values["employees_spark_band_known"], 1)
+        self.assertEqual(values["employee_sources_conflict"], 1)
+        self.assertEqual(values["employees_band_known"], 0)
+        self.assertEqual(values["operating_regions_known"], 0)
+        encoded = "".join(encoder.queries)
+        for raw in ("OPAQUE_STAGE_SECRET", "OPAQUE_NEGATIVE_SECRET", "OPAQUE_CLIENT_SECRET"):
+            self.assertNotIn(raw, encoded)
+        self.assertIn("101-250", encoded)
+        self.assertIn("251-500", encoded)
+        self.assertIn("дата наблюдения неизвестна", encoded)
+
     def test_complete_article_coverage_and_tail_changes_prediction_inputs(self):
         row = pair()
         row["article"]["text"] = ("abcdefЖЗИЙКЛМНОПРСТ" * 20) + " УНИКАЛЬНЫЙ КОНЕЦ"

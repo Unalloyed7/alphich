@@ -18,7 +18,7 @@ import numpy as np
 from ..common import KnowledgeError
 
 
-FEATURE_VERSION = "relevance-features-v2-business-fit"
+FEATURE_VERSION = "relevance-features-v3-company-factors"
 PRODUCTS = ("loan", "deposit", "lease", "guarantee", "factoring", "rko", "payroll")
 _ALIASES = {
     "okved": "okved_code", "industry_code": "okved_code", "industry_name": "okved_name",
@@ -29,7 +29,9 @@ _ALIASES = {
 _FACT_NAMES = frozenset({"industry", "okved_code", "okved_name", "registration_region",
                          "operating_regions", "fts", "fts_countries", "fts_flag", "revenue_raw",
                          "revenue_unit", "revenue_currency", "revenue_period", "revenue_scope", "employees_band",
-                         "business_goals", "products", *PRODUCTS})
+                         "organization_type", "ownership_form", "company_age_band", "business_stage_label",
+                         "negative_mark_raw", "employees_fns_band", "employees_spark_band", "city_registration",
+                         "client_type", "business_goals", "products", *PRODUCTS})
 _SCALARS = (
     "cosine_pooled", "cosine_chunk_max", "cosine_chunk_min", "cosine_chunk_std",
     "industry_known", "registration_region_known", "operating_regions_known",
@@ -41,6 +43,10 @@ _SCALARS = (
     "raw_revenue_present", "revenue_unit_known", "revenue_currency_known", "revenue_period_known",
     "reported_revenue_rub_2025_log1p", "reported_revenue_scale_known", "revenue_scope_known",
     "employees_band_known", "business_goals_known", "company_fact_count_log1p",
+    "organization_type_known", "ownership_form_known", "company_age_band_known",
+    "business_stage_label_present", "negative_mark_present", "bank_client_type_present",
+    "registration_city_known", "registration_city_mentioned", "employees_fns_band_known",
+    "employees_spark_band_known", "employee_sources_conflict",
     "role_cfo", "role_ceo",
     "article_characters_log1p", "article_chunks_log1p", "company_chunks_log1p",
     "company_news_token_jaccard",
@@ -49,6 +55,11 @@ _SCALARS = (
 
 def _text(value):
     return value.strip() if isinstance(value, str) else ""
+
+
+def _factor_text(value):
+    value = _text(value)
+    return "" if value.casefold() in {"-", "—", "нет данных", "неизвестно", "unknown", "null", "none", "nan", "n/a"} else value
 
 
 def _list_of_text(value):
@@ -152,13 +163,32 @@ def _profile(company):
                       and revenue_metadata == {"revenue_unit": "RUB", "revenue_currency": "RUB", "revenue_period": "2025"}
                       else None)
     revenue_scope = unique("revenue_scope", _text)
-    employees = unique("employees_band", _text)
+    employees = unique("employees_band", _factor_text)
+    factor_names = ("organization_type", "ownership_form", "company_age_band", "business_stage_label",
+                    "negative_mark_raw", "employees_fns_band", "employees_spark_band", "city_registration", "client_type")
+    factors = {key: unique(key, _factor_text) for key in factor_names}
+    employee_sources_conflict = False
+    if factors["employees_fns_band"] or factors["employees_spark_band"]:
+        from alphich.company_factors import organizer_factors
+        reconciliation = organizer_factors({"AMOUNT_WORKERS_FNS_GRADATION": factors["employees_fns_band"],
+                                             "AMOUNT_WORKERS_SPARK_GRADATION": factors["employees_spark_band"]})
+        reconciled = reconciliation["employees_band"]
+        employee_sources_conflict = reconciliation["employee_band_status"] == "conflict"
+        employees = reconciled if not employees or employees == reconciled else None
     goals = unique("business_goals", _list_of_text) or []
     lines = []
     if code or name:
         lines.append("Отрасль ОКВЭД: " + " ".join(item for item in (code, name) if item))
     if registration:
         lines.append("Регион регистрации (территория операций не подтверждена этим признаком): " + registration)
+    if factors["city_registration"]:
+        lines.append("Город регистрации (не территория операций): " + factors["city_registration"])
+    for key, caption in (("organization_type", "Тип организации"), ("ownership_form", "Форма собственности")):
+        if factors[key]:
+            lines.append(caption + " по исходным данным: " + factors[key])
+    if factors["company_age_band"]:
+        lines.append("Диапазон возраста компании; дата наблюдения неизвестна, стадия роста не установлена: "
+                     + factors["company_age_band"])
     if regions:
         lines.append("Подтверждённые регионы операций: " + "; ".join(regions))
     for product, value in products.items():
@@ -168,8 +198,13 @@ def _profile(company):
         lines.append("Признак внешней торговли: " + ("да" if fts else "нет"))
     if countries:
         lines.append("Страны внешнеторговых записей: " + "; ".join(countries))
-    if employees:
-        lines.append("Подтверждённый диапазон численности сотрудников: " + employees)
+    for key, caption in (("employees_fns_band", "ФНС"), ("employees_spark_band", "СПАРК")):
+        if factors[key]:
+            lines.append("Диапазон численности " + caption + "; период неизвестен: " + factors[key])
+    if employee_sources_conflict:
+        lines.append("Источники численности расходятся; единый диапазон не подтверждён.")
+    elif employees:
+        lines.append("Согласованный диапазон численности сотрудников; не точный текущий штат: " + employees)
     if goals:
         lines.append("Цели бизнеса, указанные в подтверждённом профиле: " + "; ".join(goals))
     # Raw revenue amounts, company/group IDs, facts' IDs and source refs never
@@ -181,6 +216,7 @@ def _profile(company):
         "revenue": bool(raw_revenue), "revenue_metadata": revenue_metadata,
         "scaled_revenue": scaled_revenue, "revenue_scope": revenue_scope,
         "employees": bool(employees), "goals": bool(goals), "fact_count": len(entries),
+        "factors": factors, "employee_sources_conflict": employee_sources_conflict,
     }
 
 
@@ -231,6 +267,8 @@ class FeatureBuilder:
                 "missing_or_conflicting_facts": "unknown", "raw_revenue": "log1p_only_explicit_RUB_2025_reported_scope",
                 "target": "business_relevance", "publication_age": "excluded_separate_temporal_assessment",
                 "article_attributes": "none_inferred_from_keywords",
+                "opaque_company_labels": "presence_masks_only_not_financial_health_or_business_stage",
+                "employee_sources": "separate_FNS_SPARK_conflicts_preserved_period_unknown",
                 "ids_and_source_refs": "excluded_except_source_presence_validation",
             },
         }
@@ -342,6 +380,11 @@ class FeatureBuilder:
             math.log1p(profile["scaled_revenue"]) if profile["scaled_revenue"] is not None else 0.0,
             float(profile["scaled_revenue"] is not None), float(profile["revenue_scope"] in {"company", "group"}),
             float(profile["employees"]), float(profile["goals"]), math.log1p(profile["fact_count"]),
+            *[float(bool(profile["factors"][key])) for key in ("organization_type", "ownership_form", "company_age_band",
+                "business_stage_label", "negative_mark_raw", "client_type", "city_registration")],
+            _mentioned([profile["factors"]["city_registration"]] if profile["factors"]["city_registration"] else [], article_text),
+            float(bool(profile["factors"]["employees_fns_band"])), float(bool(profile["factors"]["employees_spark_band"])),
+            float(profile["employee_sources_conflict"]),
             float(role == "cfo"), float(role == "ceo"),
             math.log1p(len(article_text)), math.log1p(len(article_chunks)), math.log1p(len(company_chunks)),
             len(company_words & article_words) / len(union) if union else 0.0,
