@@ -122,8 +122,8 @@ def parser():
     consensus.add_argument("--primary", required=True)
     consensus.add_argument("--verifier", required=True)
     consensus.add_argument("--output-dir", required=True)
-    consensus.add_argument("--policy", choices=["exact", "binary"], default="exact",
-                           help="Binary accepts agreement on grade>=4; exact primary grades remain proposals")
+    consensus.add_argument("--policy", choices=["exact", "binary", "business-binary"], default="exact",
+                           help="Business-binary also separates training significance from event-status metadata; no publishing permission")
     auto = commands.add_parser("automatic-job", help="Bounded blind two-model labeling and machine QA; resumes original identities")
     auto.add_argument("--input", required=True)
     auto.add_argument("--pilot-plan", required=True)

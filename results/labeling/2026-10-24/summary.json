@@ -108,7 +108,7 @@
     }
   },
   "tests": {
-    "backend_knowledge_passed": 758,
+    "backend_knowledge_passed": 766,
     "scripts_passed": 60
   },
   "annotation_continues_on_vps": true,
@@ -116,8 +116,17 @@
   "human_benchmark_eligible": false,
   "files": {
     "teacher-decisions.jsonl": "733a14650f84d4a9e4b899c3271ae56f74b3af761ada6c897355947b0561cd6d",
-    "machine-consensus-decisions.jsonl": "2db790822fb9c1859b0ca85e267b937acac17145771e874e0e56d4c4da91b12b"
+    "machine-consensus-decisions.jsonl": "2db790822fb9c1859b0ca85e267b937acac17145771e874e0e56d4c4da91b12b",
+    "business-target-consensus-decisions.jsonl": "1108989d11dc04d6f05c12e997762dc4a71e883843444127d0211da18c9d48c5"
   },
   "exported_at_utc": "2026-10-24T13:44:02.649505+00:00",
-  "snapshot_scope": "completed_initial_24_and_100_pair_jobs_plus_historical_batches"
+  "snapshot_scope": "completed_initial_24_and_100_pair_jobs_plus_historical_batches",
+  "business_target_consensus": {
+    "policy": "blind-cross-model-business-binary-v1",
+    "accepted_pairs": 95,
+    "positive_pairs": 3,
+    "positive_stories": 2,
+    "source_scope": "same completed initial 24 and 100 pair jobs; no new teacher calls",
+    "publishing_permission": false
+  }
 }

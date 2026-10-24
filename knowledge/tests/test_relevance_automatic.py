@@ -136,6 +136,45 @@ def test_binary_agreement_does_not_pretend_ordinal_or_temporal_consensus():
     assert not machine_consensus([a], [b], policy="binary")[0]
 
 
+@pytest.mark.parametrize("event_status", ["announced", "historical"])
+def test_business_target_keeps_agreed_fours_without_claiming_matching_mechanisms_or_current_permission(event_status):
+    a, b = proposals()
+    a["label"]["judgement"]["impact_type"] = "mixed"
+    b["label"]["judgement"].update(impact_type="costs", event_status=event_status)
+    original = copy.deepcopy([a, b])
+    assert not machine_consensus([a], [b], policy="binary")[0]
+    accepted, abstained, _ = machine_consensus([a], [b], policy="business-binary")
+    assert len(accepted) == 1 and not abstained and accepted[0]["label"]["grade"] == 4
+    review = accepted[0]["label"]["machine_review"]
+    assert review["agreement_target"] == "grade>=4" and review["grade_interval"] == [4, 4]
+    assert review["mechanism_consensus"] is False and review["event_status_consensus"] is False
+    assert review["publishing_permission"] is False and review["human_benchmark_eligible"] is False
+    assert [a, b] == original
+
+
+@pytest.mark.parametrize("change,reason", [
+    ("grade", "binary_target_or_critical_grade_disagreement"),
+    ("mechanism", "positive_mechanism_disagreement"),
+    ("critical", "critical_scope_or_temporal_disagreement"),
+    ("model", "same_model_not_cross_model_review"),
+])
+def test_business_target_keeps_real_disagreements_unlabeled(change, reason):
+    a, b = proposals()
+    if change == "grade":
+        b["label"]["grade"] = b["label"]["judgement"]["grade"] = 3
+    elif change == "mechanism":
+        a["label"]["judgement"]["impact_type"] = "demand"
+        b["label"]["judgement"]["impact_type"] = "costs"
+    elif change == "critical":
+        for row in (a, b):
+            row["label"]["grade"] = row["label"]["judgement"]["grade"] = 5
+        b["label"]["judgement"]["event_status"] = "historical"
+    elif change == "model":
+        b["label"]["labeler"] = a["label"]["labeler"]
+    accepted, abstained, _ = machine_consensus([a], [b], policy="business-binary")
+    assert not accepted and reason in abstained[0]["reasons"]
+
+
 @pytest.mark.parametrize("change,reason", [
     ("grade", "grade_disagreement"), ("scope", "scope_or_temporal_disagreement"),
     ("model", "same_model_not_cross_model_review"), ("missing", "missing_blind_review"),
@@ -152,15 +191,16 @@ def test_machine_disagreement_abstains_instead_of_averaging_or_creating_a_negati
     assert not accepted and reason in abstained[0]["reasons"]
 
 
-def test_fabricated_quotes_and_rebound_company_snapshots_cannot_be_silver():
+@pytest.mark.parametrize("policy", ["exact", "binary", "business-binary"])
+def test_fabricated_quotes_and_rebound_company_snapshots_cannot_be_silver(policy):
     a, b = proposals()
     b["label"]["judgement"]["news_quotes"] = ["Отсутствует в источнике"]
     with pytest.raises(KnowledgeError, match="absent"):
-        machine_consensus([a], [b])
+        machine_consensus([a], [b], policy=policy)
     a, b = proposals()
     b["company"]["profile_version"] = "changed"
     with pytest.raises(KnowledgeError):
-        machine_consensus([a], [b])
+        machine_consensus([a], [b], policy=policy)
 
 
 def test_selection_balances_stories_roles_and_excludes_paid_failures_without_labels():

@@ -393,8 +393,8 @@ def _checked_teacher(row):
 
 def machine_consensus(primary, verifier, *, policy="exact"):
     """Blind different-model agreement with abstention; no labels are averaged."""
-    if policy not in {"exact", "binary"}:
-        raise KnowledgeError("Machine agreement policy must be exact or binary")
+    if policy not in {"exact", "binary", "business-binary"}:
+        raise KnowledgeError("Machine agreement policy must be exact, binary or business-binary")
     primary, verifier = [_checked_teacher(r) for r in primary], [_checked_teacher(r) for r in verifier]
     first = {r["pair_id"]: r for r in primary}
     second = {r["pair_id"]: r for r in verifier}
@@ -432,8 +432,21 @@ def machine_consensus(primary, verifier, *, policy="exact"):
             else:
                 if (ga >= 4) != (gb >= 4) or (5 in {ga, gb} and ga != gb):
                     errors.append("binary_target_or_critical_grade_disagreement")
-                if ga >= 4 and any(ja[k] != jb[k] for k in ("impact_type", "geography", "scale", "applicability", "event_status")):
-                    errors.append("positive_mechanism_or_scope_disagreement")
+                if ga >= 4:
+                    if policy == "binary":
+                        if any(ja[k] != jb[k] for k in ("impact_type", "geography", "scale", "applicability", "event_status")):
+                            errors.append("positive_mechanism_or_scope_disagreement")
+                    else:
+                        # This target is business significance for training,
+                        # independently of permission to publish the news today.
+                        if any(ja[k] != jb[k] for k in ("geography", "scale", "applicability")):
+                            errors.append("positive_scope_disagreement")
+                        impacts = {ja["impact_type"], jb["impact_type"]}
+                        if "none" in impacts or (len(impacts) > 1 and "mixed" not in impacts):
+                            errors.append("positive_mechanism_disagreement")
+                        if 5 in {ga, gb} and any(ja[k] != jb[k] for k in (
+                                "impact_type", "event_status", "timeliness", "valid_from", "valid_until")):
+                            errors.append("critical_scope_or_temporal_disagreement")
             if ga >= 4 and not set(ja["company_fact_ids"]) & set(jb["company_fact_ids"]):
                 errors.append("no_shared_company_basis")
         if errors:
@@ -442,12 +455,17 @@ def machine_consensus(primary, verifier, *, policy="exact"):
         row = copy.deepcopy(a)
         row["label"]["machine_review"] = {"policy": "blind-cross-model-" + policy + "-v1",
             "origin": "teacher", "independently_reviewed": False, "reviewer": b["label"],
-            "agreement_target": "grade>=4" if policy == "binary" else "exact_grade_and_scope",
+            "agreement_target": "grade>=4" if policy != "exact" else "exact_grade_and_scope",
             "grade_interval": sorted([a["label"]["grade"], b["label"]["grade"]]),
             "grade_is_primary_proposal": True,
             "temporal_consensus": all(a["label"]["judgement"][k] == b["label"]["judgement"][k]
                                       for k in ("timeliness", "valid_from", "valid_until")),
             "human_benchmark_eligible": False}
+        if policy == "business-binary":
+            row["label"]["machine_review"].update(
+                mechanism_consensus=a["label"]["judgement"]["impact_type"] == b["label"]["judgement"]["impact_type"],
+                event_status_consensus=a["label"]["judgement"]["event_status"] == b["label"]["judgement"]["event_status"],
+                publishing_permission=False)
         row["label"]["independently_reviewed"] = False
         accepted.append(row)
     return accepted, abstained, {"primary": len(first), "reviewed": len(second), "candidate_pairs": len(set(first) | set(second)),
