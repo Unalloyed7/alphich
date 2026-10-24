@@ -244,10 +244,30 @@ class RetrievalTests(unittest.TestCase):
         self.assertTrue(result["hits"])
 
     def test_generic_request_only_does_not_select_bank_opinions(self):
-        for query in ("Анализ и позиции банка по теме события", "и о по на 2026", "bank analysis and views"):
+        for query in ("Анализ и позиции банка по теме события", "и о по на 2026", "bank analysis and views",
+                      "Прогноз на конец 2026 года", "forecast for the end of the year"):
             with self.subTest(query=query):
-                result = self.retriever.retrieve(query, self.scope())
+                result = self.retriever.retrieve(query, self.scope(), horizon="2026-12-31")
                 self.assertEqual(result["bank_claims"], [])
+
+    def test_free_forecast_query_matches_subject_not_period_or_nearby_reviewed_assertion(self):
+        item = self.retriever.by_id["new"]
+        text = (item["text"] + " Инфляция составит 7,5% по итогам 2026 года. "
+                "Прогноз курса — 87 рублей за доллар на конец 2026 года.")
+        item["text"] = self.retriever.pages[item["parent_id"]]["text"] = text
+        item["source_span"]["end"] = item["source_refs"][0]["end"] = len(text)
+        rate = next(claim for claim in self.retriever.claims if claim["id"] == "claim_new")
+        rate.update(text="Прогноз ключевой ставки на конец 2026 года — 14%.", quote=text)
+        self.retriever.claims.extend([
+            {**rate, "id": "inflation_forecast", "metric": "inflation", "value": "7.5", "revision_of": None,
+             "text": "Прогноз инфляции по итогам 2026 года — 7,5%."},
+            {**rate, "id": "exchange_forecast", "metric": "USD_RUB", "value": "87", "revision_of": None,
+             "text": "Прогноз курса — 87 рублей за доллар на конец 2026 года."},
+        ])
+        result = self.retriever.retrieve("Прогноз ключевой ставки на конец 2026 года", self.scope(),
+                                         horizon="2026-12-31", mode="lexical")
+        self.assertEqual([claim["id"] for claim in result["bank_claims"]], ["claim_new"])
+        self.assertEqual(result["bank_view_status"], "found")
 
     def test_request_glue_preserves_substantive_open_topic_and_short_acronym(self):
         result = self.retriever.retrieve(
