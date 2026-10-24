@@ -1155,8 +1155,9 @@ def test_large_retrieval_diagnostics_stay_in_audit_and_do_not_displace_analyst_e
     job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
     assert job["status"] == "succeeded", job
     analyst = next(data for title, data in gateway.seen if title in {"Decision", "FinalDecision"})
-    assert "semantic_gate" not in analyst["business_relevance"]["relevance_assessment"]
-    assert analyst["business_relevance"]["relevance_grade"] == 4
+    assert "semantic_gate" not in json.dumps(analyst["business_relevance"])
+    assert analyst["business_relevance"]["grade"] == 4
+    assert analyst["business_relevance"]["prior_assessment_is_not_evidence"] is True
     assert any(e["kind"] == "event_fact" for e in analyst["evidence"])
     with factory() as db:
         saved = db.get(Insight, job["result_id"])

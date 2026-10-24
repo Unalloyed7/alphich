@@ -128,7 +128,6 @@ class Tools:
         return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "factor_checks", "group_policy", "scope")
                            if key in context})
 
-
     def resolve_draft(self, draft):
         return draft.model_copy(update={
             "fact_evidence_ids": [self.real_ids.get(i, i) for i in draft.fact_evidence_ids],
