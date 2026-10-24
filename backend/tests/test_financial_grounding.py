@@ -66,26 +66,26 @@ def construction_context(evidence):
     return evidence
 
 
-def test_rate_construction_lens_is_an_explicit_customer_hypothesis_not_company_debt(evidence):
+def test_rate_context_preserves_product_evidence_without_selecting_customer_demand(evidence):
     context = construction_context(evidence)
     saved = deepcopy(context)
     focus = business_focus(context)
-    assert focus['channel'] == 'customer_investment_demand'
-    assert focus['news_ids'] == ['news'] and focus['company_ids'] == ['industry']
-    assert 'credit' in focus['not_inference_basis_ids']
-    assert focus['hypothesis'].startswith('Если ')
-    assert focus['unknowns'] and 'не установлено' in focus['constraints']
+    assert focus['channel'] == 'open_business_impact' and focus['driver'] == 'open'
+    assert focus['news_ids'] == ['news']
+    assert focus['company_ids'] == ['credit', 'industry']
+    assert focus['industry_basis_ids'] == ['industry']
+    assert focus['not_inference_basis_ids'] == []
+    assert focus['selection_policy']['industry_evidence_required'] is False
     assert context == saved
 
 
-def test_credit_flag_alone_and_unrelated_sector_or_news_cannot_trigger_construction_lens(evidence):
-    assert business_focus(evidence) is None
+def test_industry_and_known_financial_topic_are_not_required_for_impact_analysis(evidence):
+    focus = business_focus(evidence)
+    assert focus['company_ids'] == ['credit']
+    assert focus['industry_basis_ids'] == []
     context = construction_context(evidence)
-    context['industry']['value'] = '62.01'
-    assert business_focus(context)['channel'] == 'customer_it_demand'
-    context = construction_context(evidence)
-    context['news']['attributes']['topics'] = ['sports']
-    assert business_focus(context) is None
+    context['news']['attributes']['topics'] = ['unlisted_business_subject']
+    assert business_focus(context)['news_ids'] == ['news']
 
 
 def test_direct_question_about_credit_is_not_diverted_to_customer_demand(evidence):
@@ -95,52 +95,55 @@ def test_direct_question_about_credit_is_not_diverted_to_customer_demand(evidenc
                         context, question='Как решение влияет на кредит?') == []
 
 
-def test_related_rate_event_cannot_change_the_focus_of_an_unrelated_current_story(evidence):
+def test_related_event_cannot_prove_a_current_story(evidence):
     context = construction_context(evidence)
     context['news']['event_id'] = 'related-event'
     assert business_focus(context, event_id='current-event') is None
     assert business_focus(context, event_id='related-event')['news_ids'] == ['news']
 
 
-def test_demand_hypothesis_requires_industry_basis_and_does_not_use_credit_flag_as_exposure(evidence):
+def test_conditional_financing_analysis_can_use_product_flag_but_cannot_assert_stability(evidence):
     context = construction_context(evidence)
-    card = draft('Если запуск проектов заказчиков зависит от кредитов, дорогие кредиты могут откладывать запуск и поступление авансов строительной компании.')
-    assert set(focus_issues(card, context)) == {'c1:business_focus_needs_industry_basis',
-                                              'c1:credit_flag_does_not_establish_company_financing'}
-    card.claims[0].evidence_ids = ['news', 'industry', 'forecast']
+    card = draft('Если действующий кредит привязан к ключевой ставке, изменение ставки может влиять на процентную составляющую; наличие долга и условия договора неизвестны.')
     assert focus_issues(card, context) == []
+    assert verify_draft(card, context) == []
+    assert verify_draft(draft(REPORTED), context) == ['c1:unsupported_company_contract_stability']
 
 
-def test_focused_card_cannot_add_competing_extra_inferences(evidence):
+def test_two_independently_supported_business_consequences_are_allowed(evidence):
     context = construction_context(evidence)
     card = draft('Если заказчики зависят от кредитов, дорогие кредиты могут откладывать запуск проектов.')
     card.claims[0].evidence_ids = ['news', 'industry']
-    card.claims.append(card.claims[0].model_copy(update={'id': 'c2'}))
-    assert focus_issues(card, context) == ['business_focus_requires_one_primary_inference']
+    card.claims.append(card.claims[0].model_copy(update={'id': 'c2',
+        'text': 'Если действующий кредит компании имеет плавающую ставку, изменение ключевой ставки может влиять на процентную составляющую.',
+        'evidence_ids': ['news', 'credit']}))
+    assert focus_issues(card, context) == []
 
 
-@pytest.mark.parametrize('code,channel', [('41.20', 'customer_investment_demand'),
-    ('62.01', 'customer_it_demand'), ('46.90', 'customer_demand_and_inventory'),
-    ('49.41', 'logistics_demand'), ('25.11', 'investment_demand')])
-def test_rate_mechanism_uses_evidenced_business_activity_without_inventing_own_debt(evidence, code, channel):
+@pytest.mark.parametrize('code', ['41.20', '62.01', '46.90', '49.41', '25.11'])
+def test_activity_does_not_preselect_one_business_consequence(evidence, code):
     context = construction_context(evidence)
     context['industry']['value'] = code
     focus = business_focus(context)
-    assert focus['channel'] == channel and focus['hypothesis'].startswith('Если')
-    assert focus['company_ids'] == ['industry'] and 'credit' in focus['not_inference_basis_ids']
+    assert focus['channel'] == 'open_business_impact'
+    assert focus['company_ids'] == ['credit', 'industry']
+    assert not focus['not_inference_basis_ids']
 
 
-def test_inflation_headline_cannot_be_replaced_with_historical_rate_background(evidence):
+def test_primary_event_facts_are_not_filtered_by_financial_topic_or_forecast_kind(evidence):
     context = construction_context(evidence)
+    context['news']['text'] = 'Ранее Банк России сохранил ключевую ставку.'
     context['inflation'] = {'kind': 'event_fact', 'text': 'Годовая инфляция замедлилась до 7,15%.',
                             'attributes': {'topics': ['inflation']}}
-    context['old_inflation_forecast'] = {'kind': 'event_fact', 'text': 'ЦБ подтвердил прогноз инфляции на год 6–7%.',
-                                       'attributes': {'topics': ['inflation'], 'kind': 'forecast'}}
-    title = 'Инфляция в России замедлилась до 7,15%'
-    focus = business_focus(context, event_title=title)
-    assert focus['driver'] == 'inflation' and focus['news_ids'] == ['inflation']
+    context['forecast'] = {'kind': 'event_fact', 'text': 'Эксперты ожидают снижения спроса.',
+                           'attributes': {'topics': ['unlisted_business_subject'], 'kind': 'forecast'}}
+    focus = business_focus(context, event_title='Инфляция в России замедлилась до 7,15%')
+    assert set(focus['news_ids']) == {'inflation', 'forecast'}
     bad = draft('Если заказчики зависят от кредитов, высокая ставка может ограничивать новые заказы.')
-    bad.claims[0].evidence_ids = ['news', 'industry', 'forecast']
-    assert focus_issues(bad, context, event_title=title) == ['c1:business_focus_needs_primary_news_basis']
-    del context['inflation']
-    assert business_focus(context, event_title=title)['max_inferences'] == 0
+    bad.claims[0].evidence_ids = ['news', 'industry']
+    assert focus_issues(bad, context) == ['c1:business_focus_needs_primary_news_basis']
+
+
+def test_reputational_credit_of_trust_is_not_financing_stability():
+    from app.intelligence.financial_grounding import unsupported_financing_stability
+    assert not unsupported_financing_stability('Кредит доверия клиентов может оставаться стабильным при своевременном раскрытии информации.')

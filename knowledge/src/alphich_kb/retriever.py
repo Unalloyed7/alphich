@@ -1,6 +1,7 @@
 """Hybrid source retrieval with server-owned scope and bounded evidence context."""
 
 import copy
+import re
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -11,9 +12,84 @@ import numpy as np
 
 from .common import KnowledgeError, digest, read_jsonl, verify_artifacts
 from .embeddings import EncoderUnavailable
-from .search import available, lexical_candidates, select_claims
+from .search import available, lexical_candidates
 
-RANKING_VERSION = "page-rrf-v1"
+RANKING_VERSION = "page-rrf-open-topic-claims-v4"
+
+# Generic search wording is not evidence of a subject match. These are language
+# and request-glue terms, not a catalog of allowed business subjects. Keep the
+# raw document search unchanged; only reviewed-assertion selection uses them.
+_CLAIM_QUERY_STOP_WORDS = frozenset("""
+а без бы был была были было быть в вам вас весь во вот все всех вы где да для до
+его ее если есть ещё еще же за и из или им их к как ко кто ли либо мне может мы
+на над нам нас не него нее нет ни но о об обо он она они оно от по под при про
+с со так также там то того той только том тот ту ты у уже что чтобы это этот эта
+эти этой этом я
+анализ анализа анализе анализом анализу позиции позиция позицию позиций позициях
+банк банка банке банком банку банки банков альфа
+тема темы теме темой тему тематике событие события событии событию событием событий
+материал материалы материала материалов материале материалах
+какой какая какие какую каких каким каковы применимый применимые применимых
+есть имеется имеются рассмотри включая последствия последствиях
+прогноз прогноза прогнозе прогнозом прогнозу прогнозы прогнозов прогнозам прогнозами прогнозах
+ожидания ожиданий ожидание ожидается ожидаются ожидаемый ожидаемая ожидаемые
+год года году годом годы годов годах лет конец конца конце концу концом
+начало начала начале началу началом середина середины середине середину
+итог итоги итогам итогов итогах период периода периоде периоду периоды периодов
+квартал квартала квартале кварталу кварталы кварталов месяц месяца месяце месяцу месяцев
+неделя недели неделе неделю недель день дня дню днем дней
+the a an and or of in on at to for from with by is are be as this that these those
+bank banks analysis view views position positions topic topics event events
+forecast forecasts forecasting projection projections year years end ending beginning
+quarter quarters month months week weeks day days period periods
+""".split())
+
+
+def _claim_subject_query(query):
+    terms = re.findall(r"[^\W_]+", query.lower().replace("ё", "е"), re.UNICODE)
+    return " ".join(dict.fromkeys(term for term in terms
+                    if len(term) > 1 and any(char.isalpha() for char in term)
+                    and term not in _CLAIM_QUERY_STOP_WORDS))
+
+
+def claim_revision_key(claim):
+    """Compare like positions without merging unrelated qualitative statements.
+
+    A topic is a search label, not the identity of an assertion.  Qualitative
+    assertions share an identity only when a reviewer explicitly supplies a
+    narrow ``claim_key``; otherwise each reviewed assertion retains its own ID.
+    Explicit ``revision_of`` links are applied separately after access/date
+    filtering, so a future or inaccessible revision cannot hide an old view.
+    """
+    dimensions = tuple(claim.get(k) for k in (
+        "forecast_horizon", "geography", "scenario", "attributed_to", "position_role"))
+    if claim.get("metric"):
+        return ("metric", claim["metric"], *dimensions, claim.get("unit"))
+    return ("qualitative", claim.get("claim_key") or claim.get("annotation_id") or claim.get("id"),
+            claim.get("topic"), claim.get("claim_kind", claim.get("kind")), *dimensions)
+
+
+def claim_supersedes(newer, older):
+    """Compare already eligible claims without guessing qualitative revisions.
+
+    Application registries may use ``kind=bank_claim`` for their evidence type;
+    ``claim_kind`` retains the original observation/forecast/mechanism kind.
+    The caller must first enforce permissions, publication time and review.
+    """
+    try:
+        if date.fromisoformat(newer.get("published_at", "")) <= date.fromisoformat(older.get("published_at", "")):
+            return False
+    except (TypeError, ValueError):
+        return False
+    if newer.get("metric") or older.get("metric"):
+        return bool(newer.get("metric") and older.get("metric")
+                    and claim_revision_key(newer) == claim_revision_key(older))
+    if not newer.get("revision_of") or newer["revision_of"] not in {
+            older.get("id"), older.get("annotation_id")}:
+        return False
+    dimensions = ("topic", "geography", "scenario", "forecast_horizon", "attributed_to", "position_role", "unit")
+    return (all(newer.get(key) == older.get(key) for key in dimensions)
+            and newer.get("claim_kind", newer.get("kind")) == older.get("claim_kind", older.get("kind")))
 
 
 @dataclass(frozen=True)
@@ -146,29 +222,79 @@ class BankRetriever:
             self.expanded.popitem(last=False)
         return context
 
-    def _claims(self, scope, metric, horizon):
-        permitted = [c for c in self.claims if scope.permits(c)]
-        if not metric:
-            return [], []
-        matching = [c for c in permitted if c["metric"] == metric and c["attributed_to"] == "alfa_bank"
-                    and c["geography"] == "RU" and c["scenario"] == "base"]
-        if horizon:
-            chosen = select_claims(matching, scope.as_of, metric, horizon)
-        else:
-            chosen = [c for c in matching if c["kind"] != "forecast" and c["position_role"] == "current_in_document"
-                      and c["verification_status"] == "visually_verified"]
-        selected_ids = {c["id"] for c in chosen}
-        rejected = []
-        for claim in matching:
-            if claim["id"] in selected_ids:
+    def _claims(self, scope, metric, horizon, *, query, topics, limit):
+        """Select reviewed statements of any topic, separately from raw chunks.
+
+        An explicit metric is an optional precise registry lookup, preserving
+        the ability to find a revision missed by page top-K.  An open query is
+        matched against the reviewed assertion/quote itself, never its broader
+        document or neighbouring unreviewed OCR.  This conservative lexical
+        stage does not turn every dense top-K page into a verified bank view.
+        """
+        matching = []
+        for claim in self.claims:
+            if not scope.permits(claim) or claim.get("attributed_to") != "alfa_bank":
                 continue
-            reason = "superseded_or_unverified"
-            if claim["position_role"] != "current_in_document":
+            if metric and claim.get("metric") != metric:
+                continue
+            evidence = self.by_id[claim["document_chunk_id"]]
+            claim_topics = set(evidence.get("topics", []))
+            if claim.get("topic"):
+                claim_topics.add(claim["topic"])
+            if topics and not set(topics).intersection(claim_topics):
+                continue
+            matching.append(claim)
+
+        rejected, eligible = [], []
+        for claim in matching:
+            reason = None
+            if claim.get("verification_status") != "visually_verified":
+                reason = "unverified_claim"
+            elif claim.get("position_role") != "current_in_document":
                 reason = "previous_or_conditional_view"
-            elif claim["kind"] == "forecast" and claim["forecast_horizon"] != horizon:
+            elif claim.get("kind") == "forecast" and (
+                    not horizon or claim.get("forecast_horizon") != horizon):
                 reason = "wrong_or_unspecified_horizon"
-            rejected.append({"claim_id": claim["id"], "reason": reason})
-        return chosen, rejected
+            elif horizon and claim.get("forecast_horizon") not in {None, horizon}:
+                reason = "wrong_horizon"
+            if reason:
+                rejected.append({"claim_id": claim["id"], "reason": reason})
+            else:
+                eligible.append(claim)
+
+        # Suppress only explicit revisions with compatible dimensions.  A
+        # cybersecurity claim must never supersede a separate reputation claim
+        # merely because both have metric=None (or the same broad topic).
+        by_id = {claim["id"]: claim for claim in eligible}
+        replaced = set()
+        dimensions = ("metric", "topic", "geography", "scenario", "forecast_horizon", "attributed_to", "unit", "kind")
+        for claim in eligible:
+            previous = by_id.get(claim.get("revision_of"))
+            if previous and previous["published_at"] < claim["published_at"] and all(
+                    previous.get(key) == claim.get(key) for key in dimensions):
+                replaced.add(previous["id"])
+        active = []
+        for claim in eligible:
+            if claim["id"] in replaced:
+                rejected.append({"claim_id": claim["id"], "reason": "superseded"})
+            else:
+                active.append(claim)
+
+        if metric:
+            ranked = sorted(active, key=lambda claim: (claim["published_at"], claim["id"]), reverse=True)
+        else:
+            # Match the reviewed assertion itself, not adjacent statements in
+            # its quote: one span may support separate rate/inflation forecasts.
+            # Legacy assertions without text can use their exact reviewed span.
+            source_rows = [{"title": "", "text": claim.get("text") or
+                            self.by_id[claim["document_chunk_id"]]["text"]} for claim in active]
+            subject_query = _claim_subject_query(query)
+            ranked = ([active[row] for row, _ in lexical_candidates(source_rows, subject_query)]
+                      if subject_query else [])
+            ranked_ids = {claim["id"] for claim in ranked}
+            rejected.extend({"claim_id": claim["id"], "reason": "reviewed_span_not_query_relevant"}
+                            for claim in active if claim["id"] not in ranked_ids)
+        return ranked[:limit], rejected
 
     def retrieve(self, query, scope, *, mode="dense", limit=5, topics=None, metric=None, horizon=None,
                  max_context_chars=16000, allow_fallback=True):
@@ -177,8 +303,8 @@ class BankRetriever:
             raise KnowledgeError("Query must contain 1..8000 characters")
         if mode not in {"lexical", "dense", "hybrid"} or not 1 <= limit <= 10:
             raise KnowledgeError("Mode must be lexical/dense/hybrid and limit must be 1..10")
-        if not 512 <= max_context_chars <= 40000 or (horizon and not metric):
-            raise KnowledgeError("Context budget must be 512..40000; horizon requires a metric")
+        if not 512 <= max_context_chars <= 40000:
+            raise KnowledgeError("Context budget must be 512..40000")
         if not isinstance(scope, RetrievalScope):
             raise KnowledgeError("A server-owned RetrievalScope is required")
         eligible_rows = [i for i, item in enumerate(self.items) if scope.permits(item)
@@ -221,7 +347,7 @@ class BankRetriever:
                          "source_age_days": age, "rrf": page["rrf"],
                          "matches": {name: {"rank": match["rank"], "score": match["score"],
                                              "evidence_id": self.items[match["row"]]["id"]} for name, match in matches.items()}})
-        chosen_claims, rejected_claims = self._claims(scope, metric, horizon)
+        chosen_claims, rejected_claims = self._claims(scope, metric, horizon, query=query, topics=topics, limit=limit)
         evidence, contexts, included, used_chars = [], [], set(), 0
         omitted = []
 
@@ -249,12 +375,16 @@ class BankRetriever:
         end = horizon_end(horizon)
         historical = bool(end and end < date.fromisoformat(scope.as_of))
         bank_status = "historical_only" if chosen_claims and historical else "found" if chosen_claims else "not_found"
-        if horizon and len({(c["value"], c["unit"]) for c in chosen_claims}) > 1:
+        comparable = {}
+        for claim in chosen_claims:
+            if claim.get("metric") and claim.get("value") is not None:
+                comparable.setdefault(claim_revision_key(claim), set()).add((claim["value"], claim.get("unit")))
+        if any(len(values) > 1 for values in comparable.values()):
             bank_status = "conflicting"
         limitations = ["semantic_applicability_requires_analysis", "publication_time_precision_is_day",
                        "unreviewed_ocr_cannot_confirm_exact_numbers"]
         if not metric:
-            limitations.append("claim_selection_requires_metric_and_forecast_horizon")
+            limitations.append("verified_claim_query_match_is_lexical")
         if omitted:
             limitations.append("context_budget_exhausted")
         if historical:

@@ -188,7 +188,7 @@ class TeacherTests(unittest.TestCase):
 
         from app.core import make_session_factory
         from app.intelligence.settings import Model, Settings
-        from app.intelligence.storage import BudgetDay
+        from app.intelligence.storage import BudgetDay, CostReceipt, LLMCall
         from alphich_kb.relevance_ml.cli import _judge
 
         model_id = "z-ai/glm-5.3-flash"
@@ -200,7 +200,7 @@ class TeacherTests(unittest.TestCase):
 
         class OfflineProvider:
             def __init__(self, *args):
-                pass
+                self.settings = args[1]
 
             def generate(self, *args):
                 return judgement()
@@ -211,6 +211,8 @@ class TeacherTests(unittest.TestCase):
             with self.subTest(existing_cap=existing_cap), tempfile.TemporaryDirectory() as folder:
                 engine, factory = make_session_factory("sqlite:///" + str(Path(folder) / "ledger.db"))
                 BudgetDay.__table__.create(engine)
+                LLMCall.__table__.create(engine)
+                CostReceipt.__table__.create(engine)
                 day = datetime.now(timezone.utc).date().isoformat()
                 with factory.begin() as db:
                     db.add(BudgetDay(day=day, limit_micros=existing_cap,

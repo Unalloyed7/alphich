@@ -30,8 +30,9 @@ def _independent_human(row):
     # A declared provenance check; this cannot establish real human independence.
     return (label.get("origin") == "human"
             and label.get("review_status") in {"agreed", "adjudicated"}
+            and label.get("independently_reviewed") is not False
             and isinstance(reviewers, list)
-            and len({r for r in reviewers if isinstance(r, str) and r.strip()}) >= 2)
+            and len({r.strip() for r in reviewers if isinstance(r, str) and r.strip()}) >= 2)
 
 
 def _probabilities(values, count):
@@ -66,7 +67,7 @@ def _wilson_lower(successes, total):
             / (1 + z * z / total))
 
 
-def _ranking_metrics(labels, probabilities, budget_k):
+def _ranking_metrics(labels, probabilities, budget_k, *, grades=None):
     ranked = sorted(range(len(labels)), key=lambda index: (-probabilities[index], index))
     selected = ranked[:budget_k]
     hits = sum(labels[index] for index in selected)
@@ -83,15 +84,41 @@ def _ranking_metrics(labels, probabilities, budget_k):
         cumulative_count += end - cursor
         ap += group_hits * cumulative_hits / cumulative_count
         cursor = end
-    return {
+    top_five = ranked[:5]
+    result = {
         "budget_k": budget_k,
         "selected_count": len(selected),
         "relevant_selected": hits,
         "precision_at_k": _ratio(hits, len(selected)),
         "recall_at_budget": _ratio(hits, positives),
         "average_precision": _ratio(ap, positives),
-        "ranking_tie_policy": "stable_input_order_at_budget; grouped_ties_for_average_precision",
+        "precision_at_5": _ratio(sum(labels[index] for index in top_five), len(top_five)),
+        "selected_at_5": len(top_five),
+        "ranking_tie_policy": "stable_input_order_at_budget_and_5; grouped_ties_for_average_precision",
     }
+    if grades is not None:
+        # Keep the full 0..5 utility scale rather than treating grade 4 and 5 as
+        # interchangeable. The cutoff and gain function are fixed, not fit on test.
+        def dcg(values):
+            return sum((2 ** grade - 1) / math.log2(rank + 2)
+                       for rank, grade in enumerate(values))
+        ideal = dcg(sorted(grades, reverse=True)[:5])
+        result["ndcg_at_5"] = _ratio(dcg([grades[index] for index in top_five]), ideal)
+        result["ndcg_gain"] = "2^grade-1; log2(rank+1) discount; undefined when all gains are zero"
+    return result
+
+
+def _group_metrics(indices, labels, grades, probabilities, selected, budget_k):
+    """Within one company/role, compare only candidates that actually compete."""
+    positive_count = sum(labels[index] for index in indices)
+    tp = sum(labels[index] == 1 and selected[index] for index in indices)
+    fp = sum(labels[index] == 0 and selected[index] for index in indices)
+    fn = positive_count - tp
+    return {"count": len(indices), "positives": positive_count, "tp": tp, "fp": fp, "fn": fn,
+            "precision": _ratio(tp, tp + fp), "recall": _ratio(tp, positive_count),
+            "ranking": _ranking_metrics([labels[index] for index in indices],
+                                        [probabilities[index] for index in indices], budget_k,
+                                        grades=[grades[index] for index in indices])}
 
 
 def evaluate_predictions(rows, probabilities, *, threshold=0.5, budget_k=10, calibration_bins=10):
@@ -141,18 +168,25 @@ def evaluate_predictions(rows, probabilities, *, threshold=0.5, budget_k=10, cal
         warnings.append("few_positive_pairs_recall_estimate_is_uncertain")
     if eligible != len(rows):
         warnings.append("not_an_independent_human_benchmark")
-    by_company = {}
-    for row, label, take in zip(rows, labels, selected):
+    company_indices, role_indices, company_role_indices = {}, {}, {}
+    for index, row in enumerate(rows):
         company_id = row.get("company", {}).get("company_id", "unknown")
-        values = by_company.setdefault(company_id, {"count": 0, "positives": 0, "tp": 0, "fp": 0, "fn": 0})
-        values["count"] += 1
-        values["positives"] += label
-        values["tp"] += int(label == 1 and take)
-        values["fp"] += int(label == 0 and take)
-        values["fn"] += int(label == 1 and not take)
-    for values in by_company.values():
-        values["precision"] = _ratio(values["tp"], values["tp"] + values["fp"])
-        values["recall"] = _ratio(values["tp"], values["positives"])
+        role = row.get("role", "unknown")
+        company_indices.setdefault(company_id, []).append(index)
+        role_indices.setdefault(role, []).append(index)
+        company_role_indices.setdefault(company_id, {}).setdefault(role, []).append(index)
+    def metrics(indices):
+        return _group_metrics(indices, labels, grades, probabilities, selected, budget_k)
+    by_company = {company: metrics(indices) for company, indices in company_indices.items()}
+    by_role = {role: metrics(indices) for role, indices in role_indices.items()}
+    by_company_role = {company: {role: metrics(indices) for role, indices in roles.items()}
+                       for company, roles in company_role_indices.items()}
+    group_rankings = [values["ranking"] for roles in by_company_role.values() for values in roles.values()]
+    macro = {"group_count": len(group_rankings)}
+    for key in ("precision_at_5", "ndcg_at_5"):
+        known = [ranking[key] for ranking in group_rankings if ranking[key] is not None]
+        macro[key] = _ratio(sum(known), len(known))
+        macro[key + "_defined_groups"] = len(known)
     return {
         "schema_version": "alphich-relevance-evaluation-v1", "target": "grade>=4",
         "count": len(rows), "positive_count": positives, "negative_count": len(rows) - positives,
@@ -167,11 +201,14 @@ def evaluate_predictions(rows, probabilities, *, threshold=0.5, budget_k=10, cal
         "critical_grade5_count": grades.count(5),
         "missed_grade5_pair_ids": [row.get("pair_id") for row, grade, take in zip(rows, grades, selected)
                                     if grade == 5 and not take],
-        "ranking": _ranking_metrics(labels, probabilities, budget_k),
+        "ranking": _ranking_metrics(labels, probabilities, budget_k, grades=grades),
+        "ranking_scope": "global diagnostic; use by_company_role for personalized feed ranking",
+        "ranking_by_company_role_macro": macro,
         "calibration": {"brier_score": _ratio(sum((p - y) ** 2 for p, y in zip(probabilities, labels)), len(rows)),
                         "expected_calibration_error": _ratio(ece, len(rows)), "bins": bins,
                         "probabilities_are_calibrated": False},
-        "by_company": by_company, "warnings": warnings,
+        "by_company": by_company, "by_role": by_role, "by_company_role": by_company_role,
+        "warnings": warnings,
     }
 
 
@@ -211,16 +248,20 @@ def assert_disjoint_splits(train_rows, validation_rows=(), test_rows=(), *, comp
                 seen[key] = split_name
 
 
-def split_rows(rows, *, mode="article", ratios=(0.6, 0.2, 0.2), seed=42):
+def split_rows(rows, *, mode="article", ratios=(0.6, 0.2, 0.2), seed=42, require_labels=True):
     """Group all company pairs for an article/reprint before splitting.
 
     Company holdout additionally joins articles shared by companies. If those
     dependencies connect the whole dataset, an honest disjoint split is impossible.
     This helper does not claim to detect paraphrased reprints without cluster IDs.
+    ``require_labels=False`` freezes the same groups before API/human labeling;
+    missing labels stay unknown and never become inferred negatives.
     """
     rows = list(rows)
     if mode not in {"article", "company"}:
         raise KnowledgeError("Split mode must be article or company")
+    if type(require_labels) is not bool:
+        raise KnowledgeError("require_labels must be an explicit boolean")
     if (len(ratios) != 3 or any(isinstance(r, bool) or not isinstance(r, (int, float))
                                 or not math.isfinite(r) or r <= 0 for r in ratios)
             or not math.isclose(sum(ratios), 1.0, abs_tol=1e-8)):
@@ -235,7 +276,8 @@ def split_rows(rows, *, mode="article", ratios=(0.6, 0.2, 0.2), seed=42):
 
     seen = {}
     for index, row in enumerate(rows):
-        label_grade(row)
+        if require_labels or row.get("label") is not None:
+            label_grade(row)
         keys = _article_keys(row)
         if row.get("pair_id"):
             keys.append(("pair_id", row["pair_id"]))
@@ -270,11 +312,20 @@ def split_rows(rows, *, mode="article", ratios=(0.6, 0.2, 0.2), seed=42):
               for name, indices in zip(("train", "validation", "test"), assigned)}
     assert_disjoint_splits(result["train"], result["validation"], result["test"], company_holdout=mode == "company")
     warnings = ["Paraphrased reprints require externally supplied cluster_id; only exact copies are detected automatically"]
+    label_counts = {}
     for name in ("train", "validation", "test"):
-        positives = sum(label_grade(row) >= 4 for row in result[name])
-        if not positives or positives == len(result[name]):
+        labeled = [row for row in result[name] if row.get("label") is not None]
+        positives = sum(label_grade(row) >= 4 for row in labeled)
+        unknown = len(result[name]) - len(labeled)
+        label_counts[name] = {"labeled": len(labeled), "unlabeled": unknown,
+                              "positive_4_5": positives if labeled else None,
+                              "negative_0_3": len(labeled) - positives if labeled else None}
+        if unknown:
+            warnings.append(f"{name}_unlabeled_class_distribution_unknown")
+        elif not positives or positives == len(labeled):
             warnings.append(f"{name}_contains_only_one_class")
     result.update({"mode": mode, "seed": seed, "component_count": len(components), "warnings": warnings,
+                   "labels_required": require_labels, "label_counts": label_counts,
                    "split_fingerprint": digest({name: [row["pair_id"] for row in result[name]]
                                                 for name in ("train", "validation", "test")})})
     return result

@@ -11,8 +11,8 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
-Topic = Literal["policy_rate", "inflation", "fuel", "fx", "trade_rules", "logistics", "regulation",
-                "infrastructure", "labor", "consumer_demand", "sector", "commodities", "politics", "sports", "culture"]
+Topic = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_]*$",
+    description="Source-supported business topic in snake_case; open vocabulary, e.g. reputation, cybersecurity, safety, legal, labor, technology, environment or operations")]
 ClaimRef = Annotated[str, Field(pattern=r"^c[1-9][0-9]?$", max_length=3)]
 
 
@@ -31,7 +31,8 @@ class Attributes(Strict):
     impact_scale: Literal["unknown", "limited", "material"] = "unknown"
     product_scope: Literal["unknown", "broad_core", "niche"] = "unknown"
     event_status: Literal["unknown", "reported", "proposal", "forecast", "in_force", "announcement"] = "unknown"
-    business_effect: Literal["unknown", "core_market", "operating_requirement", "financing"] = "unknown"
+    business_effect: Topic = Field(default="unknown",
+        description="Source-supported business effect in snake_case; open vocabulary, including reputation, operations, safety or financing; unknown when not established")
     applicability: Literal["unknown", "whole_industry", "conditional"] = "unknown"
     effective_from: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
     reference_period_end: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -131,8 +132,10 @@ class ReferencedDraft(Strict):
 
 class SearchBank(Strict):
     action: Literal["search_bank_materials"]
-    query: str = Field(min_length=3, max_length=600)
-    metric: str | None = Field(default=None, max_length=80)
+    query: str = Field(min_length=3, max_length=600,
+        description="Search any relevant subject in authorized bank materials, including reputation, legal, technology, safety or operations")
+    metric: str | None = Field(default=None, max_length=80,
+        description="Optional precise topic/metric filter; null for open subject search, including qualitative bank views")
     horizon: str | None = Field(default=None, max_length=10, pattern=r"^\d{4}-\d{2}-\d{2}$",
                                description="Forecast horizon as YYYY-MM-DD, or null; not a word such as medium-term")
 

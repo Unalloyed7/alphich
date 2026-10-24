@@ -14,7 +14,8 @@ except ImportError:
 
 if np is not None:
     from alphich_kb.embeddings import E5Encoder, EncoderUnavailable, mean_pool, normalize
-    from alphich_kb.retriever import BankRetriever, RetrievalScope, collapse_pages, reciprocal_rank_fusion
+    from alphich_kb.retriever import (BankRetriever, RetrievalScope, claim_revision_key, claim_supersedes,
+                                      collapse_pages, reciprocal_rank_fusion, _claim_subject_query)
     from alphich_kb.index import build_index
 
 
@@ -37,6 +38,9 @@ def make_index(root):
         ("future", "2027-01-01", "Будущий прогноз ставки.", [1, 0, 0]),
         ("unknown", None, "Недатированный прогноз ставки.", [1, 0, 0]),
         ("labor", "2026-08-01", "Кадры и зарплаты. Нехватка сотрудников ограничивает производство.", [0, 1, 0]),
+        ("reputation", "2026-09-20", "Репутационные последствия утечек: потеря доверия клиентов к бренду.", [0, 0, 1]),
+        ("cyber", "2026-09-18", "Кибербезопасность: атаки на подрядчиков могут нарушить доступность сервисов.", [0, 0.1, 0.9]),
+        ("legal", "2026-09-19", "Закон о маркировке изменяет требования к прослеживаемости товаров.", [0, 0.2, 0.8]),
     ]
     docs, items, pages, vectors = [], [], [], []
     for name, published, text, vector in rows:
@@ -46,7 +50,8 @@ def make_index(root):
         item = {"id": name, "document_id": name, "published_at": published, "parent_id": page["id"],
                 "page": 1, "title": name, "url": f"https://example.test/{name}", "text": text,
                 "source_version": name, "content_hash": digest(name), "text_version": digest(text),
-                "topics": ["labor" if name == "labor" else "policy_rate"], "ocr_checked": name in {"old", "new"},
+                "topics": [name if name in {"labor", "reputation", "cyber", "legal"} else "policy_rate"],
+                "ocr_checked": name in {"old", "new", "reputation", "cyber", "legal"},
                 "quality_flags": [], "source_span": {"start": 0, "end": len(text)},
                 "source_refs": [{"document_id": name, "page": 1, "start": 0, "end": len(text)}]}
         docs.append(doc); pages.append(page); items.append(item); vectors.append(vector)
@@ -62,6 +67,14 @@ def make_index(root):
                        "metric": "policy_rate", "forecast_horizon": horizon, "kind": "forecast",
                        "position_role": role, "attributed_to": "alfa_bank", "geography": "RU", "scenario": "base",
                        "unit": "percent", "value": value, "revision_of": previous, "verification_status": "visually_verified"})
+    for name in ("reputation", "cyber", "legal"):
+        item = next(item for item in items if item["id"] == name)
+        claims.append({"id": f"claim_{name}", "document_id": name, "document_chunk_id": name,
+                       "published_at": item["published_at"], "topic": name, "metric": None,
+                       "forecast_horizon": None, "kind": "mechanism", "position_role": "current_in_document",
+                       "attributed_to": "alfa_bank", "geography": "GLOBAL", "scenario": "observed",
+                       "unit": None, "value": None, "revision_of": None, "verification_status": "visually_verified",
+                       "text": item["text"], "quote": item["text"]})
     write_jsonl(root / "documents.jsonl", docs)
     write_jsonl(root / "pages.jsonl", pages)
     write_jsonl(root / "items.jsonl", items)
@@ -189,6 +202,128 @@ class RetrievalTests(unittest.TestCase):
             result = self.retriever.retrieve("ставка", self.scope(), metric=metric)
             self.assertEqual(result["bank_claims"], [])
             self.assertEqual(result["bank_view_status"], "not_found")
+
+    def test_open_topics_return_only_query_relevant_reviewed_assertions(self):
+        for query, expected in (("Репутационные последствия", "reputation"),
+                                ("Кибербезопасность", "cyber"), ("Закон о маркировке", "legal")):
+            with self.subTest(query=query):
+                result = self.retriever.retrieve(query, self.scope(), mode="hybrid")
+                self.assertEqual([claim["id"] for claim in result["bank_claims"]], [f"claim_{expected}"])
+                self.assertEqual(result["bank_view_status"], "found")
+                self.assertEqual(result["status"], "evidence_found")
+                self.assertIn("verified_claim_query_match_is_lexical", result["limitations"])
+                self.assertEqual(result["bank_claims"][0]["geography"], "GLOBAL")
+                self.assertEqual(result["bank_claims"][0]["scenario"], "observed")
+
+    def test_open_topic_retains_review_attribution_date_and_permission_filters(self):
+        original = copy.deepcopy(self.retriever.claims)
+        for field, value in (("verification_status", "automatic"), ("attributed_to", "quoted_third_party"),
+                             ("position_role", "previous_view")):
+            self.retriever.claims = copy.deepcopy(original)
+            claim = next(claim for claim in self.retriever.claims if claim["id"] == "claim_reputation")
+            claim[field] = value
+            with self.subTest(field=field):
+                result = self.retriever.retrieve("Репутационные", self.scope(), mode="lexical")
+                self.assertEqual(result["bank_claims"], [])
+        self.retriever.claims = original
+        for scope in (self.scope("2026-09-19"), self.scope(allowed={"old", "new"})):
+            self.assertEqual(self.retriever.retrieve("Репутационные", scope)["bank_claims"], [])
+
+    def test_query_glue_does_not_make_unrelated_reviewed_claims_relevant(self):
+        claim = next(claim for claim in self.retriever.claims if claim["id"] == "claim_cyber")
+        text = self.retriever.by_id["new"]["text"]
+        self.retriever.claims.append({**claim, "id": "unrelated_financial_interpretation", "topic": "policy_rate",
+                                     "document_id": "new", "document_chunk_id": "new",
+                                     "text": text, "quote": text})
+        result = self.retriever.retrieve(
+            "Анализ и позиции банка по теме события: Утечка персональных данных", self.scope())
+        self.assertEqual(result["bank_claims"], [])
+        self.assertEqual(result["bank_view_status"], "not_found")
+        # Dense candidates may still locate a source, but request wording alone
+        # cannot promote it to a query-relevant reviewed bank opinion.
+        self.assertTrue(result["hits"])
+
+    def test_generic_request_only_does_not_select_bank_opinions(self):
+        for query in ("Анализ и позиции банка по теме события", "и о по на 2026", "bank analysis and views",
+                      "Прогноз на конец 2026 года", "forecast for the end of the year"):
+            with self.subTest(query=query):
+                result = self.retriever.retrieve(query, self.scope(), horizon="2026-12-31")
+                self.assertEqual(result["bank_claims"], [])
+
+    def test_free_forecast_query_matches_subject_not_period_or_nearby_reviewed_assertion(self):
+        item = self.retriever.by_id["new"]
+        text = (item["text"] + " Инфляция составит 7,5% по итогам 2026 года. "
+                "Прогноз курса — 87 рублей за доллар на конец 2026 года.")
+        item["text"] = self.retriever.pages[item["parent_id"]]["text"] = text
+        item["source_span"]["end"] = item["source_refs"][0]["end"] = len(text)
+        rate = next(claim for claim in self.retriever.claims if claim["id"] == "claim_new")
+        rate.update(text="Прогноз ключевой ставки на конец 2026 года — 14%.", quote=text)
+        self.retriever.claims.extend([
+            {**rate, "id": "inflation_forecast", "metric": "inflation", "value": "7.5", "revision_of": None,
+             "text": "Прогноз инфляции по итогам 2026 года — 7,5%."},
+            {**rate, "id": "exchange_forecast", "metric": "USD_RUB", "value": "87", "revision_of": None,
+             "text": "Прогноз курса — 87 рублей за доллар на конец 2026 года."},
+        ])
+        result = self.retriever.retrieve("Прогноз ключевой ставки на конец 2026 года", self.scope(),
+                                         horizon="2026-12-31", mode="lexical")
+        self.assertEqual([claim["id"] for claim in result["bank_claims"]], ["claim_new"])
+        self.assertEqual(result["bank_view_status"], "found")
+
+    def test_request_glue_preserves_substantive_open_topic_and_short_acronym(self):
+        result = self.retriever.retrieve(
+            "Какой применимый анализ и позиции есть в материалах банка по теме события: Репутационные риски?",
+            self.scope())
+        self.assertEqual([claim["id"] for claim in result["bank_claims"]], ["claim_reputation"])
+        self.assertEqual(_claim_subject_query("Позиции банка по теме ИИ"), "ии")
+
+    def test_raw_context_and_unrelated_reviewed_paragraph_do_not_create_bank_view(self):
+        result = self.retriever.retrieve("Нехватка сотрудников", self.scope(), mode="lexical")
+        self.assertEqual([hit["document_id"] for hit in result["hits"]], ["labor"])
+        self.assertEqual(result["bank_claims"], [])
+        # A document tag/title or another paragraph is insufficient: matching
+        # must concern this assertion's own reviewed source span.
+        self.retriever.by_id["cyber"]["title"] = "Репутационные последствия"
+        self.retriever.by_id["cyber"]["topics"].append("reputation")
+        result = self.retriever.retrieve("Репутационные", self.scope(), topics=["reputation"])
+        self.assertEqual([claim["id"] for claim in result["bank_claims"]], ["claim_reputation"])
+
+    def test_qualitative_revisions_are_explicit_and_do_not_merge_broad_topics(self):
+        old = next(claim for claim in self.retriever.claims if claim["id"] == "claim_reputation")
+        independent = {**old, "id": "independent_reputation", "published_at": "2026-09-21"}
+        self.retriever.claims.append(independent)
+        result = self.retriever.retrieve("Репутационные", self.scope())
+        self.assertEqual({claim["id"] for claim in result["bank_claims"]}, {old["id"], independent["id"]})
+        self.assertNotEqual(claim_revision_key(old), claim_revision_key(independent))
+        self.assertFalse(claim_supersedes(independent, old))
+        independent["revision_of"] = old["id"]
+        self.assertTrue(claim_supersedes(independent, old))
+        result = self.retriever.retrieve("Репутационные", self.scope())
+        self.assertEqual([claim["id"] for claim in result["bank_claims"]], [independent["id"]])
+        before = self.retriever.retrieve("Репутационные", self.scope("2026-09-20"))
+        self.assertEqual([claim["id"] for claim in before["bank_claims"]], [old["id"]])
+
+    def test_qualitative_forecast_horizon_does_not_require_financial_metric(self):
+        claim = next(claim for claim in self.retriever.claims if claim["id"] == "claim_cyber")
+        claim.update(kind="forecast", forecast_horizon="2027-12-31")
+        self.assertEqual(self.retriever.retrieve("Кибербезопасность", self.scope())["bank_claims"], [])
+        wrong = self.retriever.retrieve("Кибербезопасность", self.scope(), horizon="2026-12-31")
+        self.assertEqual(wrong["bank_claims"], [])
+        matching = self.retriever.retrieve("Кибербезопасность", self.scope(), horizon="2027-12-31")
+        self.assertEqual([item["id"] for item in matching["bank_claims"]], ["claim_cyber"])
+        expired = self.retriever.retrieve("Кибербезопасность", self.scope("2028-01-01"), horizon="2027-12-31")
+        self.assertEqual(expired["bank_view_status"], "historical_only")
+
+    def test_shared_supersession_helper_preserves_evidence_claim_kind_and_scope(self):
+        old = {"id": "old", "annotation_id": "old_annotation", "kind": "bank_claim", "claim_kind": "mechanism",
+               "metric": None, "topic": "legal", "geography": "RU", "scenario": None,
+               "published_at": "2026-01-01", "attributed_to": "alfa_bank", "position_role": "current_in_document"}
+        new = {**old, "id": "new", "annotation_id": "new_annotation", "published_at": "2026-02-01",
+               "revision_of": "old_annotation"}
+        self.assertTrue(claim_supersedes(new, old))
+        for key, value in (("claim_kind", "observation"), ("topic", "cyber"), ("geography", "GLOBAL"),
+                           ("attributed_to", "third_party"), ("published_at", "2025-12-31")):
+            with self.subTest(key=key):
+                self.assertFalse(claim_supersedes({**new, key: value}, old))
 
     def test_expired_forecast_is_historical_only(self):
         result = self.retriever.retrieve("ставка", self.scope("2028-01-01"), metric="policy_rate", horizon="2026-12-31")

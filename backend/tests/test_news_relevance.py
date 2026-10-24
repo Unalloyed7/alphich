@@ -117,6 +117,87 @@ def test_long_article_gate_records_bounded_evenly_spread_source_coverage():
     assert gate["coverage_complete"] is False
 
 
+def test_generic_finance_fragment_cannot_override_failed_core_company_match():
+    profile, event, _, _ = inputs()
+    profile["products"] = {"CL_PRODUCT_LOA_MARK": True}
+    profile["features"].append({"id": "loan_flag", "name": "CL_PRODUCT_LOA_MARK",
+                                "value": True, "profile_version": "v1"})
+    encoder = Encoder(0.9)
+    original = encoder.encode_query
+
+    def encode(text):
+        # A headline about another business can match a finance paragraph well,
+        # but must independently match the company's core business to pass.
+        if text == event["title"] or text.startswith("Профиль компании:"):
+            return np.array([0, 1], dtype=np.float32)
+        return original(text)
+
+    encoder.encode_query = encode
+    gate = semantic_gate(profile, event, encoder)
+    assert gate["forward_similarity"] == pytest.approx(0.9)
+    assert gate["company_context_similarity"] < 0.75
+    assert gate["similarity"] == gate["company_context_similarity"]
+    assert gate["status"] == "skipped"
+    context = encoder.passages[-1]
+    assert "Разработка программного обеспечения" in context and "кредит" in context.lower()
+    assert set(gate["company_context_feature_ids"]) == {"feature_industry", "loan_flag"}
+
+
+def test_national_rate_context_does_not_require_or_invent_a_loan():
+    profile, event, _, _ = inputs()
+    event["title"] = "Банк России сохранил ключевую ставку"
+    encoder = Encoder()
+    encoder.encode_passages = lambda texts, batch_size=4: np.array([[1, 0] for _ in texts], dtype=np.float32)
+    def encode(text):
+        score = 0.85 if text == event["title"] or text.startswith("Банк России. Решение") else 0.5
+        return np.array([score, sqrt(1 - score ** 2)], dtype=np.float32)
+    encoder.encode_query = encode
+    gate = semantic_gate(profile, event, encoder)
+    assert gate["status"] == "passed"
+    assert gate["matched_facet"]["kind"] == "national_monetary_policy"
+    assert gate["facet_similarities"]["industry"] < 0.75
+    assert gate["company_context_feature_ids"] == ["feature_industry"]
+
+
+def test_relevant_body_can_pass_even_when_generic_headline_has_no_company_match():
+    profile, event, _, _ = inputs()
+    event["title"] = "Обновлены требования"
+    encoder = Encoder()
+    original = encoder.encode_query
+    encoder.encode_query = lambda text: (np.array([-1, 0], dtype=np.float32)
+        if text == event["title"] else original(text))
+    gate = semantic_gate(profile, event, encoder)
+    assert gate["headline_company_similarity"] < 0
+    assert gate["source_activity_similarity"] == pytest.approx(0.8)
+    assert gate["status"] == "passed" and gate["decision_route"] == "source_activity"
+
+
+def test_activity_and_facet_matches_in_different_chunks_cannot_be_combined():
+    profile, event, _, _ = inputs()
+    other = dict(event["sources"][0], id="S2", text="Другой раздел новости.")
+    event["sources"].append(other)
+    encoder = Encoder()
+    encoder.encode_query = lambda text: np.array([0, 1] if text.startswith("Профиль компании:")
+                                                 else [1, 0], dtype=np.float32)
+    encoder.encode_passages = lambda texts, batch_size=4: np.array(
+        [[0.9, sqrt(1 - 0.9 ** 2)], [0.4, sqrt(1 - 0.4 ** 2)]]
+        if len(texts) == 2 else [[0.4, sqrt(1 - 0.4 ** 2)]], dtype=np.float32)
+    gate = semantic_gate(profile, event, encoder)
+    assert gate["forward_similarity"] == pytest.approx(0.9)
+    assert gate["source_activity_similarity"] < 0.75
+    assert gate["status"] == "skipped"
+
+
+def test_missing_confirmed_industry_cannot_pass_on_generic_product_alone():
+    profile, event, _, _ = inputs()
+    profile.pop("industry")
+    profile["products"] = {"CL_PRODUCT_LOA_MARK": True}
+    profile["features"] = [{"id": "loan_flag", "name": "CL_PRODUCT_LOA_MARK",
+                            "value": True, "profile_version": "v1"}]
+    with pytest.raises(AnalysisError, match="news_e5_company_context_missing"):
+        semantic_gate(profile, event, Encoder())
+
+
 def test_skip_is_persisted_without_glm_grade_or_call(db):
     profile, event, scope, settings = inputs()
     calls = Judge()
@@ -218,6 +299,21 @@ def test_short_model_references_are_restored_to_immutable_evidence_ids(db):
     assert result["matched_fact_ids"] == ["fact_1"] and result["matched_feature_ids"] == ["feature_industry"]
 
 
+def test_judge_gets_canonical_credit_flag_meaning_without_invented_debt_balance(db):
+    profile, event, scope, settings = inputs()
+    profile["products"] = {"CL_PRODUCT_LOA_MARK": True}
+    profile["features"].append({"id": "loan_flag", "name": "CL_PRODUCT_LOA_MARK",
+                                "value": True, "profile_version": "v1"})
+    calls = Judge()
+    assess(db, profile, event, scope, calls, semantic_gate(profile, event, Encoder()), settings)
+    data = calls.seen[0][1]
+    feature = next(row for row in data["company_features"] if row["name"] == "CL_PRODUCT_LOA_MARK")
+    assert feature["label"] == "Кредитный продукт" and feature["value"] is True
+    assert "product_flags_do_not_prove_balances_contract_rates_or_maturities" in data["limitations"]
+    assert not any(row["name"] in {"debt_balance", "floating_rate", "loan_maturity"}
+                   for row in data["company_features"])
+
+
 def test_extraction_annotation_version_does_not_invalidate_source_bound_gate(db):
     profile, event, scope, settings = inputs()
     event["facts"] = []
@@ -312,7 +408,7 @@ def test_full_company_factors_and_ten_long_facts_fit_actual_32k_wire_budget(db):
     sent_names = {feature['name'] for feature in data['company_features']}
     assert set(meaningful) | set(product_names) | {'industry', 'payment_incoming', 'payment_outgoing'} <= sent_names
     assert 'features' not in data['company_profile']
-    assert all(set(feature) <= {'id', 'name', 'value', 'unit'} for feature in data['company_features'])
+    assert all(set(feature) <= {'id', 'name', 'value', 'unit', 'label'} for feature in data['company_features'])
     assert data['news_facts'][0]['text'] == parts[0]
     assert data['coverage']['facts_total'] == 10
     assert 1 <= data['coverage']['facts_shown'] < 10

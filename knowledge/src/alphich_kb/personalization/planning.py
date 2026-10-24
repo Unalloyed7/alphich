@@ -27,7 +27,7 @@ def bank_questions(company, event, reasons, topics, scope):
                                "consumer_inflation_yoy", f"{instant(scope.as_of).year}-12-31"))
     if not question_specs:
         label = str(company["industry"]["name"] or "бизнес")[:180]
-        question_specs.append(("sector_context", f"{label}. Какие механизмы спроса, издержек или регулирования рассматривает банк по теме: {event['title'][:180]}?", None, None))
+        question_specs.append(("sector_context", f"{label}. Какой применимый анализ и позиции есть в материалах банка по теме события: {event['title'][:180]}? Рассмотри любые последствия для компании, включая нефинансовые.", None, None))
     feature_ids = sorted({i for r in reasons for i in r["feature_ids"]})
     fact_ids = sorted({i for r in reasons for i in r["fact_ids"]})
     # PDF publication precision is a day: conservatively use completed UTC days.

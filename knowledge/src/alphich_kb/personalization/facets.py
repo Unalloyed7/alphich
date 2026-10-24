@@ -34,7 +34,7 @@ def build_facets(company, role):
     industry = company["industry"]
     label = (industry["name"] or "")[:240]
     if company["bindings"]["industry"] and (label or industry["code"]):
-        add("industry", f"{label}. {'; '.join(sector_terms(industry['code']))}. Спрос, издержки и регулирование отрасли.",
+        add("industry", f"{label}. {'; '.join(sector_terms(industry['code']))}. События и изменения в деятельности и условиях работы организаций этой отрасли.",
             company["bindings"]["industry"])
     positive = [p for p in ("loan", "deposit", "lease", "factoring", "guarantee")
                 if company["products"][p] is True and company["bindings"][p]]

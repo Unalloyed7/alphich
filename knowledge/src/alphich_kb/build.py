@@ -136,15 +136,23 @@ def prepare_claims(annotations, documents, pages, config, counter):
             raise KnowledgeError("Invalid bank position role")
         if review["kind"] == "forecast" and not review.get("forecast_horizon"):
             raise KnowledgeError("Forecast needs a horizon")
-        if not review.get("attributed_to") or not review.get("metric"):
-            raise KnowledgeError("Claim author and metric are required")
+        if not review.get("attributed_to"):
+            raise KnowledgeError("Claim author is required")
+        if not review.get("metric") and not (
+                isinstance(review.get("topic"), str) and review["topic"].strip()):
+            raise KnowledgeError("A claim needs a metric or a free-text topic")
+        if review.get("topic") is not None and not isinstance(review["topic"], str):
+            raise KnowledgeError("Claim topic must be text")
+        if review.get("claim_key") is not None and not (
+                isinstance(review["claim_key"], str) and review["claim_key"].strip()):
+            raise KnowledgeError("Explicit claim identity must be non-empty text")
         start = page["text"].index(quote)
         chunk = make_chunk(doc, page, start, start + len(quote), config, counter, reviewed=True, section="reviewed_evidence")
         if chunk["embedding_token_count"] > 512:
             raise KnowledgeError("Reviewed quote exceeds E5 input; select a smaller exact span")
         evidence.append(chunk)
         fields = {key: review.get(key) for key in (
-            "id", "kind", "attributed_to", "metric", "geography", "scenario", "value", "unit",
+            "id", "kind", "attributed_to", "metric", "topic", "claim_key", "geography", "scenario", "value", "unit",
             "observed_period", "forecast_horizon", "position_role", "revision_of", "verification_status", "review_note")}
         claims.append({**fields, "annotation_id": review["id"], "id": f"claim_{digest({'review': review, 'evidence': chunk['id']})}",
                        "document_id": doc["id"], "document_chunk_id": chunk["id"], "published_at": doc["published_at"],
@@ -156,11 +164,11 @@ def prepare_claims(annotations, documents, pages, config, counter):
             if previous_id not in ids:
                 raise KnowledgeError(f"Unknown revision target: {previous_id}")
             previous = ids[previous_id]
-            if claim["kind"] != "forecast" or previous["kind"] != "forecast" or previous["position_role"] != "current_in_document":
-                raise KnowledgeError("A revision must point to a forecast current in its original document")
+            if claim["kind"] != previous["kind"] or previous["position_role"] != "current_in_document":
+                raise KnowledgeError("A revision must point to a compatible statement current in its original document")
             if not previous["published_at"] or not claim["published_at"] or previous["published_at"] >= claim["published_at"]:
                 raise KnowledgeError("Revision must follow an earlier dated document")
-            for key in ("metric", "geography", "scenario", "forecast_horizon", "attributed_to", "unit"):
+            for key in ("metric", "topic", "claim_key", "geography", "scenario", "forecast_horizon", "attributed_to", "unit"):
                 if previous[key] != claim[key]:
                     raise KnowledgeError(f"Revision changes {key}")
             claim["revision_of"] = previous["id"]

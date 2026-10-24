@@ -77,10 +77,16 @@ def parser():
     judge.add_argument("--output", required=True, help="New checkpoint directory; resume reuses original batch ID")
     judge.add_argument("--batch-id", required=True)
     judge.add_argument("--limit", type=int, default=1)
+    judge.add_argument("--offset", type=int, default=0,
+                       help="Skip this many frozen input rows; use a new batch ID for each different slice")
     judge.add_argument("--model-id")
     judge.add_argument("--env-file")
     judge.add_argument("--live", action="store_true")
     judge.add_argument("--shared-ledger", action="store_true", help="Confirm DATABASE_URL is the team's existing shared backend DB")
+    judge.add_argument("--dry-run", action="store_true", help="Validate inputs and wire size without dispatch or ledger writes")
+    judge.add_argument("--pilot-plan", help="Frozen pilot manifest; only its train split may receive teacher suggestions")
+    judge.add_argument("--max-cost-rub", help="Stop BETWEEN calls after this known batch cost; next receipt may exceed it")
+    judge.add_argument("--max-seconds", type=int, default=1200)
     merge = commands.add_parser("export-labels", help="Export completed teacher checkpoints as a training dataset")
     merge.add_argument("--batch-dir", required=True)
     merge.add_argument("--output", required=True)
@@ -93,6 +99,9 @@ def parser():
     train.add_argument("--threshold", type=float, default=0.5)
     train.add_argument("--min-recall", type=float, help="Select threshold on independent human validation only")
     train.add_argument("--iterations", type=int, default=1000)
+    train.add_argument("--validation-input", help="Independent human validation, prepared before teacher labeling")
+    train.add_argument("--test-input", help="Independent human test; required together with --validation-input")
+    train.add_argument("--pilot-plan", help="Bind labeled inputs to the pilot's original pre-label splits")
     predict = commands.add_parser("predict", help="Local shadow predictions; never enqueue paid work")
     predict.add_argument("--input", required=True)
     predict.add_argument("--model", required=True)
@@ -108,15 +117,36 @@ def _train(args):
     import numpy as np
     from ..common import artifact_dir, write_json
     from ..embeddings import E5Encoder
-    from .evaluation import evaluate_predictions, split_rows
+    from .evaluation import assert_disjoint_splits, evaluate_predictions, split_rows, _independent_human
     from .features import FeatureBuilder
     from .model import predict, train_model
     rows = read_dataset(args.input)
-    splits = split_rows(rows, mode=args.split, seed=args.seed)
+    validation_input, test_input = getattr(args, "validation_input", None), getattr(args, "test_input", None)
+    if bool(validation_input) != bool(test_input):
+        raise KnowledgeError("Provide both --validation-input and --test-input for frozen independent evaluation")
+    if validation_input:
+        splits = {"train": rows, "validation": read_dataset(validation_input), "test": read_dataset(test_input),
+                  "warnings": [], "mode": "frozen_independent_human"}
+        assert_disjoint_splits(splits["train"], splits["validation"], splits["test"], company_holdout=args.split == "company")
+        for name in ("validation", "test"):
+            if any(not _independent_human(row) for row in splits[name]):
+                raise KnowledgeError("Frozen validation/test requires independently human-reviewed labels, never teacher gold")
+        rows = [row for name in ("train", "validation", "test") for row in splits[name]]
+    else:
+        splits = split_rows(rows, mode=args.split, seed=args.seed)
+    pilot_provenance = None
+    if getattr(args, "pilot_plan", None):
+        if not validation_input:
+            raise KnowledgeError("A frozen pilot requires explicit --validation-input and --test-input")
+        from .pilot import validate_pilot_splits
+        pilot_provenance = validate_pilot_splits(args.pilot_plan, splits)
+        splits["warnings"].extend(pilot_provenance["warnings"])
     # Fail before expensive embedding when a split cannot support training.
     for name in ("train", "validation", "test"):
         if not splits[name]:
             raise KnowledgeError(f"Empty {name} split; collect more independent articles/companies")
+        if any(not row.get("label") for row in splits[name]):
+            raise KnowledgeError("Training/evaluation requires labels; unknown labels must not become negative examples")
     if len({r["label"]["grade"] >= 4 for r in splits["train"] if r.get("label")}) != 2:
         raise KnowledgeError("Training split needs positive and negative labels; collect more examples")
     builder = FeatureBuilder(E5Encoder(args.model_dir, args.model_manifest, threads=args.threads))
@@ -131,9 +161,12 @@ def _train(args):
                            min_recall=args.min_recall, iterations=args.iterations)
     predictions = predict(artifact, matrices["test"], feature_manifest=builder.manifest)
     report = evaluate_predictions(splits["test"], predictions, threshold=artifact["decision"]["threshold"])
-    report["estimate_scope"] = "held_out_articles" if args.split == "article" else "held_out_companies_and_articles"
+    report["estimate_scope"] = ("frozen_independent_human" if validation_input else
+                                "held_out_articles" if args.split == "article" else "held_out_companies_and_articles")
     report["dataset_summary"] = dataset_summary(rows)
-    report["split_summary"] = {"mode": args.split, "seed": args.seed, "warnings": splits["warnings"],
+    if pilot_provenance is not None:
+        report["frozen_pilot"] = pilot_provenance
+    report["split_summary"] = {"mode": splits.get("mode", args.split), "seed": args.seed, "warnings": splits["warnings"],
                                "counts": {k: len(splits[k]) for k in ("train", "validation", "test")},
                                "pair_ids": {k: [r["pair_id"] for r in splits[k]] for k in ("train", "validation", "test")}}
     # Keep external dataset/split provenance in the separate report; model is content-addressed.
@@ -152,83 +185,59 @@ def _train(args):
 
 def _judge(args):
     from datetime import datetime, timezone
-    if not args.live or not args.shared_ledger:
+    dry_run = getattr(args, "dry_run", False)
+    if not dry_run and (not args.live or not args.shared_ledger):
         raise KnowledgeError("Paid labeling requires --live --shared-ledger; prepare-labels works offline")
     if not 1 <= args.limit <= 100:
         raise KnowledgeError("Paid batch limit must be 1..100; no unbounded bulk generation")
+    offset = getattr(args, "offset", 0)
+    if type(offset) is not int or not 0 <= offset <= 200000:
+        raise KnowledgeError("Teacher input offset must be 0..200000")
     from app.intelligence.gateway import load_env_file
     from app.intelligence.settings import Settings
     from app.intelligence.provider import Provider
     from app.intelligence.storage import BudgetDay
     from app.core import make_session_factory
-    from .teacher import judge_pair, prepare_judgement, validate_checkpoint
+    from .api_runner import batch_plan, cost_stop_micros, read_call_ledger, run_api_batch
     if args.env_file:
         load_env_file(args.env_file)
+    if getattr(args, "pilot_plan", None):
+        from .pilot import validate_pilot_input
+        validate_pilot_input(args.pilot_plan, args.input, split="train")
+    cost_stop_micros(getattr(args, "max_cost_rub", None))
+    from itertools import islice
+    from .dataset import iter_dataset
+    rows = list(islice(iter_dataset(args.input, limit=offset + args.limit), offset, offset + args.limit))
+    settings = Settings.from_env()
+    model = args.model_id or settings.analysis_model
+    manifest, preflight = batch_plan(rows, batch_id=args.batch_id, model_id=model,
+                                     model=settings.models.get(model))
+    if dry_run:
+        destination = Path(args.output)
+        destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+        write_private_json(destination / "preflight.json", preflight)
+        return {"status": "dry_run", "prepared": len(rows), "paid_calls": 0,
+                "input_rows_skipped": offset,
+                "model_id": model, "wire_bound_checked": preflight["wire_bound_checked"],
+                "shared_ledger_touched": False, "preflight": str(destination / "preflight.json")}
     # An accidental local sqlite ledger would bypass the deployed team's shared budget.
     url = os.getenv("DATABASE_URL", "")
     if not url.startswith(("postgresql://", "postgresql+psycopg://")):
         raise KnowledgeError("Use the existing shared PostgreSQL DATABASE_URL on the backend server")
-    settings = Settings.from_env()
     settings.require_ready()
     if settings.daily_limit_micros > 500_000_000:
         raise KnowledgeError("Labeling must use the team's shared daily cap of at most 500 RUB")
-    rows = read_dataset(args.input, limit=args.limit)
-    if any(r.get("label", {}).get("origin") == "human" for r in rows):
-        raise KnowledgeError("Teacher batching must not overwrite human-reviewed labels")
-    plans = [prepare_judgement(r) for r in rows]
-    if len({(plan["prompt_version"], plan["prompt_hash"]) for plan in plans}) != 1:
-        raise KnowledgeError("A teacher batch must use one prompt contract; separate legacy and enriched company snapshots")
     engine, factory = make_session_factory(url)
-    destination = Path(args.output)
-    destination.mkdir(parents=True, exist_ok=True)
-    model = args.model_id or settings.analysis_model
-    manifest = {"batch_id": args.batch_id, "model_id": model,
-                "prompt_version": plans[0]["prompt_version"], "prompt_hash": plans[0]["prompt_hash"],
-                "requests": [p["input_hash"] for p in plans]}
-    manifest_path = destination / "batch.json"
-    if manifest_path.exists():
-        if read_json(manifest_path) != manifest:
-            raise KnowledgeError("Batch directory is already bound to different immutable inputs")
-    else:
-        write_private_json(manifest_path, manifest)
-    completed = failures = 0
     try:
         with factory() as db:
             day = db.get(BudgetDay, datetime.now(timezone.utc).date().isoformat())
             if day is not None and day.limit_micros > 500_000_000:
                 raise KnowledgeError("Existing shared ledger cap exceeds 500 RUB; keep current cap, do not reset it")
         provider = Provider(factory, settings)
-        for row in rows:
-            result_path = destination / (row["pair_id"] + ".json")
-            if result_path.exists():
-                validate_checkpoint(read_json(result_path), manifest)
-                completed += 1
-                continue
-            error_path = destination / (row["pair_id"] + ".error.json")
-            if error_path.exists():
-                failures += 1
-                continue  # Unknown outcomes are never retried under a fresh call identity.
-            try:
-                result = judge_pair(row, provider, batch_id=args.batch_id, model_id=model)
-            except Exception as error:
-                # Keep diagnostics bounded, without input bodies, DB URLs or keys.
-                code = getattr(error, "code", None) or type(error).__name__
-                if code == "budget_exceeded":
-                    # Reservation failed atomically before dispatch. Leave the pair
-                    # resumable with the SAME call ID when budget becomes available.
-                    stop = destination / ("budget-stop-" + datetime.now(timezone.utc).date().isoformat() +
-                                          "-" + row["pair_id"] + ".json")
-                    if not stop.exists():
-                        write_private_json(stop, {"pair_id": row["pair_id"], "status": "not_dispatched", "error": code})
-                else:
-                    write_private_json(error_path, {"pair_id": row["pair_id"], "status": "unlabeled", "error": code})
-                failures += 1
-                break
-            write_private_json(result_path, result)
-            completed += 1
-        return {"status": "completed" if not failures else "stopped", "completed": completed,
-                "unlabeled_failures": failures, "shared_budget_accounted": True,
-                "labels_are": "teacher_proposals_not_human_gold"}
+        return run_api_batch(rows, provider, destination=args.output, batch_id=args.batch_id,
+                             model_id=model, ledger_reader=lambda run_id: read_call_ledger(factory, run_id),
+                             max_cost_rub=getattr(args, "max_cost_rub", None),
+                             max_seconds=getattr(args, "max_seconds", 1200))
     finally:
         engine.dispose()
 
