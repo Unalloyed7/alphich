@@ -5,6 +5,7 @@ from .provider import canonical, input_bytes
 from .schemas import FinalVerificationDecision, GetFeatures, SemanticReview, VerificationDecision
 from .settings import AnalysisError
 from .financial_grounding import business_focus
+from .prompt_context import business_focus_context, relevance_context
 
 
 SYSTEM = """Ты отдельный агент проверки Alphich, а не автор карточки. Проверь черновик по источникам.
@@ -197,11 +198,7 @@ class VerificationAgent:
             raise AnalysisError("agent_call_limit")
         inspection_allowed = (remaining >= (2 if repaired else 4)
                               and self.tools.tool_count < self.tools.tool_limit)
-        assessment = self.tools.selection.get("relevance_assessment") or {}
-        relevance = {key: assessment[key] for key in (
-            "industry_fit", "geographic_fit", "materiality", "event_status", "limitations") if key in assessment}
-        if "relevance_grade" in self.tools.selection:
-            relevance["grade"] = self.tools.selection["relevance_grade"]
+        relevance = relevance_context(self.tools.selection)
         data = {"company_id": self.tools.scope.company_id, "role": self.tools.scope.role,
                 "as_of": self.tools.scope.as_of, "question": question,
                 "draft": self.tools.expose(draft.model_dump()), "evidence": self.tools.prompt_evidence(),
@@ -211,7 +208,7 @@ class VerificationAgent:
         focus = business_focus(self.tools.registry, question=question, event_id=self.tools.event["id"],
                                event_title=self.tools.event.get('title'))
         if focus:
-            data["business_focus"] = self.tools.expose({k: v for k, v in focus.items() if k != "not_inference_basis_ids"})
+            data["business_focus"] = self.tools.expose(business_focus_context(focus))
             referenced = {ref for claim in draft.claims for ref in claim.evidence_ids}
             excluded = set(focus["not_inference_basis_ids"]) - referenced
             data["evidence"] = self.tools.prompt_evidence(exclude_ids=excluded)

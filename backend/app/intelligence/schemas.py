@@ -108,7 +108,7 @@ InferenceRef = Annotated[str, Field(pattern=r"^i[1-9][0-9]?$", max_length=3)]
 class ReferencedInference(Strict):
     id: InferenceRef
     text: str = Field(min_length=6, max_length=1000, pattern=r"^[^\d]*$",
-                      description="Explain event -> economic mechanism -> conditional company consequence; no digits. A data-check alone is not an insight.")
+                      description="Explain event -> supported business impact mechanism -> conditional company consequence; monetary effect is not required; no digits. A data-check alone is not an insight.")
     evidence_ids: list[str] = Field(min_length=2, max_length=8)
     conditions: list[str] = Field(min_length=1, max_length=5)
 
