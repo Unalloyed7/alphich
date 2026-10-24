@@ -79,6 +79,10 @@ def parser():
     judge.add_argument("--limit", type=int, default=1)
     judge.add_argument("--offset", type=int, default=0,
                        help="Skip this many frozen input rows; use a new batch ID for each different slice")
+    judge.add_argument("--offsets-file", help="Verified candidate queue; offset/limit then slice queue positions")
+    judge.add_argument("--prompt-variant", choices=["legacy", "exact-evidence", "quote-ids", "business-only", "case-calibrated"], default="legacy")
+    judge.add_argument("--continue-settled-validation-errors", action="store_true",
+                       help="Continue only after a fully accounted completed response fails local validation")
     judge.add_argument("--model-id")
     judge.add_argument("--env-file")
     judge.add_argument("--live", action="store_true")
@@ -90,6 +94,52 @@ def parser():
     merge = commands.add_parser("export-labels", help="Export completed teacher checkpoints as a training dataset")
     merge.add_argument("--batch-dir", required=True)
     merge.add_argument("--output", required=True)
+    mine = commands.add_parser("mine-candidates", help="Free E5 queue on the exact frozen train; creates no labels")
+    mine.add_argument("--input", required=True)
+    mine.add_argument("--pilot-plan", required=True)
+    mine.add_argument("--output-dir", required=True)
+    mine.add_argument("--limit", type=int, default=24)
+    mine.add_argument("--seed", type=int, default=42)
+    mine.add_argument("--seen-batch-dir", action="append", default=[])
+    mine.add_argument("--exclude-pair-ids", help="JSON array of additionally known attempted pair IDs")
+    mine.add_argument("--model-dir", default="data/models/e5-base")
+    mine.add_argument("--model-manifest", default="knowledge/embedding-model.json")
+    mine.add_argument("--threads", type=int, default=2)
+    mine.add_argument("--env-file", help="Optional model catalog for free wire-size filtering")
+    mine.add_argument("--model-id")
+    mine.add_argument("--prompt-variant", choices=["legacy", "exact-evidence", "quote-ids", "business-only", "case-calibrated"], default="business-only")
+    matched = commands.add_parser("build-matched-train", help="New unlabeled train matches; original holdout is immutable")
+    matched.add_argument("--pilot-plan", required=True)
+    matched.add_argument("--output-dir", required=True)
+    matched.add_argument("--exclude-pair-ids")
+    matched.add_argument("--seed", type=int, default=42)
+    matched.add_argument("--model-dir", default="data/models/e5-base")
+    matched.add_argument("--model-manifest", default="knowledge/embedding-model.json")
+    matched.add_argument("--threads", type=int, default=2)
+    matched.add_argument("--companies-csv", help="Optional full organizer cohort instead of the original 24 companies")
+    matched.add_argument("--articles-json", help="Optional JSON array of new full source articles; holdout overlaps are excluded")
+    consensus = commands.add_parser("machine-consensus", help="Strict cross-model silver labels; disagreement abstains")
+    consensus.add_argument("--primary", required=True)
+    consensus.add_argument("--verifier", required=True)
+    consensus.add_argument("--output-dir", required=True)
+    consensus.add_argument("--policy", choices=["exact", "binary"], default="exact",
+                           help="Binary accepts agreement on grade>=4; exact primary grades remain proposals")
+    auto = commands.add_parser("automatic-job", help="Bounded blind two-model labeling and machine QA; resumes original identities")
+    auto.add_argument("--input", required=True)
+    auto.add_argument("--pilot-plan", required=True)
+    auto.add_argument("--offsets-file", required=True)
+    auto.add_argument("--output-dir", required=True)
+    auto.add_argument("--batch-prefix", required=True)
+    auto.add_argument("--primary-model", default="z-ai/glm-5.3-flash")
+    auto.add_argument("--verifier-model", default="qwen/qwen3.6-35b-a3b")
+    auto.add_argument("--limit", type=int, default=24)
+    auto.add_argument("--prompt-variant", choices=["business-only", "case-calibrated"], default="case-calibrated")
+    auto.add_argument("--max-cost-rub", default="5")
+    auto.add_argument("--max-seconds", type=int, default=900)
+    auto.add_argument("--live", action="store_true")
+    auto.add_argument("--shared-ledger", action="store_true")
+    auto.add_argument("--train-shadow", action="store_true")
+    auto.add_argument("--env-file")
     train = commands.add_parser("train", help="Train a local, versioned JSON logistic-regression artifact")
     train.add_argument("--input", required=True)
     train.add_argument("--output-dir", required=True)
@@ -164,6 +214,9 @@ def _train(args):
     report["estimate_scope"] = ("frozen_independent_human" if validation_input else
                                 "held_out_articles" if args.split == "article" else "held_out_companies_and_articles")
     report["dataset_summary"] = dataset_summary(rows)
+    if any(r.get("label", {}).get("machine_review", {}).get("agreement_target") == "grade>=4" for r in rows):
+        report["machine_agreement_target"] = "grade>=4"
+        report["graded_metric_scope"] = "primary_teacher_grade_not_exact_consensus_or_independent_gold"
     if pilot_provenance is not None:
         report["frozen_pilot"] = pilot_provenance
     report["split_summary"] = {"mode": splits.get("mode", args.split), "seed": args.seed, "warnings": splits["warnings"],
@@ -202,16 +255,21 @@ def _judge(args):
     if args.env_file:
         load_env_file(args.env_file)
     if getattr(args, "pilot_plan", None):
-        from .pilot import validate_pilot_input
-        validate_pilot_input(args.pilot_plan, args.input, split="train")
+        from .automatic import validate_labeling_input
+        validate_labeling_input(args.pilot_plan, args.input)
     cost_stop_micros(getattr(args, "max_cost_rub", None))
     from itertools import islice
     from .dataset import iter_dataset
-    rows = list(islice(iter_dataset(args.input, limit=offset + args.limit), offset, offset + args.limit))
+    if getattr(args, "offsets_file", None):
+        from .automatic import queued_rows
+        rows = queued_rows(args.input, args.offsets_file, offset=offset, limit=args.limit)
+    else:
+        rows = list(islice(iter_dataset(args.input, limit=offset + args.limit), offset, offset + args.limit))
     settings = Settings.from_env()
     model = args.model_id or settings.analysis_model
     manifest, preflight = batch_plan(rows, batch_id=args.batch_id, model_id=model,
-                                     model=settings.models.get(model))
+                                     model=settings.models.get(model),
+                                     prompt_variant=getattr(args, "prompt_variant", "legacy"))
     if dry_run:
         destination = Path(args.output)
         destination.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -234,10 +292,20 @@ def _judge(args):
             if day is not None and day.limit_micros > 500_000_000:
                 raise KnowledgeError("Existing shared ledger cap exceeds 500 RUB; keep current cap, do not reset it")
         provider = Provider(factory, settings)
+        if os.getenv("LLM_GATEWAY_BUDGET_GUARD") == "1":
+            from app.intelligence.guarded_provider import GuardedGatewayProvider
+            from app.intelligence.storage import GatewayBudgetObservation, GatewayReserveRelease
+            for table in (GatewayBudgetObservation.__table__, GatewayReserveRelease.__table__):
+                table.create(engine, checkfirst=True)
+            release_ids = tuple(v.strip() for v in os.getenv("LLM_GATEWAY_RELEASE_CALL_IDS", "").split(",") if v.strip())
+            provider = GuardedGatewayProvider(factory, settings, release_call_ids=release_ids,
+                release_failed_teachers=os.getenv("LLM_GATEWAY_RELEASE_FAILED_TEACHERS") == "1")
         return run_api_batch(rows, provider, destination=args.output, batch_id=args.batch_id,
                              model_id=model, ledger_reader=lambda run_id: read_call_ledger(factory, run_id),
                              max_cost_rub=getattr(args, "max_cost_rub", None),
-                             max_seconds=getattr(args, "max_seconds", 1200))
+                             max_seconds=getattr(args, "max_seconds", 1200),
+                             prompt_variant=getattr(args, "prompt_variant", "legacy"),
+                             continue_settled_validation_errors=getattr(args, "continue_settled_validation_errors", False))
     finally:
         engine.dispose()
 
@@ -321,6 +389,65 @@ def main(argv=None):
             result = {"prepared": len(requests), "paid_calls": 0, "labels_are": "not_created"}
         elif args.command == "judge":
             result = _judge(args)
+        elif args.command == "mine-candidates":
+            from ..embeddings import E5Encoder
+            from .automatic import attempted_pairs, prepare_queue
+            excluded = attempted_pairs(args.seen_batch_dir)
+            if args.exclude_pair_ids:
+                additional = read_json(args.exclude_pair_ids)
+                if not isinstance(additional, list) or any(not isinstance(pid, str) for pid in additional):
+                    raise KnowledgeError("Excluded pair IDs must be a JSON array of strings")
+                excluded.update(additional)
+            model = None
+            if args.env_file:
+                from app.intelligence.gateway import load_env_file
+                from app.intelligence.settings import Settings
+                load_env_file(args.env_file)
+                settings = Settings.from_env()
+                model = settings.models.get(args.model_id or settings.analysis_model)
+                if model is None:
+                    raise KnowledgeError("Candidate wire check needs a configured model")
+            result = prepare_queue(args.input, args.pilot_plan, args.output_dir,
+                E5Encoder(args.model_dir, args.model_manifest, threads=args.threads),
+                limit=args.limit, seed=args.seed, excluded=excluded,
+                wire_model=model, prompt_variant=args.prompt_variant)
+        elif args.command == "machine-consensus":
+            from .automatic import export_consensus
+            result = export_consensus(args.primary, args.verifier, args.output_dir, policy=args.policy)
+        elif args.command == "automatic-job":
+            from .automatic_job import run_automatic_job
+            if args.env_file:
+                from app.intelligence.gateway import load_env_file
+                load_env_file(args.env_file)
+            result = run_automatic_job(input_path=args.input, pilot_plan=args.pilot_plan, queue_path=args.offsets_file,
+                output_dir=args.output_dir, batch_prefix=args.batch_prefix, primary_model=args.primary_model,
+                verifier_model=args.verifier_model, limit=args.limit, prompt_variant=args.prompt_variant,
+                max_cost_rub=args.max_cost_rub, max_seconds=args.max_seconds, live=args.live,
+                shared_ledger=args.shared_ledger, train_shadow=args.train_shadow)
+        elif args.command == "build-matched-train":
+            from ..embeddings import E5Encoder
+            from .automatic import build_matched_train
+            excluded = read_json(args.exclude_pair_ids) if args.exclude_pair_ids else []
+            if not isinstance(excluded, list) or any(not isinstance(pid, str) for pid in excluded):
+                raise KnowledgeError("Excluded pair IDs must be a JSON array of strings")
+            companies, company_source = None, None
+            if args.companies_csv:
+                from .sampling import load_company_snapshots
+                from .pilot import select_target_companies
+                all_companies, company_source = load_company_snapshots(args.companies_csv)
+                companies, _ = select_target_companies(all_companies, max_companies=200)
+                del all_companies
+            articles, article_source = None, None
+            if args.articles_json:
+                from ..common import file_hash
+                articles = read_json(args.articles_json)
+                if not isinstance(articles, list) or not 1 <= len(articles) <= 1000:
+                    raise KnowledgeError("New source articles must be a JSON array of 1..1000 articles")
+                article_source = {"sha256": file_hash(args.articles_json), "count": len(articles)}
+            result = build_matched_train(args.pilot_plan, args.output_dir,
+                E5Encoder(args.model_dir, args.model_manifest, threads=args.threads),
+                excluded=set(excluded), seed=args.seed, companies=companies, company_source=company_source,
+                articles=articles, article_source=article_source)
         elif args.command == "export-labels":
             from .teacher import validate_checkpoint
             folder = Path(args.batch_dir)
@@ -348,6 +475,8 @@ def main(argv=None):
                                             "predictions": [{"pair_id": r["pair_id"], **p} for r, p in zip(rows, predictions)]})
             result = {"predicted": len(predictions), "paid_calls": 0, "status": "shadow_only"}
         print(json.dumps(result, ensure_ascii=False, allow_nan=False))
+        if args.command == "automatic-job" and result.get("status") in {"stopped", "failed"}:
+            return 2
         return 0
     except Exception as error:
         # DB/HTTP exception text may contain connection details. Return bounded

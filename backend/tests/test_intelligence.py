@@ -1134,3 +1134,30 @@ def test_actual_loopback_http_gateway_and_usage_accounting(store):
         finally:
             server.shutdown()
             thread.join(timeout=3)
+
+
+def test_large_retrieval_diagnostics_stay_in_audit_and_do_not_displace_analyst_evidence(store, monkeypatch):
+    from copy import deepcopy
+    client, factory, headers, settings = store
+    original = Runtime.evaluate_news
+
+    def with_diagnostics(self, *args, **kwargs):
+        event, selection, gate = original(self, *args, **kwargs)
+        selection = deepcopy(selection)
+        selection["relevance_assessment"]["semantic_gate"] = {"debug_only": "diagnostic" * 10000}
+        return event, selection, gate
+
+    monkeypatch.setattr(Runtime, "evaluate_news", with_diagnostics)
+    event_id = stored_event(client, factory, headers["DEMO_A"])
+    job_id = queued_insight(client, headers["DEMO_A"], event_id).json()["id"]
+    engine, gateway = runtime(factory, settings)
+    process_next(factory, engine)
+    job = client.get("/api/v1/jobs/" + job_id, headers=headers["DEMO_A"]).json()
+    assert job["status"] == "succeeded", job
+    analyst = next(data for title, data in gateway.seen if title in {"Decision", "FinalDecision"})
+    assert "semantic_gate" not in analyst["business_relevance"]["relevance_assessment"]
+    assert analyst["business_relevance"]["relevance_grade"] == 4
+    assert any(e["kind"] == "event_fact" for e in analyst["evidence"])
+    with factory() as db:
+        saved = db.get(Insight, job["result_id"])
+        assert saved.snapshot["selection"]["relevance_assessment"]["semantic_gate"]["debug_only"]

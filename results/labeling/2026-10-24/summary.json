@@ -1,0 +1,88 @@
+{
+  "schema_version": "alphich-labeling-public-snapshot-v1",
+  "snapshot_at_utc": "2026-10-24T13:00:48.938782+00:00",
+  "checkpoint_archive_sha256": "3f45a6cc2ebd96866c6e1432458d9d1bbbf9036df245d9aeac587abbc0a49a44",
+  "accepted_teacher_responses": 375,
+  "accepted_case_v9_responses": 169,
+  "unique_company_news_role_pairs": 213,
+  "unique_news_articles": 69,
+  "historical_consensus_pairs": 69,
+  "case_v9_partial_consensus_pairs": 44,
+  "case_v9_partial_consensus_articles": 31,
+  "case_v9_partial_positive_pairs": 0,
+  "partial_case_reports": [
+    {
+      "job": "case-full100-job-v9",
+      "coverage": "partial_checkpoint_snapshot",
+      "primary": 100,
+      "reviewed": 47,
+      "candidate_pairs": 100,
+      "accepted": 44,
+      "abstained": 56,
+      "grade_confusion": {
+        "1:3": 9,
+        "0:1": 10,
+        "1:2": 5,
+        "0:0": 3,
+        "0:3": 3,
+        "0:2": 8,
+        "2:4": 1,
+        "2:3": 2,
+        "1:1": 3,
+        "4:4": 1,
+        "1:4": 1,
+        "2:2": 1
+      },
+      "accepted_grades": {
+        "1": 17,
+        "0": 24,
+        "2": 3
+      },
+      "human_benchmark_eligible": false,
+      "accuracy": null,
+      "agreement_policy": "binary",
+      "graded_ranking_labels": "primary_teacher_proposals_not_independently_validated",
+      "labels_are": "machine_agreement_silver_not_independent_gold"
+    }
+  ],
+  "planned_case_v9_pairs": 416,
+  "additional_prepared_pairs": 292,
+  "budget_snapshot": {
+    "as_of_utc": "2026-10-24T12:54:19.219728+00:00",
+    "day": "2026-10-24",
+    "ledger_spend_floor_micros": 30235542,
+    "ledger_reserved_micros": 469764458,
+    "limit_micros": 500000000,
+    "known_receipt_cost_micros": 29833035,
+    "day_calls": 360,
+    "unknown_failed_calls": [
+      {
+        "model": "qwen/qwen3.6-35b-a3b",
+        "error": "llm_timeout_outcome_unknown",
+        "cost_micros": null,
+        "reserved_micros": 0
+      }
+    ],
+    "active_calls": 1,
+    "reserve_release_count": 1,
+    "key_info_status": 200,
+    "upstream_budget": {
+      "spend": 30.23547850403677,
+      "max_budget": 500.0,
+      "budget_duration": "1d",
+      "budget_reset_at": "2026-10-25T00:00:00+00:00"
+    }
+  },
+  "tests": {
+    "backend_knowledge_passed": 717,
+    "scripts_passed": 60
+  },
+  "annotation_continues_on_vps": true,
+  "accuracy": null,
+  "human_benchmark_eligible": false,
+  "files": {
+    "teacher-decisions.jsonl": "6aae9aa5ba61da6f7d960224b677d6287f5dc6752f44fb707077364079977c07",
+    "machine-consensus-decisions.jsonl": "4bc570decd9b28c200a251ee9bef79b9b3fb9f1303b44422b2047286848a6432"
+  },
+  "exported_at_utc": "2026-10-24T13:06:22.876459+00:00"
+}

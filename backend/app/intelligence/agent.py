@@ -138,6 +138,17 @@ class Tools:
         return self.expose({key: context[key] for key in ("version", "context_hash", "hypotheses", "factor_checks", "group_policy")
                            if key in context})
 
+    def prompt_business_relevance(self):
+        # Retrieval diagnostics remain in the stored selection/audit. Sending
+        # passages, facet scores and index metadata again consumes the evidence
+        # budget and encourages treating E5 similarity as a business rationale.
+        assessment = self.selection.get("relevance_assessment") or {}
+        return self.expose({
+            **{k: self.selection.get(k) for k in ("relevance_grade", "relevance_selected", "grading_version")},
+            "relevance_assessment": {k: v for k, v in assessment.items()
+                                     if k not in {"semantic_gate", "prompt_coverage"}},
+        })
+
     def resolve_draft(self, draft):
         return draft.model_copy(update={
             "fact_evidence_ids": [self.real_ids.get(i, i) for i in draft.fact_evidence_ids],
@@ -293,8 +304,7 @@ def analyze(tools, calls, question=None):
                 "event": {k: tools.event.get(k) for k in ("id", "title", "published_at")},
                 "question": question, "business_context": tools.prompt_business_context(focus),
                 "relevance_reasons": tools.expose(tools.selection.get("reasons", [])),
-                "business_relevance": tools.expose({k: tools.selection.get(k) for k in (
-                    "relevance_grade", "relevance_selected", "relevance_assessment", "grading_version")}),
+                "business_relevance": tools.prompt_business_relevance(),
                 "evidence": tools.prompt_evidence(exclude_ids=excluded), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
                 "remaining_calls": calls.provider.settings.max_calls - calls.count}
         if focus:
