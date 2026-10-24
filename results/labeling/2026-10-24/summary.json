@@ -1,42 +1,76 @@
 {
   "schema_version": "alphich-labeling-public-snapshot-v1",
-  "snapshot_at_utc": "2026-10-24T13:00:48.938782+00:00",
-  "checkpoint_archive_sha256": "3f45a6cc2ebd96866c6e1432458d9d1bbbf9036df245d9aeac587abbc0a49a44",
-  "accepted_teacher_responses": 375,
-  "accepted_case_v9_responses": 169,
+  "snapshot_at_utc": "2026-10-24T13:42:51.067398+00:00",
+  "checkpoint_archive_sha256": "fe02f788f3e8cc21e448dca294359838f2321f59c0d7c3190cf23479f20b597f",
+  "accepted_teacher_responses": 434,
+  "accepted_case_v9_responses": 228,
   "unique_company_news_role_pairs": 213,
   "unique_news_articles": 69,
   "historical_consensus_pairs": 69,
-  "case_v9_partial_consensus_pairs": 44,
-  "case_v9_partial_consensus_articles": 31,
+  "case_v9_partial_consensus_pairs": 92,
+  "case_v9_partial_consensus_articles": 57,
   "case_v9_partial_positive_pairs": 0,
   "partial_case_reports": [
     {
-      "job": "case-full100-job-v9",
-      "coverage": "partial_checkpoint_snapshot",
-      "primary": 100,
-      "reviewed": 47,
-      "candidate_pairs": 100,
-      "accepted": 44,
-      "abstained": 56,
+      "job": "case-job-v9",
+      "coverage": "completed_initial_job",
+      "primary": 24,
+      "reviewed": 18,
+      "candidate_pairs": 24,
+      "accepted": 13,
+      "abstained": 11,
       "grade_confusion": {
-        "1:3": 9,
-        "0:1": 10,
-        "1:2": 5,
-        "0:0": 3,
-        "0:3": 3,
-        "0:2": 8,
-        "2:4": 1,
-        "2:3": 2,
-        "1:1": 3,
-        "4:4": 1,
-        "1:4": 1,
-        "2:2": 1
+        "1:4": 2,
+        "1:2": 2,
+        "0:2": 4,
+        "0:0": 1,
+        "4:4": 2,
+        "0:3": 1,
+        "1:1": 2,
+        "0:4": 1,
+        "2:3": 1,
+        "0:1": 2
       },
       "accepted_grades": {
-        "1": 17,
-        "0": 24,
-        "2": 3
+        "1": 4,
+        "0": 8,
+        "2": 1
+      },
+      "human_benchmark_eligible": false,
+      "accuracy": null,
+      "agreement_policy": "binary",
+      "graded_ranking_labels": "primary_teacher_proposals_not_independently_validated",
+      "labels_are": "machine_agreement_silver_not_independent_gold"
+    },
+    {
+      "job": "case-full100-job-v9",
+      "coverage": "completed_initial_job",
+      "primary": 100,
+      "reviewed": 86,
+      "candidate_pairs": 100,
+      "accepted": 79,
+      "abstained": 21,
+      "grade_confusion": {
+        "0:1": 15,
+        "1:3": 15,
+        "1:2": 10,
+        "4:2": 1,
+        "0:0": 7,
+        "0:3": 5,
+        "2:2": 4,
+        "0:2": 11,
+        "1:4": 4,
+        "2:4": 1,
+        "2:3": 5,
+        "1:1": 5,
+        "4:4": 1,
+        "3:3": 2
+      },
+      "accepted_grades": {
+        "0": 38,
+        "1": 30,
+        "2": 9,
+        "3": 2
       },
       "human_benchmark_eligible": false,
       "accuracy": null,
@@ -74,15 +108,16 @@
     }
   },
   "tests": {
-    "backend_knowledge_passed": 717,
+    "backend_knowledge_passed": 758,
     "scripts_passed": 60
   },
   "annotation_continues_on_vps": true,
   "accuracy": null,
   "human_benchmark_eligible": false,
   "files": {
-    "teacher-decisions.jsonl": "6aae9aa5ba61da6f7d960224b677d6287f5dc6752f44fb707077364079977c07",
-    "machine-consensus-decisions.jsonl": "4bc570decd9b28c200a251ee9bef79b9b3fb9f1303b44422b2047286848a6432"
+    "teacher-decisions.jsonl": "733a14650f84d4a9e4b899c3271ae56f74b3af761ada6c897355947b0561cd6d",
+    "machine-consensus-decisions.jsonl": "2db790822fb9c1859b0ca85e267b937acac17145771e874e0e56d4c4da91b12b"
   },
-  "exported_at_utc": "2026-10-24T13:06:22.876459+00:00"
+  "exported_at_utc": "2026-10-24T13:44:02.649505+00:00",
+  "snapshot_scope": "completed_initial_24_and_100_pair_jobs_plus_historical_batches"
 }
