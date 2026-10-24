@@ -103,6 +103,34 @@ class KnowledgeTests(unittest.TestCase):
         with self.assertRaises(KnowledgeError):
             prepare_claims({"claims": [old_review, review]}, [earlier, doc], [earlier_page, page], {}, CharacterCounter())
 
+    def test_reviewed_nonfinancial_claim_needs_free_text_topic_instead_of_metric(self):
+        doc, page, review = fixture()
+        text = "Утечка данных может подорвать доверие клиентов к бренду."
+        page = {**page, "text": text, "lines": [{"start": 0, "end": len(text), "bbox": [1, 2, 3, 4]}]}
+        review = {**review, "kind": "mechanism", "metric": None, "topic": "Доверие клиентов и репутация",
+                  "statement": text, "quote": text, "value": None, "unit": None, "forecast_horizon": None}
+        evidence, claims = prepare_claims({"claims": [review]}, [doc], [page], {}, CharacterCounter())
+        self.assertIsNone(claims[0]["metric"])
+        self.assertEqual(claims[0]["topic"], "Доверие клиентов и репутация")
+        self.assertEqual(evidence[0]["text"], text)
+        for field, value in (("topic", None), ("topic", []), ("attributed_to", None), ("claim_key", "")):
+            with self.subTest(field=field), self.assertRaises(KnowledgeError):
+                prepare_claims({"claims": [{**review, field: value}]}, [doc], [page], {}, CharacterCounter())
+
+    def test_qualitative_revision_requires_explicit_compatible_review(self):
+        doc, page, review = fixture()
+        review = {**review, "kind": "interpretation", "metric": None, "topic": "legal_obligations",
+                  "claim_key": "specific_labeling_requirement", "value": None, "unit": None,
+                  "forecast_horizon": None, "revision_of": "old"}
+        old_doc = {**doc, "id": "old_doc", "published_at": "2026-07-31"}
+        old_page = {**page, "document_id": old_doc["id"]}
+        old = {**review, "id": "old", "document_id": old_doc["id"], "revision_of": None}
+        _, claims = prepare_claims({"claims": [old, review]}, [old_doc, doc], [old_page, page], {}, CharacterCounter())
+        self.assertEqual(claims[1]["revision_of"], claims[0]["id"])
+        with self.assertRaisesRegex(KnowledgeError, "Revision changes topic"):
+            prepare_claims({"claims": [old, {**review, "topic": "unrelated_legal_matter"}]},
+                           [old_doc, doc], [old_page, page], {}, CharacterCounter())
+
     def test_time_filter_excludes_unknown_and_future_dates(self):
         self.assertFalse(available({"published_at": None}, "2026-10-20"))
         self.assertFalse(available({"published_at": "2026-09-11"}, "2026-09-10"))

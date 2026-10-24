@@ -135,7 +135,6 @@ def normalize_event(row):
                 "impact_scale": {"unknown", "limited", "material"},
                 "product_scope": {"unknown", "broad_core", "niche"},
                 "event_status": {"unknown", "reported", "proposal", "forecast", "in_force", "announcement"},
-                "business_effect": {"unknown", "core_market", "operating_requirement", "financing"},
                 "applicability": {"unknown", "whole_industry", "conditional"},
             }
             for name, allowed in dimensions.items():
@@ -143,6 +142,10 @@ def normalize_event(row):
                 if not isinstance(value, str) or value not in allowed:
                     raise KnowledgeError("invalid_business_scope_attribute")
                 attributes[name] = value
+            effect = attributes.get("business_effect", "unknown")
+            if not isinstance(effect, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", effect):
+                raise KnowledgeError("invalid_business_effect")
+            attributes["business_effect"] = effect
             for name in ("effective_from", "reference_period_end"):
                 period = attributes.get(name)
                 if period is not None:

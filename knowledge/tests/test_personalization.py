@@ -51,6 +51,21 @@ def renamed(row, uid):
 
 
 class PersonalizationTests(unittest.TestCase):
+    def test_open_business_effects_survive_source_bound_fact_normalization(self):
+        for effect in ("reputation", "cybersecurity", "safety", "accessibility", "customer_trust"):
+            with self.subTest(effect=effect):
+                row = event()
+                row["facts"][0].setdefault("attributes", {})["business_effect"] = effect
+                normalized = normalize_event(row)
+                self.assertEqual(normalized["facts"][0]["attributes"]["business_effect"], effect)
+        for effect in ("", "x" * 65, "invalid effect", ["reputation"]):
+            with self.subTest(invalid_effect=effect):
+                row = event()
+                row["facts"][0].setdefault("attributes", {})["business_effect"] = effect
+                normalized = normalize_event(row)
+                self.assertNotIn(row["facts"][0]["id"], {f["id"] for f in normalized["facts"]})
+                self.assertIn("invalid_business_effect", {f["reason"] for f in normalized["rejected_facts"]})
+
     def test_facets_share_one_eligible_index_without_changing_ranking(self):
         from alphich_kb.personalization import selector as module
         from alphich_kb.search import LexicalIndex, lexical_candidates
