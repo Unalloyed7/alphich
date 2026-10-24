@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from .evidence import company_evidence, materialize_draft, verify_draft
 from .financial_grounding import BUSINESS_RULES, business_focus, focus_issues
+from .prompt_context import business_focus_context, observation_context, relevance_context
 from .schemas import Decision, FinalDecision, SearchBank
 from .settings import AnalysisError, SchemaFailure
 
@@ -280,13 +281,13 @@ def analyze(tools, calls, question=None):
         data = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
                 "event": {k: tools.event.get(k) for k in ("id", "title", "published_at")},
                 "question": question, "business_context": tools.prompt_business_context(focus),
-                "relevance_reasons": tools.expose(tools.selection.get("reasons", [])),
-                "business_relevance": tools.expose({k: tools.selection.get(k) for k in (
-                    "relevance_grade", "relevance_selected", "relevance_assessment", "grading_version")}),
-                "evidence": tools.prompt_evidence(exclude_ids=excluded), "observations": tools.expose(observations[-4:]), "validation_issues": errors,
+                "business_relevance": tools.expose(relevance_context(tools.selection)),
+                "evidence": tools.prompt_evidence(exclude_ids=excluded),
+                "observations": tools.expose([observation_context(item) for item in observations[-4:]]),
+                "validation_issues": errors,
                 "remaining_calls": calls.provider.settings.max_calls - calls.count}
         if focus:
-            data["business_focus"] = tools.expose({k: v for k, v in focus.items() if k != "not_inference_basis_ids"})
+            data["business_focus"] = tools.expose(business_focus_context(focus))
         if errors:
             data["repair_instruction"] = ("Заново обоснуй причинную связь события и последствия для компании по доступным доказательствам. "
                 "Не маскируй отвергнутый вывод синонимами или оговорками. "
