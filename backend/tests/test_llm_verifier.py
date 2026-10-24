@@ -225,14 +225,31 @@ def test_dense_context_fits_real_provider_without_trimming_draft_or_question(con
     for index in range(20):
         tools.registry[f"dense-{index}"] = {"id": f"dense-{index}", "kind": "document_chunk",
                                             "document_id": "bank-allowed", "text": 'Контекст \\" ' * 190}
-    draft = CardDraft.model_validate({"claims": [
-        {"id": f"c{index + 1}", "kind": "bank_view", "text": "Тезис обзора. " * 70,
-         "evidence_ids": ["bank-reviewed"]} for index in range(10)]})
     question = "Проверить поддержку каждого тезиса источниками? " * 12
+    model = settings.models[settings.analysis_model]
+
+    def sized_draft(repetitions):
+        return CardDraft.model_validate({"claims": [
+            {"id": f"c{index + 1}", "kind": "bank_view", "text": "Тезис обзора. " * repetitions,
+             "evidence_ids": ["bank-reviewed"]} for index in range(10)]})
+
+    # Keep required input inside the current prompt/schema budget. A fixed-size
+    # draft can become an oversized-required-input case when safeguards grow;
+    # that separate fail-before-dispatch behavior is tested below. The dense
+    # sources still overflow and must be bounded without altering this draft or
+    # the full question in either verifier call.
+    probe = VerificationAgent(tools, None, REVIEW)
+    minimum = {"company_id": tools.scope.company_id, "role": tools.scope.role, "as_of": tools.scope.as_of,
+               "question": question, "draft": tools.expose(sized_draft(1).model_dump()), "evidence": [],
+               "inspection_allowed": True, "remaining_calls": 8,
+               "context_truncated": True, "context_limitations": ["verifier_context_truncated"]}
+    overhead = input_bytes(model, probe.system, minimum, VerificationDecision.model_json_schema())
+    repetitions = min(70, 1 + (model.input_limit - overhead - 2000) // (10 * len("Тезис обзора. ".encode())))
+    assert repetitions > 1
+    draft = sized_draft(repetitions)
     saved = deepcopy(tools.registry)
     seen = []
     expected_draft = tools.expose(draft.model_dump())
-    model = settings.models[settings.analysis_model]
 
     def gateway(request):
         payload = json.loads(request.content)

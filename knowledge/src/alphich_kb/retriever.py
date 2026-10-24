@@ -14,7 +14,7 @@ from .common import KnowledgeError, digest, read_jsonl, verify_artifacts
 from .embeddings import EncoderUnavailable
 from .search import available, lexical_candidates
 
-RANKING_VERSION = "page-rrf-open-topic-claims-v3"
+RANKING_VERSION = "page-rrf-open-topic-claims-v4"
 
 # Generic search wording is not evidence of a subject match. These are language
 # and request-glue terms, not a catalog of allowed business subjects. Keep the
@@ -31,8 +31,17 @@ _CLAIM_QUERY_STOP_WORDS = frozenset("""
 материал материалы материала материалов материале материалах
 какой какая какие какую каких каким каковы применимый применимые применимых
 есть имеется имеются рассмотри включая последствия последствиях
+прогноз прогноза прогнозе прогнозом прогнозу прогнозы прогнозов прогнозам прогнозами прогнозах
+ожидания ожиданий ожидание ожидается ожидаются ожидаемый ожидаемая ожидаемые
+год года году годом годы годов годах лет конец конца конце концу концом
+начало начала начале началу началом середина середины середине середину
+итог итоги итогам итогов итогах период периода периоде периоду периоды периодов
+квартал квартала квартале кварталу кварталы кварталов месяц месяца месяце месяцу месяцев
+неделя недели неделе неделю недель день дня дню днем дней
 the a an and or of in on at to for from with by is are be as this that these those
 bank banks analysis view views position positions topic topics event events
+forecast forecasts forecasting projection projections year years end ending beginning
+quarter quarters month months week weeks day days period periods
 """.split())
 
 
@@ -274,11 +283,11 @@ class BankRetriever:
         if metric:
             ranked = sorted(active, key=lambda claim: (claim["published_at"], claim["id"]), reverse=True)
         else:
-            # Source titles and document-level tags are deliberately excluded:
-            # one relevant paragraph cannot validate another assertion nearby.
-            source_rows = [{"title": "", "text": "\n".join(str(part) for part in (
-                claim.get("text"), claim.get("quote"), self.by_id[claim["document_chunk_id"]]["text"])
-                if part)} for claim in active]
+            # Match the reviewed assertion itself, not adjacent statements in
+            # its quote: one span may support separate rate/inflation forecasts.
+            # Legacy assertions without text can use their exact reviewed span.
+            source_rows = [{"title": "", "text": claim.get("text") or
+                            self.by_id[claim["document_chunk_id"]]["text"]} for claim in active]
             subject_query = _claim_subject_query(query)
             ranked = ([active[row] for row, _ in lexical_candidates(source_rows, subject_query)]
                       if subject_query else [])

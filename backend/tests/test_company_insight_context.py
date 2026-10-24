@@ -42,7 +42,10 @@ def test_staff_and_guarantee_reach_search_context_and_decisions_without_claiming
     tools = Tools(p, {"id": "news", "facts": []}, {},
                   SelectionScope("own", "2026-10-23T00:00:00Z", frozenset({"news"})))
     prompt = tools.prompt_business_context({"driver": "labor", "not_inference_basis_ids": []})
-    assert {h["id"] for h in prompt["hypotheses"]} >= {"workforce_costs", "contract_security"}
+    # A labor hint must not hide other supported context or preselect the only
+    # permitted business mechanism for the author/reviewer.
+    assert {h["id"] for h in prompt["hypotheses"]} >= {
+        "delivery_economics", "workforce_costs", "contract_security", "customer_it_budgets"}
     assert prompt["scope"] == "optional_examples_not_a_closed_catalog_of_impacts"
     assert any("labor" in check["topics"] for check in prompt["factor_checks"])
     assert len(prompt["factor_checks"]) <= 6
