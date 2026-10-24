@@ -48,6 +48,7 @@ def test_staff_and_guarantee_reach_search_context_and_decisions_without_claiming
         "delivery_economics", "workforce_costs", "contract_security", "customer_it_budgets"}
     assert prompt["scope"] == "optional_examples_not_a_closed_catalog_of_impacts"
     assert any("labor" in check["topics"] for check in prompt["factor_checks"])
+    assert len(prompt["factor_checks"]) <= 6
     assert not any(check["factor"] == "client_type" for check in prompt["factor_checks"])
 
 

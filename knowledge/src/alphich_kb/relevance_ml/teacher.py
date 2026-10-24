@@ -115,12 +115,132 @@ RESPONSE_SCHEMA = {
 RESPONSE_SCHEMA["required"] = list(RESPONSE_SCHEMA["properties"])
 
 
-def prepare_judgement(row):
+EVIDENCE_PROMPT_VERSION = "relevance-judge-v6-exact-evidence"
+EVIDENCE_RULES = """
+Проверка формата перед ответом:
+Копируй news_quotes и temporal_quotes без изменения букв, пробелов и пунктуации из article.text.
+company_fact_ids копируй ТОЛЬКО из company.facts[].id, не из названий признаков.
+Не преобразовывай дату из русского текста в ISO: valid_from/valid_until заполняй только когда
+строка YYYY-MM-DD уже дословно есть в temporal_quotes; иначе null. Это ограничение формата,
+а не отсутствие события. Для current/expired нужны published_at и непустые temporal_quotes.
+Если временной статус не доказан, timeliness=unknown с объяснением; это НЕ снижает grade автоматически.
+Сначала оцени бизнес-механизм независимо от технических требований временной схемы.
+Не требуй известной суммы убытка для grade=4: достаточно подтверждённой деятельности, существенного
+события на применимом рынке и конкретного экономического канала. Неизвестные параметры эффекта
+нужно назвать. Это не отменяет критерии масштаба, географии и применимости из основной шкалы.
+"""
+
+QUOTE_ID_VERSION = "relevance-judge-v7-quote-ids"
+QUOTE_ID_RULES = """
+Формат доказательств для этого запроса:
+Полный исходный текст article передан как quote_units в исходном порядке, без пропусков.
+Вместо переписывания news_quotes верни news_quote_ids — до четырёх ID из article.quote_units[].id.
+Вместо temporal_quotes верни temporal_quote_ids из того же списка. Сервер сам подставит дословный текст.
+company_fact_ids выбирай только из коротких company.facts[].id данного запроса: c1, c2 и так далее.
+Факты взяты из зафиксированного профиля; исходные source_ref и полные ID сохранены сервером.
+Служебные пути и хеши не являются сведениями о бизнесе и в этом представлении опущены.
+Не возвращай текст вместо ID. Правила наличия доказательств и временных дат остаются прежними.
+Для timeliness=unknown допустим пустой temporal_quote_ids. Для current/expired он обязателен.
+"""
+QUOTE_ID_SCHEMA = copy.deepcopy(RESPONSE_SCHEMA)
+for _old, _new in (("news_quotes", "news_quote_ids"), ("temporal_quotes", "temporal_quote_ids")):
+    del QUOTE_ID_SCHEMA["properties"][_old]
+    QUOTE_ID_SCHEMA["properties"][_new] = {"type": "array", "maxItems": 4,
+        "items": {"type": "string", "minLength": 1, "maxLength": 32}}
+QUOTE_ID_SCHEMA["required"] = list(QUOTE_ID_SCHEMA["properties"])
+BUSINESS_ID_VERSION = "relevance-judge-v8-business-only-ids"
+CASE_ID_VERSION = "relevance-judge-v9-case-calibrated"
+BUSINESS_ID_SCHEMA = copy.deepcopy(QUOTE_ID_SCHEMA)
+for _key in ("timeliness", "temporal_reason", "temporal_quote_ids", "valid_from", "valid_until"):
+    del BUSINESS_ID_SCHEMA["properties"][_key]
+BUSINESS_ID_SCHEMA["required"] = list(BUSINESS_ID_SCHEMA["properties"])
+BUSINESS_ID_RULES = """
+Это разметка только бизнес-релевантности, а не проверка разрешения показать новость сегодня.
+Возраст статьи сам по себе не снижает grade. Актуальность проверяется отдельно в runtime;
+в этой схеме временных полей нет. Не делай утверждений о текущем действии нормы без доказательств.
+reason — короткий проверяемый механизм влияния и конкретные ограничения, не скрытые рассуждения.
+Для grade>0 обязательны news_quote_ids и company_fact_ids; для grade=0 допустимы пустые списки.
+Текст статьи целиком дан в article.quote_units в исходном порядке. Возвращай до четырёх ID q1, q2...
+в news_quote_ids; исходный текст по ID подставляет сервер. Не переписывай цитаты самостоятельно.
+company_fact_ids — до двенадцати коротких ID c1, c2... из company.facts[].id этого запроса.
+Исходные source_ref, полные ID и хеши хранятся сервером; они опущены из представления для модели.
+Неизвестная сумма эффекта не запрещает grade=4, если доказаны применимый рынок, существенный
+масштаб события и связь с подтверждённой деятельностью. Неизвестный вид деятельности, груз,
+ассортимент или территория операций не заменяются предположением. Для grade=5 нужны прямая
+обязанность/критическое событие и конкретное действие, подтверждённые предоставленными данными.
+Отрази конкретные пробелы в missing_information. Верни только JSON заданной схемы.
+"""
+
+
+def exact_quote_units(text):
+    """Lossless contiguous spans; even short tails and whitespace stay visible."""
+    result, start = [], 0
+    while start < len(text):
+        stop = min(start + 480, len(text))
+        if stop < len(text):
+            boundary = max(text.rfind("\n", start + 240, stop), text.rfind(". ", start + 240, stop),
+                           text.rfind(" ", start + 320, stop))
+            if boundary > start:
+                stop = boundary + 1
+        result.append({"id": "q" + str(len(result) + 1), "text": text[start:stop], "start": start, "end": stop})
+        start = stop
+    return result
+
+
+def materialize_quote_ids(value, row, *, business_only=False):
+    row = validate_pair(row)
+    schema = BUSINESS_ID_SCHEMA if business_only else QUOTE_ID_SCHEMA
+    if not isinstance(value, dict) or set(value) != set(schema["required"]):
+        raise KnowledgeError("Quote-ID teacher response has missing/extra fields")
+    result = copy.deepcopy(value)
+    quotes = {item["id"]: item["text"] for item in exact_quote_units(row["article"]["text"])}
+    facts = {"c" + str(i + 1): f["id"] for i, f in enumerate(row["company"]["facts"])}
+
+    def resolve(key, mapping, maximum):
+        ids = result.pop(key)
+        if (not isinstance(ids, list) or len(ids) > maximum or any(not isinstance(i, str) or i not in mapping for i in ids)
+                or len(set(ids)) != len(ids)):
+            raise KnowledgeError("Teacher selected invalid evidence IDs; pair stays unlabeled")
+        return [mapping[i] for i in ids]
+
+    result["news_quotes"] = resolve("news_quote_ids", quotes, 4)
+    if business_only:
+        result.update(timeliness="unknown", temporal_reason="Business-only teacher does not assess temporal eligibility.",
+                      temporal_quotes=[], valid_from=None, valid_until=None)
+    else:
+        result["temporal_quotes"] = resolve("temporal_quote_ids", quotes, 4)
+    result["company_fact_ids"] = resolve("company_fact_ids", facts, 12)
+    return result
+
+
+def prepare_judgement(row, *, prompt_variant="legacy"):
     row = validate_pair(row)
     version, system = prompt_contract(row)
+    data, schema = input_payload(row), copy.deepcopy(RESPONSE_SCHEMA)
+    if prompt_variant in {"quote-ids", "business-only", "case-calibrated"}:
+        if prompt_variant in {"business-only", "case-calibrated"}:
+            enriched = any(fact.get("name") in FACTOR_FACT_NAMES for fact in row["company"]["facts"])
+            version = BUSINESS_ID_VERSION
+            system = SYSTEM_PROMPT.split("Возраст статьи сам по себе")[0] + (FACTOR_RULES if enriched else "") + BUSINESS_ID_RULES
+            if prompt_variant == "case-calibrated":
+                from ..personalization.criteria import CASE_RELEVANCE_GUIDE
+                version, system = CASE_ID_VERSION, system + CASE_RELEVANCE_GUIDE
+            schema = copy.deepcopy(BUSINESS_ID_SCHEMA)
+        else:
+            version, system = QUOTE_ID_VERSION, system + EVIDENCE_RULES + QUOTE_ID_RULES
+            schema = copy.deepcopy(QUOTE_ID_SCHEMA)
+        data["article"]["quote_units"] = exact_quote_units(data["article"].pop("text"))
+        data["company"] = {"facts": [{"id": "c" + str(i + 1), "name": fact["name"], "value": fact["value"]}
+                                     for i, fact in enumerate(data["company"]["facts"])]}
+        for key in ("article_id", "source_version", "cluster_id"):
+            data["article"].pop(key, None)
+    elif prompt_variant == "exact-evidence":
+        version, system = EVIDENCE_PROMPT_VERSION, system + EVIDENCE_RULES
+    elif prompt_variant != "legacy":
+        raise KnowledgeError("Unknown teacher prompt variant")
     return {"pair_id": row["pair_id"], "input_hash": input_hash(row), "prompt_version": version,
-            "prompt_hash": digest([system, RESPONSE_SCHEMA]), "system": system,
-            "data": input_payload(row), "response_schema": copy.deepcopy(RESPONSE_SCHEMA)}
+            "prompt_hash": digest([system, schema]), "system": system,
+            "data": data, "response_schema": schema}
 
 
 def validate_judgement(value, row):
@@ -206,7 +326,7 @@ def validate_checkpoint(row, batch):
     """Do not trust an existing checkpoint merely because its filename exists."""
     row = validate_pair(row)
     label = row.get("label", {})
-    plan = prepare_judgement(row)
+    plan = prepare_judgement(row, prompt_variant=batch.get("prompt_variant", "legacy"))
     if (label.get("origin") != "teacher" or label.get("target") != "business_relevance"
             or label.get("batch_id") != batch.get("batch_id")
             or label.get("labeler") != batch.get("model_id") or label.get("prompt_hash") != batch.get("prompt_hash")
@@ -220,14 +340,16 @@ def validate_checkpoint(row, batch):
     return row
 
 
-def judge_pair(row, provider, *, batch_id, model_id):
+def judge_pair(row, provider, *, batch_id, model_id, prompt_variant="legacy"):
     """One accounted call; retries reuse its immutable call identity, never a random new ID."""
     row = validate_pair(row)
     if not isinstance(batch_id, str) or not batch_id.strip() or len(batch_id) > 200:
         raise KnowledgeError("Explicit immutable batch_id is required")
-    plan = prepare_judgement(row)
+    plan = prepare_judgement(row, prompt_variant=prompt_variant)
     run_id = teacher_run_id(plan, batch_id, model_id)
     raw = provider.generate(run_id, "relevance_teacher_v2", model_id, plan["system"], plan["data"], plan["response_schema"])
+    if prompt_variant in {"quote-ids", "business-only", "case-calibrated"}:
+        raw = materialize_quote_ids(raw, row, business_only=prompt_variant != "quote-ids")
     validated = validate_judgement(raw, row)
     result = copy.deepcopy(row)
     result["label"] = {"grade": validated["grade"], "origin": "teacher", "labeler": model_id,
@@ -236,4 +358,6 @@ def judge_pair(row, provider, *, batch_id, model_id):
                        "labeled_at": datetime.now(timezone.utc).isoformat(), "reason": validated["reason"],
                        "judgement": validated, "target": "business_relevance",
                        "timeliness_is_provisional": True, "independently_reviewed": False}
+    if prompt_variant == "case-calibrated":
+        result["label"]["criteria_version"] = "case-business-significance-v1"
     return result

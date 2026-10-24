@@ -46,6 +46,22 @@ class CostReconciliation(Base):
     created_at: Mapped[int] = mapped_column(BigInteger)
 
 
+class GatewayBudgetObservation(Base):
+    __tablename__ = "llm_gateway_budget_observations"
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    added_spend_micros: Mapped[int] = mapped_column(BigInteger)
+
+
+class GatewayReserveRelease(Base):
+    __tablename__ = "llm_gateway_reserve_releases"
+    call_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    observation_id: Mapped[str] = mapped_column(String(80))
+    released_micros: Mapped[int] = mapped_column(BigInteger)
+    reason: Mapped[str] = mapped_column(String(80))
+
+
 class AnalysisRun(Base):
     __tablename__ = "analysis_runs"
     id: Mapped[str] = mapped_column(String(40), primary_key=True)

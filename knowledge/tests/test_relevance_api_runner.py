@@ -48,7 +48,7 @@ class LedgerProvider:
     def generate(self, run_id, *args):
         self.dispatched.append(run_id)
         outcome = self.outcomes.pop(0) if self.outcomes else "ok"
-        if outcome == "budget_exceeded":
+        if outcome in {"budget_exceeded", "gateway_daily_budget_not_verified"}:
             raise AnalysisError(outcome)
         unknown = outcome == "llm_timeout_outcome_unknown"
         http_rejection = outcome == "llm_http_503"
@@ -127,6 +127,18 @@ class ApiRunnerTests(unittest.TestCase):
             self.assertEqual(result["usage_incomplete_calls"], 1)
             self.run_batch([pair()], provider, folder)
             self.assertEqual(len(provider.dispatched), 1)
+
+    def test_read_only_budget_check_failure_can_resume_without_a_false_paid_attempt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            provider = LedgerProvider(["gateway_daily_budget_not_verified", "ok"])
+            first = self.run_batch([pair()], provider, folder)
+            self.assertEqual(first["stop_reason"], "gateway_daily_budget_not_verified")
+            self.assertEqual(first["unaccounted_attempts"], 0)
+            self.assertEqual(first["unlabeled_failures"], 0)
+            self.assertEqual(first["pending"], 1)
+            second = self.run_batch([pair()], provider, folder)
+            self.assertEqual(second["completed"], 1)
+            self.assertEqual(provider.dispatched[0], provider.dispatched[1])
 
     def test_runtime_limit_stops_before_first_dispatch(self):
         with tempfile.TemporaryDirectory() as folder:

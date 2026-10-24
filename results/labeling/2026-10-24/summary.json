@@ -1,0 +1,132 @@
+{
+  "schema_version": "alphich-labeling-public-snapshot-v1",
+  "snapshot_at_utc": "2026-10-24T13:42:51.067398+00:00",
+  "checkpoint_archive_sha256": "fe02f788f3e8cc21e448dca294359838f2321f59c0d7c3190cf23479f20b597f",
+  "accepted_teacher_responses": 434,
+  "accepted_case_v9_responses": 228,
+  "unique_company_news_role_pairs": 213,
+  "unique_news_articles": 69,
+  "historical_consensus_pairs": 69,
+  "case_v9_partial_consensus_pairs": 92,
+  "case_v9_partial_consensus_articles": 57,
+  "case_v9_partial_positive_pairs": 0,
+  "partial_case_reports": [
+    {
+      "job": "case-job-v9",
+      "coverage": "completed_initial_job",
+      "primary": 24,
+      "reviewed": 18,
+      "candidate_pairs": 24,
+      "accepted": 13,
+      "abstained": 11,
+      "grade_confusion": {
+        "1:4": 2,
+        "1:2": 2,
+        "0:2": 4,
+        "0:0": 1,
+        "4:4": 2,
+        "0:3": 1,
+        "1:1": 2,
+        "0:4": 1,
+        "2:3": 1,
+        "0:1": 2
+      },
+      "accepted_grades": {
+        "1": 4,
+        "0": 8,
+        "2": 1
+      },
+      "human_benchmark_eligible": false,
+      "accuracy": null,
+      "agreement_policy": "binary",
+      "graded_ranking_labels": "primary_teacher_proposals_not_independently_validated",
+      "labels_are": "machine_agreement_silver_not_independent_gold"
+    },
+    {
+      "job": "case-full100-job-v9",
+      "coverage": "completed_initial_job",
+      "primary": 100,
+      "reviewed": 86,
+      "candidate_pairs": 100,
+      "accepted": 79,
+      "abstained": 21,
+      "grade_confusion": {
+        "0:1": 15,
+        "1:3": 15,
+        "1:2": 10,
+        "4:2": 1,
+        "0:0": 7,
+        "0:3": 5,
+        "2:2": 4,
+        "0:2": 11,
+        "1:4": 4,
+        "2:4": 1,
+        "2:3": 5,
+        "1:1": 5,
+        "4:4": 1,
+        "3:3": 2
+      },
+      "accepted_grades": {
+        "0": 38,
+        "1": 30,
+        "2": 9,
+        "3": 2
+      },
+      "human_benchmark_eligible": false,
+      "accuracy": null,
+      "agreement_policy": "binary",
+      "graded_ranking_labels": "primary_teacher_proposals_not_independently_validated",
+      "labels_are": "machine_agreement_silver_not_independent_gold"
+    }
+  ],
+  "planned_case_v9_pairs": 416,
+  "additional_prepared_pairs": 292,
+  "budget_snapshot": {
+    "as_of_utc": "2026-10-24T12:54:19.219728+00:00",
+    "day": "2026-10-24",
+    "ledger_spend_floor_micros": 30235542,
+    "ledger_reserved_micros": 469764458,
+    "limit_micros": 500000000,
+    "known_receipt_cost_micros": 29833035,
+    "day_calls": 360,
+    "unknown_failed_calls": [
+      {
+        "model": "qwen/qwen3.6-35b-a3b",
+        "error": "llm_timeout_outcome_unknown",
+        "cost_micros": null,
+        "reserved_micros": 0
+      }
+    ],
+    "active_calls": 1,
+    "reserve_release_count": 1,
+    "key_info_status": 200,
+    "upstream_budget": {
+      "spend": 30.23547850403677,
+      "max_budget": 500.0,
+      "budget_duration": "1d",
+      "budget_reset_at": "2026-10-25T00:00:00+00:00"
+    }
+  },
+  "tests": {
+    "backend_knowledge_passed": 768,
+    "scripts_passed": 60
+  },
+  "annotation_continues_on_vps": true,
+  "accuracy": null,
+  "human_benchmark_eligible": false,
+  "files": {
+    "teacher-decisions.jsonl": "733a14650f84d4a9e4b899c3271ae56f74b3af761ada6c897355947b0561cd6d",
+    "machine-consensus-decisions.jsonl": "2db790822fb9c1859b0ca85e267b937acac17145771e874e0e56d4c4da91b12b",
+    "business-target-consensus-decisions.jsonl": "1108989d11dc04d6f05c12e997762dc4a71e883843444127d0211da18c9d48c5"
+  },
+  "exported_at_utc": "2026-10-24T13:44:02.649505+00:00",
+  "snapshot_scope": "completed_initial_24_and_100_pair_jobs_plus_historical_batches",
+  "business_target_consensus": {
+    "policy": "blind-cross-model-business-binary-v1",
+    "accepted_pairs": 95,
+    "positive_pairs": 3,
+    "positive_stories": 2,
+    "source_scope": "same completed initial 24 and 100 pair jobs; no new teacher calls",
+    "publishing_permission": false
+  }
+}

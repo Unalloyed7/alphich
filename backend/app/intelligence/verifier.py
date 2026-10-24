@@ -4,7 +4,7 @@ from __future__ import annotations
 from .provider import canonical, input_bytes
 from .schemas import FinalVerificationDecision, GetFeatures, SemanticReview, VerificationDecision
 from .settings import AnalysisError
-from .financial_grounding import BUSINESS_RULES, business_focus
+from .financial_grounding import business_focus
 from .prompt_context import business_focus_context, relevance_context
 
 
@@ -23,6 +23,30 @@ business_relevance содержит серверные ограничения г
 """
 
 INSPECTION_LIMIT_BYTES = 7500
+
+# The author needs the expanded guidance. The verifier already receives REVIEW
+# and its own protocol; repeating that full guide can displace a valid draft.
+REVIEW_BUSINESS_RULES = """
+Проверяй любые обоснованные последствия для компании: репутацию, право, безопасность, людей,
+технологии, операции, клиентов, экологию, стратегию, финансы и другие темы. Это открытые примеры.
+Денежный эффект и ОКВЭД не обязательны. Сервер не назначает канал: основание — основной факт события
+и содержательный признак компании, а не тема, ключевое слово, фон или общий отраслевой механизм.
+Условие «если» не исправляет неверную причинность и не доказывает экспозицию. Различай факт,
+допущение и неизвестное; не приписывай компании чужой инцидент. При отсутствии связи допустимы
+проверенные факты и missing_data. Запрос данных сам по себе не является бизнес-последствием.
+Интерпретация AI не является позицией банка без отдельного банковского источника.
+Банковский продукт не доказывает долг, остатки, свободные деньги или условия договора.
+Разделяй уровень, изменение и прогноз ставки: сохранение не повышение, прогноз не меняет договор
+и не устанавливает дату начала снижения. Неизвестны тип ставки, привязка, пересмотр, остаток,
+спред и комиссии; прогноз не подтверждает неизменность условий кредита. Сдерживание кредитного
+спроса не доказывает падение заказов компании; строительный ОКВЭД не доказывает заёмные проекты.
+Замедление инфляции не означает падение цен; ИПЦ не равен затратам компании. Выручка не прибыль
+или поступления денег; перенос оплаты не меняет автоматически выручку. Регистрация не операции.
+Диапазоны ФНС/СПАРК не текущий штат, ФОТ или производительность. Возраст, непрозрачная стадия
+и отрицательная метка не доказывают рост, кризис, нарушение, репутацию или платёжеспособность.
+Тип клиента банка не определяет клиентов компании; GROUP_ID не переносит обязанности и инциденты.
+Неизвестные условия нужны в text, conditions и missing_data; действие связывай с данными и решением.
+"""
 
 
 def _bounded_inspection(result):
@@ -73,7 +97,7 @@ def _bounded_inspection(result):
 class VerificationAgent:
     def __init__(self, tools, calls, system):
         self.tools, self.calls = tools, calls
-        self.system = SYSTEM + "\n" + system + BUSINESS_RULES
+        self.system = SYSTEM + "\n" + system + REVIEW_BUSINESS_RULES
 
     def _fit_context(self, data, schema):
         """Keep required input whole; allocate optional source text to its real wire budget."""

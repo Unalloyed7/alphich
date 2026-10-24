@@ -18,7 +18,7 @@ from .provider import hashed
 from .schemas import Strict
 from .settings import AnalysisError
 
-VERSION = "e5-gate-glm-grade-v4-evidenced-business-impact"
+VERSION = "e5-gate-glm-grade-v5-evidenced-business-case-relevance"
 GATE_VERSION = "company-context-bidirectional-cosine-v3-open-business"
 MIN_INSIGHT_GRADE = 4
 MAX_PASSAGES = 16
@@ -97,6 +97,8 @@ news_fact_ids и company_feature_ids выбирай ТОЛЬКО из перед
 управленческое действие/проверка, если нужно. Если фактов недостаточно, отрази это в оценке и missing_data.
 Твои исходные данные ограничены представленными доказательствами; не используй память для дат и событий.
 Возвращай только JSON схемы, без скрытых рассуждений."""
+from alphich_kb.personalization.criteria import CASE_RELEVANCE_GUIDE
+SYSTEM += CASE_RELEVANCE_GUIDE
 
 
 def _threshold(value):

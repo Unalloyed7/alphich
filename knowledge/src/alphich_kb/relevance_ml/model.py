@@ -154,6 +154,12 @@ def train_model(rows, vectors, *, feature_manifest, threshold=0.5, uncertainty_m
     rows = list(rows)
     if validation_rows is not None:
         validation_rows = list(validation_rows)
+    teacher_criteria = {row["label"].get("criteria_version") or (
+        "case-business-significance-v1" if row["label"].get("label_version") == "relevance-judge-v9-case-calibrated"
+        else "legacy-strict-business-fit") for row in [*rows, *(validation_rows or [])]
+        if row.get("label", {}).get("origin") == "teacher"}
+    if len(teacher_criteria) > 1:
+        raise KnowledgeError("Case-calibrated and earlier teacher criteria cannot be silently mixed; relabel consistently")
     if any(row.get("label", {}).get("label_version") == "relevance-judge-v1" for row in rows):
         raise KnowledgeError("Legacy freshness-capped teacher labels need relabeling for business relevance")
     if any(row.get("label", {}).get("label_version") == "relevance-judge-v1" for row in validation_rows or []):
@@ -230,6 +236,7 @@ def train_model(rows, vectors, *, feature_manifest, threshold=0.5, uncertainty_m
         "decision": {"threshold": float(threshold), "uncertainty_margin": float(uncertainty_margin),
                      "mode": "shadow", "probabilities_are_calibrated": False},
         "training": {"count": len(rows), "positives": int(labels.sum()),
+                     "teacher_criteria": sorted(teacher_criteria),
                      "negatives": len(rows) - int(labels.sum()), "label_origins": dict(origins),
                      "teacher_opt_in": allow_teacher, "pair_fingerprint": digest([row["pair_id"] for row in rows]),
                      "optimization": optimization, "report": train_report},
