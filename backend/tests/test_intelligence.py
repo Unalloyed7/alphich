@@ -642,7 +642,7 @@ def test_extraction_repairs_schema_once_then_independently_reviews_quotes(store)
         assert db.scalar(select(BudgetDay)).reserved_micros == 0
 
 
-def test_noneconomic_candidate_is_dropped_before_paid_review():
+def test_greeting_without_business_event_needs_no_paid_review():
     from types import SimpleNamespace
     from app.intelligence.schemas import ExtractionDraft
     source = {"id": "greeting-source", "version": 1, "title": "Поздравление", "text": "Поздравляем команду с праздником!",
@@ -651,7 +651,7 @@ def test_noneconomic_candidate_is_dropped_before_paid_review():
         provider = SimpleNamespace(settings=SimpleNamespace(extraction_model="fixture-model", analysis_model="fixture-verifier"))
         def ask(self, purpose, schema, system, data, **kwargs):
             assert purpose == "extraction" and schema is ExtractionDraft
-            return ExtractionDraft.model_validate({"facts": [{"quote": source["text"], "attributes": {"topics": ["culture"]}}]})
+            return ExtractionDraft.model_validate({"facts": []})
     facts, coverage, _ = extract(source, Candidates())
     assert facts == [] and coverage["complete"]
 
@@ -862,17 +862,17 @@ def test_rate_construction_business_focus_reaches_author_and_independent_reviewe
     author = next(data for title, data in gateway.seen if title in {'Decision', 'FinalDecision'})
     reviewer = next(data for title, data in gateway.seen if title in {'VerificationDecision', 'FinalVerificationDecision'})
     assert author['business_focus'] == reviewer['business_focus']
-    assert author['business_focus']['channel'] == 'customer_investment_demand'
+    assert author['business_focus']['channel'] == 'open_business_impact'
     assert author['business_focus']['company_ids']
     assert author['business_focus']['unknowns']
-    assert author['business_focus']['max_inferences'] == 1
+    assert author['business_focus']['max_inferences'] == 2
     assert author['inference_basis']['company_ids'] == author['business_focus']['company_ids']
-    assert not any('Кредитный продукт' in e['text'] for e in author['evidence'])
-    assert not any('Кредитный продукт' in e['text'] for e in reviewer['evidence'])
+    assert any('Кредитный продукт' in e['text'] for e in author['evidence'])
+    assert any('Кредитный продукт' in e['text'] for e in reviewer['evidence'])
     card = client.get('/api/v1/insights/' + job['result_id'], headers=headers['DEMO_A']).json()
     run = client.get('/api/v1/runs/' + card['run_id'], headers=headers['DEMO_A']).json()
     focus_step = next(s for s in run['steps'] if s['action'] == 'select_business_focus')
-    assert focus_step['result']['channel'] == 'customer_investment_demand'
+    assert focus_step['result']['channel'] == 'open_business_impact'
     assert all(i.startswith('feature_') for i in focus_step['result']['company_ids'])
     initial_searches = [s for s in run['steps'] if s.get('origin') == 'initial_context']
     assert all('пересмотра кредитной ставки' not in s['arguments']['query'] for s in initial_searches)

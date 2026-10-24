@@ -121,11 +121,10 @@ def verify_draft(draft, registry):
                                                 for e in matching if e.get("kind") == "bank_claim"):
                 issues.append(f"{claim.id}:bank_claim_is_not_current_in_document")
             if claim.kind == "bank_view":
-                dimensions = ("metric", "forecast_horizon", "geography", "scenario", "attributed_to", "position_role")
+                from alphich_kb.retriever import claim_supersedes
                 for bank_claim in matching:
                     newer = [e for e in registry.values() if e["kind"] == "bank_claim" and
-                             all(e.get(k) == bank_claim.get(k) for k in dimensions) and
-                             e.get("published_at", "") > bank_claim.get("published_at", "")]
+                             claim_supersedes(e, bank_claim)]
                     if newer:
                         issues.append(f"{claim.id}:bank_claim_superseded_in_context")
         else:
