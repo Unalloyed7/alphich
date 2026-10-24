@@ -108,7 +108,7 @@
     }
   },
   "tests": {
-    "backend_knowledge_passed": 766,
+    "backend_knowledge_passed": 767,
     "scripts_passed": 60
   },
   "annotation_continues_on_vps": true,
